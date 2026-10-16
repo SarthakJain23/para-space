@@ -1,4 +1,4 @@
-import { type ParallelTreeConfig, type PortStrategyName, parsePortPool } from '../config.js';
+import { type ParaSpaceConfig, type PortStrategyName, parsePortPool } from '../config.js';
 import type { WorktreeRecord } from '../state.js';
 import { offsetStrategy } from './offset.js';
 import { passthroughStrategy } from './passthrough.js';
@@ -20,12 +20,12 @@ export function getPortStrategy(name: PortStrategyName): PortStrategy {
 }
 
 /** Port the main repo uses, or undefined when ports are left to the framework. */
-export function mainRepoPort(config: ParallelTreeConfig | undefined): number | undefined {
+export function mainRepoPort(config: ParaSpaceConfig | undefined): number | undefined {
   return config && config.portStrategy !== 'passthrough' ? config.basePort : undefined;
 }
 
 /** Allocate a port for worktree `index`, avoiding main's port and every recorded worktree port. */
-export function allocateWorktreePort(config: ParallelTreeConfig, records: WorktreeRecord[], index: number) {
+export function allocateWorktreePort(config: ParaSpaceConfig, records: WorktreeRecord[], index: number) {
   const assignedPorts = [mainRepoPort(config), ...records.map((r) => r.port)].filter(
     (p): p is number => p !== undefined,
   );

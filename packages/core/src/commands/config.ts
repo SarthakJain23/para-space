@@ -1,6 +1,6 @@
 import path from 'node:path';
 import {
-  type ParallelTreeConfig,
+  type ParaSpaceConfig,
   type PortStrategyName,
   CONFIG_FILE,
   DEFAULT_BASE_PORT,
@@ -31,17 +31,15 @@ async function chooseStrategy(opts: EnsureConfigOptions): Promise<PortStrategyAn
   return opts.prompter.selectPortStrategy({ basePort });
 }
 
-/** Load `.paralleltree.json`, creating it on first run (D-004, D-014, D-020). */
-export async function ensureConfig(
-  opts: EnsureConfigOptions,
-): Promise<{ config: ParallelTreeConfig; created: boolean }> {
+/** Load `.para-space.json`, creating it on first run (D-004, D-014, D-020). */
+export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config: ParaSpaceConfig; created: boolean }> {
   const log = opts.log ?? silentLogger;
   const mainRoot = await git.mainRepoRoot(opts.cwd);
   const existing = await loadConfig(mainRoot);
   if (existing) return { config: existing, created: false };
 
   const { portStrategy, basePort, portPool } = await chooseStrategy(opts);
-  const config: ParallelTreeConfig = { portStrategy, basePort, envKeys: await defaultEnvKeys(mainRoot) };
+  const config: ParaSpaceConfig = { portStrategy, basePort, envKeys: await defaultEnvKeys(mainRoot) };
   if (portPool) config.portPool = portPool;
   await saveConfig(mainRoot, config);
   const ignored = await ensureLines(path.join(mainRoot, '.gitignore'), [`${LEDGER_DIR}/`]);
@@ -49,7 +47,7 @@ export async function ensureConfig(
 
   await appendLedger(mainRoot, {
     title: `Repository configured: port strategy ${code(portStrategy)}`,
-    requirement: 'First ParallelTree worktree in this repository.',
+    requirement: 'First ParaSpace worktree in this repository.',
     decisions: [
       `Port strategy ${code(portStrategy)}, base port ${code(basePort)}, env keys ${codeList(config.envKeys)} saved to ${code(CONFIG_FILE)}.`,
       ...(ignored.length ? [`Added ${code(`${LEDGER_DIR}/`)} to ${code('.gitignore')} (ledger stays local).`] : []),

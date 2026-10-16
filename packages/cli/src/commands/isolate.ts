@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { isolateWorktree } from '@paralleltree/core';
+import { isolateWorktree } from '@para-space/core';
 import { action, log, ok } from '../runtime.js';
 
 export function registerIsolate(program: Command) {

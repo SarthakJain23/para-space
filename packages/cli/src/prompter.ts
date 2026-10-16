@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import type { PortStrategyName, Prompter } from '@paralleltree/core';
+import type { PortStrategyName, Prompter } from '@para-space/core';
 
 function bail<T>(value: T | symbol): T {
   if (p.isCancel(value)) {
@@ -12,7 +12,7 @@ function bail<T>(value: T | symbol): T {
 export const clackPrompter: Prompter = {
   async selectPortStrategy({ basePort }) {
     p.note(
-      'No .paralleltree.json yet — choose how dev-server ports are assigned.\nThis is saved for every future worktree in this repo.',
+      'No .para-space.json yet — choose how dev-server ports are assigned.\nThis is saved for every future worktree in this repo.',
       'First-time setup',
     );
     const portStrategy = bail(

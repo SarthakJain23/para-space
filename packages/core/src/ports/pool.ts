@@ -4,7 +4,7 @@ import type { PortStrategy } from './types.js';
 export const poolStrategy: PortStrategy = {
   name: 'pool',
   async allocatePort({ pool, assignedPorts }) {
-    if (!pool?.length) throw new Error('pool strategy requires portPool in .paralleltree.json');
+    if (!pool?.length) throw new Error('pool strategy requires portPool in .para-space.json');
     const port = pool.find((p) => !assignedPorts.includes(p));
     if (port === undefined) throw new Error(`port pool exhausted (${pool.length} ports all assigned)`);
     return port;

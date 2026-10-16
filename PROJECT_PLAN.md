@@ -1,4 +1,4 @@
-# ParallelTree: Parallel Workspace Orchestrator for Multi-Agent & Multi-Task IDE Workflows
+# ParaSpace: Parallel Workspace Orchestrator for Multi-Agent & Multi-Task IDE Workflows
 
 A lightweight, open-source orchestration tool (CLI + VS Code Extension) that enables developers and AI coding agents to work across multiple branches concurrently using **Git Worktrees** with **zero-duplication dependency sharing**.
 
@@ -21,7 +21,7 @@ Modern software engineering with AI coding agents (such as GitHub Copilot, Claud
 
 ## 2. Solution Overview
 
-**ParallelTree** provides an automated system that provisions isolated Git worktrees connected to a shared environment:
+**ParaSpace** provides an automated system that provisions isolated Git worktrees connected to a shared environment:
 
 - **Instant Worktree Creation:** Provisions independent working directories on dedicated branches from the same local Git database.
 - **Zero-Copy Dependency Sharing:** Uses absolute-path symlinks to share `node_modules` or `.venv` without copying or reinstalling.
@@ -36,27 +36,27 @@ Modern software engineering with AI coding agents (such as GitHub Copilot, Claud
 
 ### A. The Peacock Pattern
 Originating from the popular VS Code extension *Peacock* (by John Papa), this pattern customizes the IDE window frame (`titleBar.activeBackground`, `activityBar.background`, `statusBar.background`) with distinct accent colors per workspace.
-- **Application in ParallelTree:** Each worktree receives a distinct color profile (e.g., Ticket 101 = Teal, Ticket 102 = Amber, Main = Blue) so developers can instantly identify which ticket/agent is running in each window.
+- **Application in ParaSpace:** Each worktree receives a distinct color profile (e.g., Ticket 101 = Teal, Ticket 102 = Amber, Main = Blue) so developers can instantly identify which ticket/agent is running in each window.
 - **User Permission:** Any modification to `.vscode/settings.json` is strictly opt-in and requires user confirmation.
 
 ### B. Dependency Isolation: What happens when a package is installed in a worktree?
 - **The Risk:** If `node_modules` is symlinked to the main repo, running `npm install <pkg>` in a worktree alters the physical `node_modules` of the main repository. This could break running dev servers or tests in other branches.
 - **The Solution:** 
-  1. ParallelTree monitors `package.json` / lockfiles via file watchers.
-  2. If a dependency change is detected, ParallelTree offers an **"Isolate (Breakaway)"** operation:
+  1. ParaSpace monitors `package.json` / lockfiles via file watchers.
+  2. If a dependency change is detected, ParaSpace offers an **"Isolate (Breakaway)"** operation:
      - Removes the symlink.
      - On macOS (APFS), performs an instant copy-on-write clone (`cp -c -R`).
      - On other systems, runs a localized install so the worktree gets its own independent copy.
 
 ### C. Port Conflict Resolution via Strategy Pattern
-When multiple dev servers run concurrently, port conflicts can halt parallel execution. ParallelTree handles ports using a **Pluggable Port Strategy Pattern**:
-- **First-Time Repository Configuration:** When creating the first worktree in a repository, ParallelTree asks the user which port strategy they prefer and persists this choice in `.paralleltree.json` (or `.vscode/paralleltree.json`) for all future worktrees in that repo.
+When multiple dev servers run concurrently, port conflicts can halt parallel execution. ParaSpace handles ports using a **Pluggable Port Strategy Pattern**:
+- **First-Time Repository Configuration:** When creating the first worktree in a repository, ParaSpace asks the user which port strategy they prefer and persists this choice in `.para-space.json` (or `.vscode/para-space.json`) for all future worktrees in that repo.
 - **Available Port Strategies:**
   1. **Offset Strategy (`offset`):** Increments base port by worktree index (e.g., base `3000` -> `3001`, `3002`) written to `.env.local` / `.env`.
   2. **Free Port Scanner (`scan`):** Uses dynamic socket probing (`get-port`) to find and allocate the lowest available open port.
   3. **Static Pool Strategy (`pool`):** Draws from a pre-configured list or range of ports defined by the developer.
   4. **Framework Passthrough (`passthrough`):** Skips port injection and relies entirely on framework-native port shifting (e.g., Vite auto-incrementing from `5173` to `5174`).
-- **Persistence:** Saved in `.paralleltree.json`:
+- **Persistence:** Saved in `.para-space.json`:
   ```json
   {
     "portStrategy": "offset",
@@ -66,12 +66,12 @@ When multiple dev servers run concurrently, port conflicts can halt parallel exe
   ```
 
 ### D. Living Context & Decision Records (Continuous Context Tracking)
-In fast-moving agentic and multi-worktree workflows, decisions and requirement shifts can easily get lost. ParallelTree embeds an automated **Living Decision & Context Tracker**:
-- **Continuous Context Updates:** After every structural change, configuration shift, or major worktree event (e.g., creating a worktree, changing port strategies, de-symlinking dependencies), ParallelTree updates a structured record:
+In fast-moving agentic and multi-worktree workflows, decisions and requirement shifts can easily get lost. ParaSpace embeds an automated **Living Decision & Context Tracker**:
+- **Continuous Context Updates:** After every structural change, configuration shift, or major worktree event (e.g., creating a worktree, changing port strategies, de-symlinking dependencies), ParaSpace updates a structured record:
   - **Requirement Context:** What user requirement or ticket prompted this change?
   - **Decision Made:** What strategy or configuration was selected (and why)?
   - **Problem Solved:** What immediate friction or bottleneck does this resolve?
-- **Storage:** Persisted locally in `.paralleltree/context-history.md` and repo-level `.paralleltree.json` so both human developers and future AI agents immediately understand the current state and history.
+- **Storage:** Persisted locally in `.para-space/context-history.md` and repo-level `.para-space.json` so both human developers and future AI agents immediately understand the current state and history.
 
 ### E. Absolute Paths Everywhere
 All symlinks and IDE settings use fully resolved absolute paths (e.g. via `path.resolve()`) to ensure binaries and language servers never fail due to relative traversal discrepancies across directories.
@@ -82,7 +82,7 @@ All symlinks and IDE settings use fully resolved absolute paths (e.g. via `path.
 
 ```text
 ┌────────────────────────────────────────────────────────┐
-│                   ParallelTree Core                    │
+│                   ParaSpace Core                    │
 ├──────────────────────────┬─────────────────────────────┤
 │      CLI Interface       │      VS Code Extension      │
 │  (terminal, scripts)     │  (tree view, status bar)    │
@@ -96,7 +96,7 @@ All symlinks and IDE settings use fully resolved absolute paths (e.g. via `path.
 │ • Framework Strategy Detector (Node, Python, Rust)     │
 │ • Dependency Linker (absolute symlinks, APFS clone)    │
 │ • Port & Env Allocator (.env / port assignment)        │
-│ • State & Metadata Store (~/.paralleltree/state.json) │
+│ • State & Metadata Store (~/.para-space/state.json) │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -137,11 +137,11 @@ export interface PortStrategy {
 ```
 
 - Prompt the user on repository setup: *"Which port strategy would you like to use for this project?"*
-- Save decision in `.paralleltree.json` (committed to git or local). Future worktrees in this repo automatically read this configuration.
+- Save decision in `.para-space.json` (committed to git or local). Future worktrees in this repo automatically read this configuration.
 
 ### Living Context & Decision Tracking System (ADR Ledger)
 
-Every command, configuration shift, or automated agent change logs to a structured markdown file: `.paralleltree/context-history.md`:
+Every command, configuration shift, or automated agent change logs to a structured markdown file: `.para-space/context-history.md`:
 
 ```markdown
 ## [2026-10-16 15:50] Worktree Provisioned: feat/TK-101
@@ -158,20 +158,20 @@ Every command, configuration shift, or automated agent change logs to a structur
 
 ## 5. User Interfaces
 
-### A. Terminal CLI (`ptree`)
+### A. Terminal CLI (`para`)
 
 ```bash
 # Create a new worktree for a ticket
-ptree create feat/TK-101 --base main
+para create feat/TK-101 --base main
 
 # List all active worktrees and statuses
-ptree list
+para list
 
 # Break the symlink if dependencies diverged
-ptree isolate feat/TK-101
+para isolate feat/TK-101
 
 # Remove worktree when branch is merged or finished
-ptree remove feat/TK-101 --delete-branch
+para remove feat/TK-101 --delete-branch
 ```
 
 #### CLI List Output Example:
@@ -187,7 +187,7 @@ ptree remove feat/TK-101 --delete-branch
 
 ### B. VS Code Extension Dashboard
 
-- **Activity Bar View Container:** "ParallelTree"
+- **Activity Bar View Container:** "ParaSpace"
 - **Worktree Tree View:**
   - Lists main repo and active worktrees.
   - Shows branch name, git status (dirty / clean), and assigned dev port.
@@ -207,9 +207,9 @@ ptree remove feat/TK-101 --delete-branch
 - [x] **Port Allocation Strategy Pattern:**
   - [x] Implement `offset`, `scan`, `pool`, and `passthrough` strategies.
   - [x] Interactive prompt to select strategy on first repository run.
-  - [x] Persist chosen port strategy in `.paralleltree.json` for future worktrees.
+  - [x] Persist chosen port strategy in `.para-space.json` for future worktrees.
 - [x] **Living Context & Decision Tracker:**
-  - [x] Implement logger that records requirement context, decisions made, and problems solved to `.paralleltree/context-history.md` after every change.
+  - [x] Implement logger that records requirement context, decisions made, and problems solved to `.para-space/context-history.md` after every change.
 - [x] Permission check before touching `.vscode/settings.json`.
 
 ### Phase 2: VS Code Extension
@@ -222,7 +222,7 @@ ptree remove feat/TK-101 --delete-branch
 
 ### Phase 3: Safety, Watchers & Isolation
 - [ ] Manifest watcher: alert developer when `package.json` changes in a symlinked worktree.
-- [ ] One-click / automated `ptree isolate` command.
+- [ ] One-click / automated `para isolate` command.
 - [ ] macOS APFS Copy-on-Write (CoW) fast cloning support.
 
 ### Phase 4: Monorepo & Ecosystem Expansion

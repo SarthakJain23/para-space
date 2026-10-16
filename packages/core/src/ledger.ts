@@ -2,9 +2,9 @@ import path from 'node:path';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { readTextIfExists } from './util/fs.js';
 
-export const LEDGER_DIR = '.paralleltree';
+export const LEDGER_DIR = '.para-space';
 export const LEDGER_FILE = 'context-history.md';
-const HEADER = '# ParallelTree Context History\n\n';
+const HEADER = '# ParaSpace Context History\n\n';
 
 export interface LedgerEntry {
   title: string;
@@ -34,7 +34,7 @@ export function formatEntry(e: LedgerEntry): string {
   ].join('\n');
 }
 
-/** Append an entry to `.paralleltree/context-history.md` (D-007). */
+/** Append an entry to `.para-space/context-history.md` (D-007). */
 export async function appendLedger(mainRoot: string, entry: LedgerEntry): Promise<void> {
   const file = ledgerPath(mainRoot);
   await mkdir(path.dirname(file), { recursive: true });

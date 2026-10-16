@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import Table from 'cli-table3';
 import pc from 'picocolors';
-import { type WorktreeInfo, listWorktrees } from '@paralleltree/core';
+import { type WorktreeInfo, listWorktrees } from '@para-space/core';
 import { action, log, printJson } from '../runtime.js';
 
 function renderTable(rows: WorktreeInfo[]): string {

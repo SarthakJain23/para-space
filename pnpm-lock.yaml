@@ -193,7 +193,7 @@ importers:
       '@clack/prompts':
         specifier: ^0.7.0
         version: 0.7.0
-      '@paralleltree/core':
+      '@para-space/core':
         specifier: workspace:*
         version: link:../core
       cli-table3:

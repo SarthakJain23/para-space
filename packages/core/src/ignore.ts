@@ -2,7 +2,7 @@ import path from 'node:path';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { readTextIfExists } from './util/fs.js';
 
-const MARKER = '# paralleltree';
+const MARKER = '# para-space';
 
 /** Append any missing lines to an ignore-style file. Returns the lines actually added. */
 export async function ensureLines(file: string, lines: string[], header = MARKER): Promise<string[]> {
@@ -18,7 +18,7 @@ export async function ensureLines(file: string, lines: string[], header = MARKER
 }
 
 /**
- * Ignore ParallelTree's links via `$GIT_COMMON_DIR/info/exclude` — shared by every worktree,
+ * Ignore ParaSpace's links via `$GIT_COMMON_DIR/info/exclude` — shared by every worktree,
  * never committed. A `node_modules/` pattern only matches directories, not symlinks, so
  * links need their own slash-less, root-anchored patterns (D-019).
  */

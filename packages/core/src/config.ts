@@ -1,12 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export const CONFIG_FILE = '.paralleltree.json';
+export const CONFIG_FILE = '.para-space.json';
 
 export const PORT_STRATEGY_NAMES = ['offset', 'scan', 'pool', 'passthrough'] as const;
 export type PortStrategyName = (typeof PORT_STRATEGY_NAMES)[number];
 
-export interface ParallelTreeConfig {
+export interface ParaSpaceConfig {
   portStrategy: PortStrategyName;
   basePort: number;
   envKeys: string[];
@@ -20,7 +20,7 @@ export function configPath(mainRoot: string): string {
   return path.resolve(mainRoot, CONFIG_FILE);
 }
 
-export function validateConfig(raw: unknown): ParallelTreeConfig {
+export function validateConfig(raw: unknown): ParaSpaceConfig {
   if (!raw || typeof raw !== 'object') throw new Error(`${CONFIG_FILE} must be a JSON object`);
   const c = raw as Record<string, unknown>;
   if (!PORT_STRATEGY_NAMES.includes(c.portStrategy as PortStrategyName)) {
@@ -34,7 +34,7 @@ export function validateConfig(raw: unknown): ParallelTreeConfig {
   if (!Array.isArray(envKeys) || !envKeys.every((k) => typeof k === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(k))) {
     throw new Error(`${CONFIG_FILE}: envKeys must be an array of env variable names`);
   }
-  const config: ParallelTreeConfig = {
+  const config: ParaSpaceConfig = {
     portStrategy: c.portStrategy as PortStrategyName,
     basePort: basePort as number,
     envKeys: envKeys as string[],
@@ -62,7 +62,7 @@ export function parsePortPool(pool: number[] | string): number[] {
   return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
 }
 
-export async function loadConfig(mainRoot: string): Promise<ParallelTreeConfig | undefined> {
+export async function loadConfig(mainRoot: string): Promise<ParaSpaceConfig | undefined> {
   let text: string;
   try {
     text = await readFile(configPath(mainRoot), 'utf8');
@@ -72,6 +72,6 @@ export async function loadConfig(mainRoot: string): Promise<ParallelTreeConfig |
   return validateConfig(JSON.parse(text));
 }
 
-export async function saveConfig(mainRoot: string, config: ParallelTreeConfig): Promise<void> {
+export async function saveConfig(mainRoot: string, config: ParaSpaceConfig): Promise<void> {
   await writeFile(configPath(mainRoot), JSON.stringify(validateConfig(config), null, 2) + '\n');
 }

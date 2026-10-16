@@ -13,8 +13,8 @@ let sandbox: string;
 let repo: string;
 
 beforeEach(async () => {
-  sandbox = await realpath(await mkdtemp(path.join(os.tmpdir(), 'ptree-')));
-  process.env.PARALLELTREE_HOME = path.join(sandbox, 'home');
+  sandbox = await realpath(await mkdtemp(path.join(os.tmpdir(), 'para-')));
+  process.env.PARA_SPACE_HOME = path.join(sandbox, 'home');
   repo = path.join(sandbox, 'app');
   await mkdir(path.join(repo, 'node_modules', 'left-pad'), { recursive: true });
   await mkdir(path.join(repo, '.venv', 'bin'), { recursive: true });
@@ -30,7 +30,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  delete process.env.PARALLELTREE_HOME;
+  delete process.env.PARA_SPACE_HOME;
   await rm(sandbox, { recursive: true, force: true });
 });
 
@@ -53,9 +53,9 @@ describe('worktree lifecycle', () => {
     expect(res.port).toBe(3001);
 
     // config persisted with vite key detected; ledger gitignored
-    const config = JSON.parse(await readFile(path.join(repo, '.paralleltree.json'), 'utf8'));
+    const config = JSON.parse(await readFile(path.join(repo, '.para-space.json'), 'utf8'));
     expect(config).toEqual({ portStrategy: 'offset', basePort: 3000, envKeys: ['PORT', 'VITE_PORT'] });
-    expect(await readFile(path.join(repo, '.gitignore'), 'utf8')).toContain('.paralleltree/');
+    expect(await readFile(path.join(repo, '.gitignore'), 'utf8')).toContain('.para-space/');
 
     // absolute symlinks into main
     for (const rel of ['node_modules', '.venv', '.env']) {
@@ -78,7 +78,7 @@ describe('worktree lifecycle', () => {
     expect(git(wt, 'status', '--porcelain')).toBe('?? .vscode/');
 
     // ledger
-    const ledger = await readFile(path.join(repo, '.paralleltree', 'context-history.md'), 'utf8');
+    const ledger = await readFile(path.join(repo, '.para-space', 'context-history.md'), 'utf8');
     expect(ledger).toContain('Worktree Provisioned: feat/TK-101');
     expect(ledger).toContain('Auth redesign');
 
@@ -124,7 +124,7 @@ describe('worktree lifecycle', () => {
   });
 
   it('rolls back the worktree and branch when a step fails', async () => {
-    await writeFile(path.join(repo, '.paralleltree.json'), JSON.stringify({ portStrategy: 'pool', portPool: [3000] }));
+    await writeFile(path.join(repo, '.para-space.json'), JSON.stringify({ portStrategy: 'pool', portPool: [3000] }));
     await expect(createWorktree({ cwd: repo, branch: 'feat/fail' })).rejects.toThrow(/exhausted/);
     expect(git(repo, 'worktree', 'list').split('\n')).toHaveLength(1);
     expect(git(repo, 'branch', '--list', 'feat/fail')).toBe('');

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { removeWorktree } from '@paralleltree/core';
+import { removeWorktree } from '@para-space/core';
 import { action, log, ok } from '../runtime.js';
 
 export function registerRemove(program: Command) {

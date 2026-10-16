@@ -1,6 +1,6 @@
-# ParallelTree — Decision Log
+# ParaSpace — Decision Log
 
-Every architectural or behavioral decision for ParallelTree, newest last. Each entry records the requirement that prompted it, what was decided, and what problem it solves (the same shape the product's own `.paralleltree/context-history.md` ledger uses).
+Every architectural or behavioral decision for ParaSpace, newest last. Each entry records the requirement that prompted it, what was decided, and what problem it solves (the same shape the product's own `.para-space/context-history.md` ledger uses).
 
 **How to update:** append a new `D-NNN` entry after any change that alters design, scope, config format, or behavior. Never rewrite an accepted entry. If a decision is reversed, add a new entry and mark the old one `Superseded by D-NNN`. Move items out of **Open Questions** once they are decided.
 
@@ -21,11 +21,11 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-007 | Living context ledger after every change | Accepted | 2026-10-16 |
 | D-008 | Monorepo with shared core, CLI and VS Code extension | Accepted | 2026-10-16 |
 | D-009 | Windows falls back to directory junctions | Accepted | 2026-10-16 |
-| D-010 | Global state store at `~/.paralleltree/state.json` | Accepted | 2026-10-16 |
-| D-011 | pnpm workspaces + tsup + vitest for ParallelTree's own repo | Accepted | 2026-10-16 |
+| D-010 | Global state store at `~/.para-space/state.json` | Accepted | 2026-10-16 |
+| D-011 | pnpm workspaces + tsup + vitest for ParaSpace's own repo | Accepted | 2026-10-16 |
 | D-012 | Worktrees live in sibling dirs named `<repo>-<branch-slug>` | Accepted | 2026-10-16 |
 | D-013 | `.env` is symlinked; `.env.local` is a per-worktree copy | Accepted | 2026-10-16 |
-| D-014 | Commit `.paralleltree.json`; gitignore the ledger | Accepted | 2026-10-16 |
+| D-014 | Commit `.para-space.json`; gitignore the ledger | Accepted | 2026-10-16 |
 | D-015 | Repo config lives at the repo root | Accepted | 2026-10-16 |
 | D-016 | Link pnpm `node_modules` whole; skip Yarn PnP | Accepted | 2026-10-16 |
 | D-017 | Isolate = CoW clone, else fresh install; Python always rebuilds venv | Accepted | 2026-10-16 |
@@ -37,6 +37,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-023 | One module per command; strategies declare `kind` | Accepted | 2026-10-16 |
 | D-024 | Prettier formats all code (not Markdown docs) | Accepted | 2026-10-16 |
 | D-025 | Pre-commit hook runs Prettier on staged files | Accepted | 2026-10-16 |
+| D-026 | Project renamed to para-space; CLI renamed to `para` | Accepted | 2026-10-16 |
 
 ---
 
@@ -57,13 +58,13 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 ## D-003 — Breakaway isolation when manifests change
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** `npm install <pkg>` inside a symlinked worktree would modify the main repo's `node_modules` and could break other branches' servers/tests.
-- **Decision Made:** Watch `package.json` / lockfiles (and Python manifests). On change, offer **Isolate (Breakaway)**: remove the symlink, then copy-on-write clone (`cp -c -R`) on macOS APFS, or run a local install elsewhere. Also exposed as `ptree isolate <branch>`.
+- **Decision Made:** Watch `package.json` / lockfiles (and Python manifests). On change, offer **Isolate (Breakaway)**: remove the symlink, then copy-on-write clone (`cp -c -R`) on macOS APFS, or run a local install elsewhere. Also exposed as `para isolate <branch>`.
 - **Problem Solved:** Keeps the shared environment clean while letting a worktree diverge when it genuinely needs to.
 
 ## D-004 — Pluggable port strategy, chosen once per repo
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** Concurrent dev servers collide on the same port.
-- **Decision Made:** `PortStrategy` interface with four implementations — `offset`, `scan` (via `get-port`), `pool`, `passthrough`. On the first worktree in a repo, prompt the user to pick one; persist it in `.paralleltree.json` (`portStrategy`, `basePort`, `envKeys`). Allocated ports are written to `.env.local`.
+- **Decision Made:** `PortStrategy` interface with four implementations — `offset`, `scan` (via `get-port`), `pool`, `passthrough`. On the first worktree in a repo, prompt the user to pick one; persist it in `.para-space.json` (`portStrategy`, `basePort`, `envKeys`). Allocated ports are written to `.env.local`.
 - **Problem Solved:** No port clashes, and no repeated prompting — later worktrees reuse the saved choice.
 
 ## D-005 — Framework Strategy Pattern for ecosystem support
@@ -81,13 +82,13 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 ## D-007 — Living context ledger after every change
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** In agent-driven, multi-worktree work, the reasons behind changes get lost.
-- **Decision Made:** After every structural change, config shift, or worktree event, append an entry (Requirement Context / Decision Made / Problem Solved) to `.paralleltree/context-history.md`.
+- **Decision Made:** After every structural change, config shift, or worktree event, append an entry (Requirement Context / Decision Made / Problem Solved) to `.para-space/context-history.md`.
 - **Problem Solved:** Humans and future agents can reconstruct current state and history without asking.
 
 ## D-008 — Monorepo with shared core, CLI and VS Code extension
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** Need a scriptable interface for agents and a visual one for humans.
-- **Decision Made:** `packages/core` (orchestration engine), `packages/cli` (`ptree`), `packages/vscode-extension`. Both interfaces call the same core. TypeScript, per the interface definitions in the plan.
+- **Decision Made:** `packages/core` (orchestration engine), `packages/cli` (`para`), `packages/vscode-extension`. Both interfaces call the same core. TypeScript, per the interface definitions in the plan.
 - **Problem Solved:** One implementation of the logic, two front-ends, no behavior drift.
 
 ## D-009 — Windows falls back to directory junctions
@@ -96,14 +97,14 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Decision Made:** Use directory junctions (`mklink /J`, or Node `fs.symlink(..., 'junction')`) on Windows.
 - **Problem Solved:** Dependency sharing works for non-admin Windows users.
 
-## D-010 — Global state store at `~/.paralleltree/state.json`
+## D-010 — Global state store at `~/.para-space/state.json`
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** CLI and extension need a shared view of worktrees, assigned ports, deps mode and colors.
-- **Decision Made:** Machine-level state in `~/.paralleltree/state.json`; repo-level config in `.paralleltree.json`; per-repo history in `.paralleltree/context-history.md`.
+- **Decision Made:** Machine-level state in `~/.para-space/state.json`; repo-level config in `.para-space.json`; per-repo history in `.para-space/context-history.md`.
 - **Problem Solved:** Port allocation can see ports already assigned across worktrees; both interfaces read the same state.
 
 
-## D-011 — pnpm workspaces + tsup + vitest for ParallelTree's own repo
+## D-011 — pnpm workspaces + tsup + vitest for ParaSpace's own repo
 - **Status:** Accepted · 2026-10-16 · resolves Open Question 5
 - **Requirement Context:** D-008 needs a monorepo layout for `core`, `cli` and later the extension.
 - **Decision Made:** pnpm workspaces (`packages/*`), tsup for ESM builds (+ `.d.ts` for core), vitest for tests. No Turborepo.
@@ -112,7 +113,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 ## D-012 — Worktrees live in sibling dirs named `<repo>-<branch-slug>`
 - **Status:** Accepted · 2026-10-16 · resolves Open Question 4
 - **Requirement Context:** Need a predictable location and name for each worktree.
-- **Decision Made:** `ptree create feat/TK-101` in `/code/myapp` creates `/code/myapp-feat-TK-101`. Slug: `/` and unsafe characters → `-`.
+- **Decision Made:** `para create feat/TK-101` in `/code/myapp` creates `/code/myapp-feat-TK-101`. Slug: `/` and unsafe characters → `-`.
 - **Alternatives Considered:** Nested `<repo>/.worktrees/` (pulls worktrees into the main repo's watchers, linters and test runners).
 - **Problem Solved:** Worktrees never show up inside the main repo's file tree, and names are guessable from the branch.
 
@@ -122,15 +123,15 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Decision Made:** Symlink `.env` (shared secrets/config). Copy `.env.local` from main if present, then upsert the port keys into the copy.
 - **Problem Solved:** Secret edits propagate everywhere, while each worktree owns its port. Projects that keep secrets only in `.env.local` get a snapshot copy, not live sharing.
 
-## D-014 — Commit `.paralleltree.json`; gitignore the ledger
+## D-014 — Commit `.para-space.json`; gitignore the ledger
 - **Status:** Accepted · 2026-10-16 · resolves Open Question 2
 - **Requirement Context:** Should config and history be team-shared?
-- **Decision Made:** `.paralleltree.json` is meant to be committed. On first run, `.paralleltree/` is appended to the repo `.gitignore`.
+- **Decision Made:** `.para-space.json` is meant to be committed. On first run, `.para-space/` is appended to the repo `.gitignore`.
 - **Problem Solved:** The team shares one port strategy. The ledger holds machine-specific absolute paths, so it stays local and causes no merge noise.
 
 ## D-015 — Repo config lives at the repo root
 - **Status:** Accepted · 2026-10-16 · resolves Open Question 1
-- **Decision Made:** `.paralleltree.json` at the main repo root, not `.vscode/paralleltree.json`.
+- **Decision Made:** `.para-space.json` at the main repo root, not `.vscode/para-space.json`.
 - **Problem Solved:** The config is editor-neutral. The CLI and agents don't depend on VS Code conventions.
 
 ## D-016 — Link pnpm `node_modules` whole; skip Yarn PnP
@@ -145,20 +146,20 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 
 ## D-018 — Default env keys `PORT` (+ `VITE_PORT` for Vite projects)
 - **Status:** Accepted · 2026-10-16 · resolves Open Question 8
-- **Decision Made:** On first run, `envKeys` = `["PORT"]`, plus any keys from `FrameworkStrategy.defaultEnvKeys()` (Node adds `VITE_PORT` when `vite` is a dependency). Python projects get `PORT`. Editable afterwards in `.paralleltree.json`.
+- **Decision Made:** On first run, `envKeys` = `["PORT"]`, plus any keys from `FrameworkStrategy.defaultEnvKeys()` (Node adds `VITE_PORT` when `vite` is a dependency). Python projects get `PORT`. Editable afterwards in `.para-space.json`.
 - **Problem Solved:** Sensible defaults for every stack without asking.
 
 ## D-019 — Hide links via `$GIT_COMMON_DIR/info/exclude`
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** A gitignore pattern like `node_modules/` only matches directories, so a `node_modules` *symlink* shows as untracked. That makes worktrees look dirty and blocks `git worktree remove`.
-- **Decision Made:** Append root-anchored, slash-less patterns (`/node_modules`, `/.venv`, `/.env`, `/.env.local`) under a `# paralleltree` header in the shared `info/exclude`.
+- **Decision Made:** Append root-anchored, slash-less patterns (`/node_modules`, `/.venv`, `/.env`, `/.env.local`) under a `# para-space` header in the shared `info/exclude`.
 - **Problem Solved:** Worktrees report clean. The file is never committed and applies to all worktrees at once. It also applies to the main repo, but already-tracked files are unaffected.
 
 ## D-020 — Core never prompts; non-interactive mode for agents
 - **Status:** Accepted · 2026-10-16
 - **Requirement Context:** The same core must serve a TTY CLI, the VS Code extension and headless AI agents.
 - **Decision Made:** Core takes an injected `Prompter` (`selectPortStrategy`, `confirmIdeSettings`, `confirm`). The CLI passes a clack implementation only when stdin/stdout are TTYs and `--yes` is not set. Without a prompter: the port strategy comes from `--port-strategy` (default `offset`), and IDE settings are written only with `--ide`.
-- **Problem Solved:** Agents can script `ptree` without hanging on prompts. D-006 consent still holds, because a non-interactive run never writes settings unless asked explicitly.
+- **Problem Solved:** Agents can script `para` without hanging on prompts. D-006 consent still holds, because a non-interactive run never writes settings unless asked explicitly.
 
 ## D-021 — Python interpreter path points at the worktree's own `.venv`
 - **Status:** Accepted · 2026-10-16
@@ -168,7 +169,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 
 ## D-022 — `create` rolls back on failure; state writes are atomic
 - **Status:** Accepted · 2026-10-16
-- **Decision Made:** If any step after `git worktree add` fails, unlink created links, `git worktree remove --force`, and delete the branch only if `create` made it. `state.json` is written to a temp file and renamed. `PARALLELTREE_HOME` overrides `~/.paralleltree` (used by tests).
+- **Decision Made:** If any step after `git worktree add` fails, unlink created links, `git worktree remove --force`, and delete the branch only if `create` made it. `state.json` is written to a temp file and renamed. `PARA_SPACE_HOME` overrides `~/.para-space` (used by tests).
 - **Problem Solved:** A failed create leaves no half-provisioned worktree or orphan branch, and a crash mid-write cannot corrupt state.
 
 
@@ -192,10 +193,17 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Decision Made:** `simple-git-hooks` installs a `pre-commit` hook (via the root `prepare` script, which runs on `pnpm install`) that runs `lint-staged`. `lint-staged` runs `prettier --write --ignore-unknown` on staged files only and re-stages the result. The package's own install script stays disabled in `pnpm-workspace.yaml` (`allowBuilds: simple-git-hooks: false`) because `prepare` already installs the hook. Chosen over husky because it needs no extra hook directory.
 - **Problem Solved:** Unformatted code can't be committed by accident, and commits stay fast because only staged files are touched.
 
+
+## D-026 — Project renamed to para-space; CLI renamed to `para`
+- **Status:** Accepted · 2026-10-16
+- **Requirement Context:** The user renamed the project from ParallelTree (folder `parallel-worktree`) to para-space.
+- **Decision Made:** The name changes everywhere: prose and types `ParaSpace` / `ParaSpaceConfig`; packages `@para-space/core` and `@para-space/cli` (root `para-space`); repo config `.para-space.json`; ledger dir `.para-space/`; machine state `~/.para-space/state.json`; env override `PARA_SPACE_HOME`; the `info/exclude` marker `# para-space`; CLI command `para`; folder `para-space`. Earlier entries were updated to the new names, since nothing had been released under the old ones.
+- **Problem Solved:** One consistent name across code, docs and on-disk files.
+
 ---
 
 ## Open Questions
 
-1. **Concurrent `ptree` runs** — state writes are atomic, but two simultaneous `create`s can still read the same state and pick the same index/port. Add a lock file?
+1. **Concurrent `para` runs** — state writes are atomic, but two simultaneous `create`s can still read the same state and pick the same index/port. Add a lock file?
 2. **Monorepo nested `node_modules`** — only the root `node_modules` is linked; per-package `node_modules` in workspaces is Phase 4.
 3. **Python port keys** — Django/Flask don't read `PORT` by default; should the Python strategy suggest framework-specific keys?

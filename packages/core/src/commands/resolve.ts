@@ -18,7 +18,7 @@ export async function resolveWorktree(cwd: string, target: string): Promise<Reso
   );
   if (!tree) throw new Error(`No worktree matches "${target}" (use a branch name, directory name or path).`);
   const wtPath = path.resolve(tree.path);
-  if (wtPath === mainRoot) throw new Error('That is the main repository, not a ParallelTree worktree.');
+  if (wtPath === mainRoot) throw new Error('That is the main repository, not a ParaSpace worktree.');
   const record = (await getRepoState(mainRoot)).worktrees.find((w) => w.path === wtPath);
   return { mainRoot, wtPath, branch: tree.branch, record };
 }

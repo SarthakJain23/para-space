@@ -1,9 +1,9 @@
 {
-  "name": "@paralleltree/cli",
+  "name": "@para-space/cli",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "ptree": "./dist/index.js"
+    "para": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
-    "@paralleltree/core": "workspace:*",
+    "@para-space/core": "workspace:*",
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
     "picocolors": "^1.1.0"

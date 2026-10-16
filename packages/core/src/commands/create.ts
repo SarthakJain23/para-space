@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { type ColorProfile, colorForIndex, peacockSettings } from '../colors.js';
-import type { ParallelTreeConfig } from '../config.js';
+import type { ParaSpaceConfig } from '../config.js';
 import { upsertEnvFile } from '../envfile.js';
 import { type FrameworkStrategy, detectStrategies } from '../frameworks/index.js';
 import * as git from '../git.js';
@@ -42,7 +42,7 @@ interface Ctx {
   mainRoot: string;
   wtPath: string;
   index: number;
-  config: ParallelTreeConfig;
+  config: ParaSpaceConfig;
   strategies: FrameworkStrategy[];
   log: Logger;
 }

@@ -1,4 +1,4 @@
-import { type CreateOptions, type CreateResult, PORT_STRATEGY_NAMES, createWorktree } from '@paralleltree/core';
+import { type CreateOptions, type CreateResult, PORT_STRATEGY_NAMES, createWorktree } from '@para-space/core';
 import { type Command, Option } from 'commander';
 import path from 'node:path';
 import pc from 'picocolors';

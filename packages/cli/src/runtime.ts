@@ -1,5 +1,5 @@
 import pc from 'picocolors';
-import type { Logger, Prompter } from '@paralleltree/core';
+import type { Logger, Prompter } from '@para-space/core';
 import { clackPrompter } from './prompter.js';
 
 /** Progress and warnings go to stderr so stdout stays clean for `--json`. */

@@ -6,8 +6,8 @@ import { registerList } from './commands/list.js';
 import { registerRemove } from './commands/remove.js';
 
 const program = new Command()
-  .name('ptree')
-  .description('ParallelTree — parallel git worktrees with shared dependencies')
+  .name('para')
+  .description('ParaSpace — parallel git worktrees with shared dependencies')
   .version('0.1.0');
 
 const commands = [registerCreate, registerList, registerIsolate, registerRemove];

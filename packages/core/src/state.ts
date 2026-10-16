@@ -11,7 +11,7 @@ export interface WorktreeRecord {
   index: number;
   port?: number;
   color?: string;
-  /** Paths (absolute) of links ParallelTree created inside the worktree. */
+  /** Paths (absolute) of links ParaSpace created inside the worktree. */
   links: string[];
   isolated: boolean;
   createdAt: string;
@@ -26,9 +26,9 @@ export interface StateFile {
   repos: Record<string, RepoState>;
 }
 
-/** Overridable for tests via PARALLELTREE_HOME. */
+/** Overridable for tests via PARA_SPACE_HOME. */
 export function stateDir(): string {
-  return path.resolve(process.env.PARALLELTREE_HOME ?? path.join(os.homedir(), '.paralleltree'));
+  return path.resolve(process.env.PARA_SPACE_HOME ?? path.join(os.homedir(), '.para-space'));
 }
 
 export function statePath(): string {
