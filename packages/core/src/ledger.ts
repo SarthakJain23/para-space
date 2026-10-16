@@ -14,6 +14,7 @@ export interface LedgerEntry {
   date?: Date;
 }
 
+/** The repo's context ledger: `<mainRoot>/.para-space/context-history.md` (gitignored, D-014). */
 export function ledgerPath(mainRoot: string): string {
   return path.resolve(mainRoot, LEDGER_DIR, LEDGER_FILE);
 }
@@ -34,7 +35,17 @@ export function formatEntry(e: LedgerEntry): string {
   ].join('\n');
 }
 
-/** Append an entry to `.para-space/context-history.md` (D-007). */
+/**
+ * Appends a timestamped entry to the repo's context ledger, creating the file if needed (D-007).
+ *
+ * @example
+ * await appendLedger(mainRoot, {
+ *   title: 'Port strategy changed',
+ *   requirement: 'Ports clashed with Docker.',
+ *   decisions: ['Switched to `scan`.'],
+ *   problemSolved: 'Dev servers start reliably.',
+ * });
+ */
 export async function appendLedger(mainRoot: string, entry: LedgerEntry): Promise<void> {
   const file = ledgerPath(mainRoot);
   await mkdir(path.dirname(file), { recursive: true });

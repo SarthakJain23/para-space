@@ -16,8 +16,26 @@ interface LockInfo {
 }
 
 /**
- * Run `fn` while holding an exclusive lock file (`open(..., 'wx')` is atomic across processes).
- * Not re-entrant: never call it again for the same path from inside `fn`.
+ * Runs `fn` while holding an exclusive, cross-process lock file.
+ *
+ * Use it to serialize read-modify-write cycles on a shared file. The lock is created with
+ * `open(path, 'wx')`, which is atomic: only one process can create the file. Waiters retry with
+ * jitter. A lock whose owner on this host is dead, or that is older than `staleMs`, is reclaimed.
+ * The lock is always released, even if `fn` throws.
+ *
+ * Not re-entrant: never call it again for the same path from inside `fn`, or it waits on itself.
+ *
+ * @param lockPath - Lock file to create. Its directory must exist.
+ * @param fn - Critical section. Keep it short (no installs or slow git calls).
+ * @param opts - `timeoutMs` (default 10 000) and `staleMs` (default 30 000).
+ * @returns Whatever `fn` returns.
+ * @throws If the lock is not acquired within `timeoutMs`, or if `fn` throws.
+ *
+ * @example
+ * await withFileLock('/tmp/counter.lock', async () => {
+ *   const n = Number(await readFile('/tmp/counter', 'utf8'));
+ *   await writeFile('/tmp/counter', String(n + 1));
+ * });
  */
 export async function withFileLock<T>(lockPath: string, fn: () => Promise<T>, opts: LockOptions = {}): Promise<T> {
   const { timeoutMs = 10_000, staleMs = 30_000 } = opts;

@@ -19,7 +19,21 @@ export interface IsolateResult {
   isolated: string[];
 }
 
-/** Replace shared dependency links with independent copies (D-003, D-017). */
+/**
+ * Gives a worktree its own dependencies instead of the ones shared with the main repo.
+ *
+ * Use it before installing or upgrading packages in a worktree, so the main repo is untouched.
+ * Node: copy-on-write clone of `node_modules`, else a fresh install. Python: fresh venv.
+ * `.env` stays shared (D-003, D-017). See FLOW.md §3.
+ *
+ * @param opts - `cwd`, `target` (branch, directory name or path) and optional `reason` for the ledger.
+ * @returns Names of the strategies that were isolated; empty if nothing was symlinked.
+ * @throws If `target` matches no worktree, or is the main repo.
+ *
+ * @example
+ * await isolateWorktree({ cwd: '/code/app', target: 'feat/TK-101', reason: 'Testing React 19' });
+ * // → { path: '/code/app-feat-TK-101', isolated: ['NodeStrategy'] }
+ */
 export async function isolateWorktree(opts: IsolateOptions): Promise<IsolateResult> {
   const log = opts.log ?? silentLogger;
   const wt = await resolveWorktree(opts.cwd, opts.target);

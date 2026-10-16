@@ -24,6 +24,19 @@ export interface RemoveResult {
   branchDeleted: boolean;
 }
 
+/**
+ * Removes a worktree and frees its port, optionally deleting its branch.
+ *
+ * Shared links are unlinked first, so the main repo's dependencies are never deleted through
+ * them. Refuses a worktree with uncommitted changes unless `force`. See FLOW.md §4.
+ *
+ * @param opts - `cwd`, `target` (branch, directory name or path), `deleteBranch`, `force`.
+ * @returns The removed path and whether the branch was deleted.
+ * @throws If `target` matches no worktree, is the main repo, or is dirty without `force`.
+ *
+ * @example
+ * await removeWorktree({ cwd: '/code/app', target: 'feat/TK-101', deleteBranch: true });
+ */
 export async function removeWorktree(opts: RemoveOptions): Promise<RemoveResult> {
   const log = opts.log ?? silentLogger;
   const wt = await resolveWorktree(opts.cwd, opts.target);

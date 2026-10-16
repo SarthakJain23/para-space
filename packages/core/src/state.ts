@@ -32,6 +32,7 @@ export function stateDir(): string {
   return path.resolve(process.env.PARA_SPACE_HOME ?? path.join(os.homedir(), '.para-space'));
 }
 
+/** Machine-wide state file: `~/.para-space/state.json`, or under `PARA_SPACE_HOME` (D-010). */
 export function statePath(): string {
   return path.join(stateDir(), 'state.json');
 }
@@ -60,8 +61,20 @@ export function stateLockPath(): string {
 }
 
 /**
- * Read-modify-write helper for one repo's state, serialized across processes by a lock file
- * so concurrent `para` runs (CLI, extension, agents) never lose each other's updates (D-027).
+ * Read-modify-write one repo's entry in `state.json`, as a single transaction.
+ *
+ * Holds `state.lock` for the whole cycle so concurrent `para` runs (CLI, extension, agents)
+ * never lose each other's updates (D-027). Mutate `repo` in place inside `fn`; the whole file
+ * is written back atomically afterwards. Every state write must go through this function.
+ *
+ * @param mainRoot - Main repository root (the key in `state.json`).
+ * @param fn - Mutates `repo`; may be async. Must not call `updateRepoState` itself (not re-entrant).
+ * @returns Whatever `fn` returns.
+ *
+ * @example
+ * await updateRepoState(mainRoot, (repo) => {
+ *   repo.worktrees = repo.worktrees.filter((w) => w.path !== removedPath);
+ * });
  */
 export async function updateRepoState<T>(mainRoot: string, fn: (repo: RepoState) => T | Promise<T>): Promise<T> {
   await mkdir(stateDir(), { recursive: true });

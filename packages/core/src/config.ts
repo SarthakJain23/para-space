@@ -1,11 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+/** Per-repo config file, at the main repo root and committed (D-014, D-015). */
 export const CONFIG_FILE = '.para-space.json';
 
 export const PORT_STRATEGY_NAMES = ['offset', 'scan', 'pool', 'passthrough'] as const;
 export type PortStrategyName = (typeof PORT_STRATEGY_NAMES)[number];
 
+/** Contents of `.para-space.json`. `envKeys` are the variables in `.env.local` that receive the port. */
 export interface ParaSpaceConfig {
   portStrategy: PortStrategyName;
   basePort: number;
@@ -20,6 +22,17 @@ export function configPath(mainRoot: string): string {
   return path.resolve(mainRoot, CONFIG_FILE);
 }
 
+/**
+ * Checks parsed JSON against the config schema and fills defaults.
+ *
+ * @param raw - Parsed contents of `.para-space.json`.
+ * @returns A complete config (`basePort` defaults to 3000, `envKeys` to `['PORT']`).
+ * @throws With a message naming the bad field.
+ *
+ * @example
+ * validateConfig({ portStrategy: 'offset' });
+ * // → { portStrategy: 'offset', basePort: 3000, envKeys: ['PORT'] }
+ */
 export function validateConfig(raw: unknown): ParaSpaceConfig {
   if (!raw || typeof raw !== 'object') throw new Error(`${CONFIG_FILE} must be a JSON object`);
   const c = raw as Record<string, unknown>;
@@ -49,6 +62,15 @@ export function validateConfig(raw: unknown): ParaSpaceConfig {
   return config;
 }
 
+/**
+ * Expands a `pool` strategy port list into numbers.
+ *
+ * @throws If a port is outside 1–65535 or the range string is malformed.
+ *
+ * @example
+ * parsePortPool('3001-3003'); // → [3001, 3002, 3003]
+ * parsePortPool([4000, 4005]); // → [4000, 4005]
+ */
 export function parsePortPool(pool: number[] | string): number[] {
   if (Array.isArray(pool)) {
     if (!pool.every((p) => Number.isInteger(p) && p > 0 && p <= 65535))
@@ -62,6 +84,7 @@ export function parsePortPool(pool: number[] | string): number[] {
   return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
 }
 
+/** Reads and validates `.para-space.json`; `undefined` if the repo has none yet. Throws if it is invalid. */
 export async function loadConfig(mainRoot: string): Promise<ParaSpaceConfig | undefined> {
   let text: string;
   try {
@@ -72,6 +95,7 @@ export async function loadConfig(mainRoot: string): Promise<ParaSpaceConfig | un
   return validateConfig(JSON.parse(text));
 }
 
+/** Validates, then writes `.para-space.json` (pretty-printed, trailing newline). */
 export async function saveConfig(mainRoot: string, config: ParaSpaceConfig): Promise<void> {
   await writeFile(configPath(mainRoot), JSON.stringify(validateConfig(config), null, 2) + '\n');
 }

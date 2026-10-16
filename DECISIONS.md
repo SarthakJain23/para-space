@@ -39,6 +39,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-025 | Pre-commit hook runs Prettier on staged files | Accepted | 2026-10-16 |
 | D-026 | Project renamed to para-space; CLI renamed to `para` | Accepted | 2026-10-16 |
 | D-027 | Lock file serializes state writes; `create` reserves its slot under the lock | Accepted | 2026-10-16 |
+| D-028 | TSDoc on the public API; one-line "why" comments elsewhere | Accepted | 2026-10-16 |
 
 ---
 
@@ -208,6 +209,13 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Decision Made:** `updateRepoState` holds an exclusive lock file, `~/.para-space/state.lock`, for the whole read-modify-write. The lock is created with `open(..., 'wx')`, which is atomic across processes, and stores `{pid, host, acquiredAt}`. Waiters retry with jitter and give up after 10 s with a message naming the file. A lock is treated as abandoned if its process on this host is dead or it is older than 30 s. One global lock, because `state.json` is one file shared by all repos. Reads (`getRepoState`) stay lock-free because writes are atomic. `create` now reserves a slot right after `git worktree add`: under the lock it picks the next index, allocates the port and writes a placeholder record. It fills in links and color at the end, and rollback removes the reservation. Reserving after `git worktree add` means a concurrent `list` never prunes the placeholder. The lock is not re-entrant, and `updateRepoState` callbacks may now be async.
 - **Problem Solved:** Concurrent creates get distinct indices and ports, and concurrent create/isolate/remove/list runs no longer overwrite each other's state.
 - **Known limit:** If two waiters reclaim the same stale lock at the same moment, one could delete the other's fresh lock. This needs a crashed holder plus a race within milliseconds, so it was accepted to keep the lock simple.
+
+
+## D-028 — TSDoc on the public API; one-line "why" comments elsewhere
+- **Status:** Accepted · 2026-10-16
+- **Requirement Context:** The user wanted every function commented with its responsibility, definition and example. The VS Code extension (Phase 2) is about to consume `@para-space/core`, so its API needs to explain itself where it's used.
+- **Decision Made:** Documentation scales with how public a symbol is. (1) Everything exported from `@para-space/core`'s `index.ts`, plus `withFileLock` and `updateRepoState`, gets TSDoc: a one-line summary, then responsibility and constraints, then `@param` / `@returns` / `@throws` where they add something beyond the types, and an `@example`. (2) Internal helpers get at most one line explaining *why*, not *what*. (3) Self-explanatory functions get no comment. Comments point to `D-NNN` and FLOW.md sections instead of repeating them. Tests remain the executable examples.
+- **Problem Solved:** VS Code shows docs and examples on hover wherever the API is used, without comments that just restate the code and go stale. This is a convention only: it isn't enforced by lint yet (`eslint-plugin-jsdoc` is an option), and TypeDoc could later generate an API reference from the same comments.
 
 ---
 

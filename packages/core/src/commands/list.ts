@@ -32,6 +32,20 @@ async function depsModeOf(wtPath: string, isMain: boolean): Promise<DepsMode> {
   return found ? 'Isolated' : 'None';
 }
 
+/**
+ * Lists the main repo and every worktree with branch, dirty count, port and dependency mode.
+ *
+ * Git is the source of truth: state records whose worktree no longer exists are pruned.
+ * Worktrees not created by ParaSpace are included with `managed: false`. See FLOW.md §2.
+ *
+ * @param opts - `cwd`: any directory inside the repo or one of its worktrees.
+ * @returns One row per worktree, main repo first.
+ *
+ * @example
+ * const rows = await listWorktrees({ cwd: '/code/app' });
+ * // [{ name: '(main)', port: 3000, depsMode: 'Source', ... },
+ * //  { name: 'app-feat-TK-101', port: 3001, depsMode: 'Symlinked', ... }]
+ */
 export async function listWorktrees(opts: CommonOptions): Promise<WorktreeInfo[]> {
   const mainRoot = await git.mainRepoRoot(opts.cwd);
   const config = await loadConfig(mainRoot);

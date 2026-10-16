@@ -31,7 +31,21 @@ async function chooseStrategy(opts: EnsureConfigOptions): Promise<PortStrategyAn
   return opts.prompter.selectPortStrategy({ basePort });
 }
 
-/** Load `.para-space.json`, creating it on first run (D-004, D-014, D-020). */
+/**
+ * Loads the repo's `.para-space.json`, creating it on first run.
+ *
+ * On first run the port strategy comes from `opts.portStrategy`, else the `prompter`, else
+ * `offset`. It also adds `.para-space/` to `.gitignore` and writes a ledger entry
+ * (D-004, D-014, D-020). `createWorktree` calls this itself.
+ *
+ * @param opts - `cwd`, optional `prompter`, and first-run `portStrategy` / `basePort` / `portPool`.
+ * @returns The config, and `created: true` if it was just written.
+ * @throws If an existing `.para-space.json` is invalid.
+ *
+ * @example
+ * const { config } = await ensureConfig({ cwd: '/code/app', portStrategy: 'scan' });
+ * // config → { portStrategy: 'scan', basePort: 3000, envKeys: ['PORT'] }
+ */
 export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config: ParaSpaceConfig; created: boolean }> {
   const log = opts.log ?? silentLogger;
   const mainRoot = await git.mainRepoRoot(opts.cwd);

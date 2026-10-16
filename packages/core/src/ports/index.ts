@@ -15,6 +15,12 @@ const STRATEGIES: Record<PortStrategyName, PortStrategy> = {
   passthrough: passthroughStrategy,
 };
 
+/**
+ * Look up a port strategy by its config name.
+ *
+ * @example
+ * await getPortStrategy('offset').allocatePort({ worktreeIndex: 2, basePort: 3000, assignedPorts: [] }); // → 3002
+ */
 export function getPortStrategy(name: PortStrategyName): PortStrategy {
   return STRATEGIES[name];
 }

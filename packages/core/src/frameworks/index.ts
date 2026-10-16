@@ -6,8 +6,15 @@ import type { FrameworkStrategy } from './types.js';
 export type { FrameworkStrategy } from './types.js';
 export { detectPackageManager } from './node.js';
 
+/** Every supported stack. To add one, implement `FrameworkStrategy` and append it here (D-005). */
 export const FRAMEWORK_STRATEGIES: FrameworkStrategy[] = [nodeStrategy, pythonStrategy, envStrategy];
 
+/**
+ * The strategies whose `detect()` matches the project, in `FRAMEWORK_STRATEGIES` order.
+ *
+ * @example
+ * (await detectStrategies('/code/app')).map((s) => s.name); // → ['NodeStrategy', 'EnvStrategy']
+ */
 export async function detectStrategies(root: string): Promise<FrameworkStrategy[]> {
   const found: FrameworkStrategy[] = [];
   for (const s of FRAMEWORK_STRATEGIES) if (await s.detect(root)) found.push(s);

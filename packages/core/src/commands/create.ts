@@ -47,6 +47,23 @@ interface Ctx {
   log: Logger;
 }
 
+/**
+ * Creates a ready-to-use worktree for a branch: checkout, shared dependencies, port and IDE color.
+ *
+ * Steps: ensure `.para-space.json` (asks on first run) → `git worktree add` in `../<repo>-<slug>`
+ * → reserve index and port under the state lock → symlink `node_modules` / `.venv` / `.env` →
+ * write the port to `.env.local` → optional IDE settings → ledger entry. If any step after the
+ * checkout fails, everything is rolled back (D-022). See FLOW.md §1.
+ *
+ * @param opts - `cwd` (any dir in the repo), `branch`, optional `base`, `requirement`, `ide`,
+ *   `prompter` (omit for non-interactive), first-run port options and `log`.
+ * @returns Where the worktree is, its port and color, and what was linked.
+ * @throws If the target directory exists, git fails, or the port pool is exhausted.
+ *
+ * @example
+ * const wt = await createWorktree({ cwd: '/code/app', branch: 'feat/TK-101', base: 'main', ide: 'no' });
+ * // wt.path === '/code/app-feat-TK-101', wt.port === 3001
+ */
 export async function createWorktree(opts: CreateOptions): Promise<CreateResult> {
   const log = opts.log ?? silentLogger;
   const mainRoot = await git.mainRepoRoot(opts.cwd);
