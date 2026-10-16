@@ -42,14 +42,8 @@ The first `create` in a repo asks for a port strategy and saves it to `.para-spa
 | [PROJECT_PLAN.md](PROJECT_PLAN.md) | Full specification, architecture and phased roadmap |
 | [DECISIONS.md](DECISIONS.md) | Decision log — why each design choice was made, plus open questions |
 | [FLOW.md](FLOW.md) | How each operation works step by step (current intended behavior) |
+| [GUIDELINES.md](GUIDELINES.md) | Rules every contributor follows; updated whenever a new rule is agreed |
 
-## Keeping the docs current — after every change
+## Contributing
 
-This applies to every contributor, human or AI agent. After any change to code, design, scope, config format, or behavior, update both files as part of the same change:
-
-- **[DECISIONS.md](DECISIONS.md)** — append a new `D-NNN` entry (Requirement Context / Decision Made / Problem Solved) and add it to the index. Never edit an accepted entry; supersede it with a new one. Move resolved items out of Open Questions.
-- **[FLOW.md](FLOW.md)** — edit the affected flow section in place, update its `Status` / `Last updated` / `Decisions` line, and add a changelog row.
-
-Code comments follow [D-028](DECISIONS.md): TSDoc with an `@example` on everything `@para-space/core` exports; at most one "why" line on internal helpers.
-
-Pure refactors with no behavior change still get a FLOW.md changelog row if they move components; skip DECISIONS.md only when no choice was made.
+Every contributor, human or AI agent, follows **[GUIDELINES.md](GUIDELINES.md)**: living docs after every change, code structure, comments, concurrency, safety, testing and commits. When a new working rule is agreed, it is added there.

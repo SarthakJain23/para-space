@@ -40,6 +40,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-026 | Project renamed to para-space; CLI renamed to `para` | Accepted | 2026-10-16 |
 | D-027 | Lock file serializes state writes; `create` reserves its slot under the lock | Accepted | 2026-10-16 |
 | D-028 | TSDoc on the public API; one-line "why" comments elsewhere | Accepted | 2026-10-16 |
+| D-029 | GUIDELINES.md is the single home for contributor rules | Accepted | 2026-10-16 |
 
 ---
 
@@ -216,6 +217,13 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Requirement Context:** The user wanted every function commented with its responsibility, definition and example. The VS Code extension (Phase 2) is about to consume `@para-space/core`, so its API needs to explain itself where it's used.
 - **Decision Made:** Documentation scales with how public a symbol is. (1) Everything exported from `@para-space/core`'s `index.ts`, plus `withFileLock` and `updateRepoState`, gets TSDoc: a one-line summary, then responsibility and constraints, then `@param` / `@returns` / `@throws` where they add something beyond the types, and an `@example`. (2) Internal helpers get at most one line explaining *why*, not *what*. (3) Self-explanatory functions get no comment. Comments point to `D-NNN` and FLOW.md sections instead of repeating them. Tests remain the executable examples.
 - **Problem Solved:** VS Code shows docs and examples on hover wherever the API is used, without comments that just restate the code and go stale. This is a convention only: it isn't enforced by lint yet (`eslint-plugin-jsdoc` is an option), and TypeDoc could later generate an API reference from the same comments.
+
+
+## D-029 — GUIDELINES.md is the single home for contributor rules
+- **Status:** Accepted · 2026-10-16
+- **Requirement Context:** Working rules were spread across the README, decision entries and individual instructions. The user asked for one guidelines file, updated every time a new protocol is agreed.
+- **Decision Made:** `GUIDELINES.md` at the repo root holds every contributor rule as numbered items in sections (living docs, code structure, comments, state and concurrency, safety, testing, formatting and commits), each linking to the decision behind it. A new rule is added there in the same change that introduces it, with a changelog row. The README's "Keeping the docs current" section moved there; the README now only links to it. The file is tool-neutral, so no `CLAUDE.md` or other agent-specific files are added.
+- **Problem Solved:** Humans and AI agents have one place to read before working, and rules don't drift between several copies.
 
 ---
 
