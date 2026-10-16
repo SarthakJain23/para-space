@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { readTextIfExists } from './util/fs.js';
+import { withFileLock } from './util/lock.js';
 
 export type DepsMode = 'Source' | 'Symlinked' | 'Isolated' | 'None';
 
@@ -54,14 +55,24 @@ export async function writeState(state: StateFile): Promise<void> {
   await rename(tmp, statePath());
 }
 
-/** Read-modify-write helper for one repo's state. */
-export async function updateRepoState<T>(mainRoot: string, fn: (repo: RepoState) => T): Promise<T> {
-  const state = await readState();
-  const key = path.resolve(mainRoot);
-  const repo = (state.repos[key] ??= { worktrees: [] });
-  const result = fn(repo);
-  await writeState(state);
-  return result;
+export function stateLockPath(): string {
+  return path.join(stateDir(), 'state.lock');
+}
+
+/**
+ * Read-modify-write helper for one repo's state, serialized across processes by a lock file
+ * so concurrent `para` runs (CLI, extension, agents) never lose each other's updates (D-027).
+ */
+export async function updateRepoState<T>(mainRoot: string, fn: (repo: RepoState) => T | Promise<T>): Promise<T> {
+  await mkdir(stateDir(), { recursive: true });
+  return withFileLock(stateLockPath(), async () => {
+    const state = await readState();
+    const key = path.resolve(mainRoot);
+    const repo = (state.repos[key] ??= { worktrees: [] });
+    const result = await fn(repo);
+    await writeState(state);
+    return result;
+  });
 }
 
 export async function getRepoState(mainRoot: string): Promise<RepoState> {

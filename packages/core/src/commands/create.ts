@@ -11,9 +11,9 @@ import { unlinkIfSymlink } from '../link.js';
 import { worktreePathFor } from '../paths.js';
 import { allocateWorktreePort } from '../ports/index.js';
 import { type Logger, type Prompter, silentLogger } from '../prompts.js';
-import { type WorktreeRecord, getRepoState, nextWorktreeIndex, updateRepoState } from '../state.js';
-import { exists } from '../util/fs.js';
+import { type WorktreeRecord, nextWorktreeIndex, updateRepoState } from '../state.js';
 import { code, codeList } from '../util/format.js';
+import { exists } from '../util/fs.js';
 import { type EnsureConfigOptions, ensureConfig } from './config.js';
 
 export interface CreateOptions extends EnsureConfigOptions {
@@ -54,31 +54,29 @@ export async function createWorktree(opts: CreateOptions): Promise<CreateResult>
 
   const wtPath = worktreePathFor(mainRoot, opts.branch);
   if (await exists(wtPath)) throw new Error(`Target directory already exists: ${wtPath}`);
-  const records = (await getRepoState(mainRoot)).worktrees;
-  const index = nextWorktreeIndex(records);
 
   log.info(`Creating worktree at ${wtPath}…`);
   const { createdBranch } = await git.worktreeAdd(mainRoot, wtPath, opts.branch, opts.base);
 
-  const ctx: Ctx = { mainRoot, wtPath, index, config, strategies: await detectStrategies(mainRoot), log };
   const links: string[] = [];
   try {
+    // Reserve only after `git worktree add`, so a concurrent `list` never prunes the reservation.
+    const record = await reserveSlot(mainRoot, wtPath, opts.branch, config);
+    const ctx: Ctx = {
+      mainRoot,
+      wtPath,
+      index: record.index,
+      config,
+      strategies: await detectStrategies(mainRoot),
+      log,
+    };
     links.push(...(await linkShared(ctx)));
-    const port = await assignPort(ctx, records);
+    await writePort(ctx, record.port);
     const ide = await applyIdeSettings(ctx, opts);
 
-    const record: WorktreeRecord = {
-      branch: opts.branch,
-      path: wtPath,
-      index,
-      port,
-      color: ide?.color.hex,
-      links,
-      isolated: false,
-      createdAt: new Date().toISOString(),
-    };
+    Object.assign(record, { links, color: ide?.color.hex });
     await updateRepoState(mainRoot, (r) => {
-      r.worktrees = [...r.worktrees.filter((w) => w.path !== wtPath), record];
+      r.worktrees = r.worktrees.map((w) => (w.path === wtPath ? record : w));
     });
     await appendLedger(mainRoot, provisionedEntry(ctx, opts, record, createdBranch, ide?.color));
 
@@ -87,7 +85,7 @@ export async function createWorktree(opts: CreateOptions): Promise<CreateResult>
       path: wtPath,
       branch: opts.branch,
       createdBranch,
-      port,
+      port: record.port,
       color: record.color,
       strategies: ctx.strategies.map((s) => s.name),
       links,
@@ -95,7 +93,7 @@ export async function createWorktree(opts: CreateOptions): Promise<CreateResult>
     };
   } catch (err) {
     log.warn(`Create failed, rolling back: ${(err as Error).message}`);
-    await rollback(ctx, links, opts.branch, createdBranch);
+    await rollback(mainRoot, wtPath, links, opts.branch, createdBranch);
     throw err;
   }
 }
@@ -109,16 +107,35 @@ async function linkShared({ mainRoot, wtPath, strategies, log }: Ctx): Promise<s
   return links;
 }
 
-/** Allocate a port and write it to every configured env key in `.env.local` (D-004). */
-async function assignPort({ wtPath, index, config }: Ctx, records: WorktreeRecord[]): Promise<number | undefined> {
-  const port = await allocateWorktreePort(config, records, index);
-  if (port !== undefined) {
-    await upsertEnvFile(
-      path.join(wtPath, '.env.local'),
-      Object.fromEntries(config.envKeys.map((k) => [k, String(port)])),
-    );
-  }
-  return port;
+/**
+ * Claim the next index and a port and record the worktree, all under the state lock,
+ * so concurrent creates never pick the same slot (D-004, D-027).
+ */
+function reserveSlot(mainRoot: string, wtPath: string, branch: string, config: ParaSpaceConfig) {
+  return updateRepoState(mainRoot, async (r): Promise<WorktreeRecord> => {
+    const others = r.worktrees.filter((w) => w.path !== wtPath);
+    const index = nextWorktreeIndex(others);
+    const record: WorktreeRecord = {
+      branch,
+      path: wtPath,
+      index,
+      port: await allocateWorktreePort(config, others, index),
+      links: [],
+      isolated: false,
+      createdAt: new Date().toISOString(),
+    };
+    r.worktrees = [...others, record];
+    return record;
+  });
+}
+
+/** Write the reserved port to every configured env key in `.env.local`. */
+async function writePort({ wtPath, config }: Ctx, port: number | undefined): Promise<void> {
+  if (port === undefined) return;
+  await upsertEnvFile(
+    path.join(wtPath, '.env.local'),
+    Object.fromEntries(config.envKeys.map((k) => [k, String(port)])),
+  );
 }
 
 /** Write Peacock colors + strategy IDE settings, only with consent (D-006). */
@@ -150,9 +167,10 @@ async function hasIdeConsent(
   return prompter ? prompter.confirmIdeSettings(details) : false;
 }
 
-/** Undo a partially provisioned worktree (D-022). */
+/** Undo a partially provisioned worktree, including its slot reservation (D-022). */
 async function rollback(
-  { mainRoot, wtPath }: Ctx,
+  mainRoot: string,
+  wtPath: string,
   links: string[],
   branch: string,
   createdBranch: boolean,
@@ -160,6 +178,9 @@ async function rollback(
   for (const l of links) await unlinkIfSymlink(l).catch(() => {});
   await git.worktreeRemove(mainRoot, wtPath, true).catch(() => {});
   if (createdBranch) await git.branchDelete(mainRoot, branch, true).catch(() => {});
+  await updateRepoState(mainRoot, (r) => {
+    r.worktrees = r.worktrees.filter((w) => w.path !== wtPath);
+  }).catch(() => {});
 }
 
 function provisionedEntry(

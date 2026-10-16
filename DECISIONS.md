@@ -38,6 +38,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-024 | Prettier formats all code (not Markdown docs) | Accepted | 2026-10-16 |
 | D-025 | Pre-commit hook runs Prettier on staged files | Accepted | 2026-10-16 |
 | D-026 | Project renamed to para-space; CLI renamed to `para` | Accepted | 2026-10-16 |
+| D-027 | Lock file serializes state writes; `create` reserves its slot under the lock | Accepted | 2026-10-16 |
 
 ---
 
@@ -200,10 +201,17 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Decision Made:** The name changes everywhere: prose and types `ParaSpace` / `ParaSpaceConfig`; packages `@para-space/core` and `@para-space/cli` (root `para-space`); repo config `.para-space.json`; ledger dir `.para-space/`; machine state `~/.para-space/state.json`; env override `PARA_SPACE_HOME`; the `info/exclude` marker `# para-space`; CLI command `para`; folder `para-space`. Earlier entries were updated to the new names, since nothing had been released under the old ones.
 - **Problem Solved:** One consistent name across code, docs and on-disk files.
 
+
+## D-027 — Lock file serializes state writes; `create` reserves its slot under the lock
+- **Status:** Accepted · 2026-10-16
+- **Requirement Context:** Phase 2 adds the VS Code extension alongside the CLI and agents, so several `para` operations can now run at the same time (Open Question #1). Atomic writes (D-022) prevented corrupt files but not lost updates: two processes could read the same state and the last write would win. `create` also read state at the start and wrote it only at the end, so two creates could pick the same index and port.
+- **Decision Made:** `updateRepoState` holds an exclusive lock file, `~/.para-space/state.lock`, for the whole read-modify-write. The lock is created with `open(..., 'wx')`, which is atomic across processes, and stores `{pid, host, acquiredAt}`. Waiters retry with jitter and give up after 10 s with a message naming the file. A lock is treated as abandoned if its process on this host is dead or it is older than 30 s. One global lock, because `state.json` is one file shared by all repos. Reads (`getRepoState`) stay lock-free because writes are atomic. `create` now reserves a slot right after `git worktree add`: under the lock it picks the next index, allocates the port and writes a placeholder record. It fills in links and color at the end, and rollback removes the reservation. Reserving after `git worktree add` means a concurrent `list` never prunes the placeholder. The lock is not re-entrant, and `updateRepoState` callbacks may now be async.
+- **Problem Solved:** Concurrent creates get distinct indices and ports, and concurrent create/isolate/remove/list runs no longer overwrite each other's state.
+- **Known limit:** If two waiters reclaim the same stale lock at the same moment, one could delete the other's fresh lock. This needs a crashed holder plus a race within milliseconds, so it was accepted to keep the lock simple.
+
 ---
 
 ## Open Questions
 
-1. **Concurrent `para` runs** — state writes are atomic, but two simultaneous `create`s can still read the same state and pick the same index/port. Add a lock file?
-2. **Monorepo nested `node_modules`** — only the root `node_modules` is linked; per-package `node_modules` in workspaces is Phase 4.
-3. **Python port keys** — Django/Flask don't read `PORT` by default; should the Python strategy suggest framework-specific keys?
+1. **Monorepo nested `node_modules`** — only the root `node_modules` is linked; per-package `node_modules` in workspaces is Phase 4.
+2. **Python port keys** — Django/Flask don't read `PORT` by default; should the Python strategy suggest framework-specific keys?

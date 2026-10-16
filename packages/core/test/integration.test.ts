@@ -5,7 +5,8 @@ import { lstat, mkdir, mkdtemp, readFile, readlink, realpath, rm, writeFile } fr
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createWorktree, isolateWorktree, listWorktrees, removeWorktree } from '../src/commands/index.js';
 import type { Prompter } from '../src/prompts.js';
-import { readState } from '../src/state.js';
+import { readState, stateLockPath, updateRepoState } from '../src/state.js';
+import { withFileLock } from '../src/util/lock.js';
 
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
@@ -130,5 +131,48 @@ describe('worktree lifecycle', () => {
     expect(git(repo, 'branch', '--list', 'feat/fail')).toBe('');
     // main's node_modules survived the rollback
     expect((await lstat(path.join(repo, 'node_modules'))).isDirectory()).toBe(true);
+    // the slot reservation was released
+    expect((await readState()).repos[repo]?.worktrees ?? []).toEqual([]);
+  });
+});
+
+describe('concurrency (D-027)', () => {
+  it('parallel state updates never lose writes', async () => {
+    await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        updateRepoState(repo, (r) => {
+          r.worktrees.push({
+            branch: `b${i}`,
+            path: `/x/${i}`,
+            index: i + 1,
+            links: [],
+            isolated: false,
+            createdAt: '',
+          });
+        }),
+      ),
+    );
+    expect((await readState()).repos[repo].worktrees).toHaveLength(20);
+    await expect(lstat(stateLockPath())).rejects.toThrow(); // lock released
+  });
+
+  it('parallel creates get distinct indices and ports', async () => {
+    const results = await Promise.all(
+      ['a', 'b', 'c'].map((b) => createWorktree({ cwd: repo, branch: `feat/${b}`, base: 'main' })),
+    );
+    expect(results.map((r) => r.port).sort()).toEqual([3001, 3002, 3003]);
+    const indices = (await readState()).repos[repo].worktrees.map((w) => w.index).sort();
+    expect(indices).toEqual([1, 2, 3]);
+  });
+
+  it('reclaims a lock left by a dead process, but waits on a live one', async () => {
+    const lock = path.join(sandbox, 'test.lock');
+    const hold = (pid: number) => writeFile(lock, JSON.stringify({ pid, host: os.hostname(), acquiredAt: Date.now() }));
+
+    await hold(2 ** 22 + 12345); // above macOS/Linux pid limits → not alive
+    expect(await withFileLock(lock, async () => 'ok', { timeoutMs: 500 })).toBe('ok');
+
+    await hold(process.pid);
+    await expect(withFileLock(lock, async () => 'ok', { timeoutMs: 200 })).rejects.toThrow(/Timed out/);
   });
 });

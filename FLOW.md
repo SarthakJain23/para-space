@@ -19,7 +19,7 @@ VS Code ext ┘   resolve.ts  (find worktree)        ├── Git ignore helper
  (Phase 2)                                         ├── IDE Configurator      ide.ts, colors.ts (opt-in .vscode/settings.json)
                                                    ├── Context Logger        ledger.ts         (.para-space/context-history.md)
                                                    ├── State Store           state.ts          (~/.para-space/state.json)
-                                                   └── util/                 exec, fs, format  (shared helpers)
+                                                   └── util/                 exec, fs, format, lock  (shared helpers; lock = state.lock)
 ```
 
 Front-ends inject a Prompter; with none (agents, --yes, no TTY) core never prompts (D-020).
@@ -41,7 +41,7 @@ Files ParaSpace reads/writes:
 ---
 
 ## 1. Create Worktree — `para create <branch> [--base <ref>]`
-_Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-012–D-020, D-022_
+_Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-012–D-020, D-022, D-027_
 
 Flags: `--port-strategy`, `--base-port`, `--port-pool` (first run only), `--ide` / `--no-ide`, `-r/--requirement <text>`, `-y/--yes`, `--json`.
 
@@ -56,28 +56,32 @@ flowchart TD
     B -- Yes --> E[Load config]
     D --> E
     E --> F[git worktree add -b branch ../repo-slug base<br/>or reuse existing branch]
-    F --> G[Detect strategies in main repo]
+    F --> S[Under state.lock: pick index, allocate port,<br/>write placeholder record]
+    S --> G[Detect strategies in main repo]
     G --> H[Symlink node_modules / .venv / .env<br/>copy .env.local]
     H --> H2[Add links to info/exclude]
-    H2 --> J[Allocate port via strategy<br/>upsert envKeys in .env.local]
+    H2 --> J[Upsert reserved port into envKeys in .env.local]
     J --> K{--ide, --no-ide, or prompt consent}
     K -- Yes --> L[Merge color + interpreter into .vscode/settings.json]
     K -- No --> M[Skip]
-    L --> N[Record in state.json]
+    L --> N[Complete record in state.json: links, color]
     M --> N
     N --> O[Append ledger entry]
-    F -. any later step fails .-> R[Rollback: unlink, worktree remove --force,<br/>delete branch if created]
+    F -. any later step fails .-> R[Rollback: unlink, worktree remove --force,<br/>delete branch if created, drop reservation]
 ```
 
 1. Resolve the **main** repo root via `git rev-parse --git-common-dir` (works from inside any worktree). The target is `../<repo>-<slug>`, and it fails if that path already exists.
 2. **First run:** if `.para-space.json` is missing, ask the Prompter. With no Prompter, use `--port-strategy` (default `offset`). `envKeys` = `PORT` plus strategy defaults (`VITE_PORT` for Vite). Append `.para-space/` to `.gitignore` and write a ledger entry.
 3. `git worktree add -b <branch> <path> <base>`. If the branch already exists, it is checked out instead.
+3a. **Reserve a slot (D-027):** while holding `~/.para-space/state.lock`, take `worktreeIndex` = lowest unused index ≥ 1, allocate a port (`assignedPorts` = ports in state + `basePort`), and write a placeholder record. Concurrent creates therefore never share an index or port. This happens after `git worktree add` so a concurrent `list` doesn't prune the placeholder.
 4. For each detected `FrameworkStrategy`, call `linkDependencies()`. Node links `node_modules` (skipped for Yarn PnP). Python links `.venv`. Env links `.env` and copies `.env.local`. Existing paths in the worktree (e.g. a tracked `.env`) are left alone.
 5. Write root-anchored patterns for the links and `.env.local` to `$GIT_COMMON_DIR/info/exclude`.
-6. `worktreeIndex` = lowest unused index ≥ 1. `assignedPorts` = ports in state + `basePort`. Write the result to every `envKeys` entry in the worktree's `.env.local` (skipped for `passthrough`).
+6. Write the reserved port to every `envKeys` entry in the worktree's `.env.local` (skipped for `passthrough`).
 7. IDE settings: Peacock colors for the index, plus `configureIdeSettings()` (Python interpreter path → `<worktree>/.venv/bin/python`). Written only with `--ide` or interactive consent, merged into the existing JSONC settings.
-8. Record `{branch, path, index, port, color, links}` in state and append a ledger entry (the requirement comes from `--requirement`).
-9. If steps 4–8 fail, roll back (D-022).
+8. Complete the reserved record with `links` and `color`, then append a ledger entry (the requirement comes from `--requirement`).
+9. If steps 3a–8 fail, roll back (D-022), which also removes the reservation.
+
+Every state write (create, isolate, remove, list's prune) goes through `updateRepoState`, which holds `state.lock` for the whole read-modify-write. Waiters retry for up to 10 s. A lock whose process is dead, or that is older than 30 s, is reclaimed (D-027).
 
 ---
 
@@ -160,3 +164,4 @@ _Status: Planned (Phase 2) · Last updated: 2026-10-16 · Decisions: D-006, D-00
 | 2026-10-16 | Phase 1 implemented: create/list/isolate/remove flows updated with flags, info/exclude, env split, rollback, Python fresh venv, unlink-first remove | 0, 1, 2, 3, 4 | D-011 – D-022 |
 | 2026-10-16 | Refactor, no behaviour change: orchestrator split into `core/src/commands/*` (one file per flow), CLI split into `cli/src/commands/*`, shared helpers moved to `util/`; strategies declare `kind` | 0 | D-023 |
 | 2026-10-16 | Renamed ParallelTree → ParaSpace: CLI `para`, `.para-space.json`, `.para-space/`, `~/.para-space`, `PARA_SPACE_HOME` | All | D-026 |
+| 2026-10-16 | State writes serialized by `~/.para-space/state.lock`; `create` reserves index and port under the lock right after `git worktree add`, and rollback drops the reservation | 0, 1 | D-027 |
