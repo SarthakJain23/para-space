@@ -7,7 +7,7 @@ import { requireWorkspaceRoot } from '../workspace.js';
 import type { CommandContext } from './context.js';
 
 /** `paraSpace.removeWorktree`: row action; confirms (force if dirty, optional branch delete), runs core's `removeWorktree`. */
-export function registerRemove({ rt, tree }: CommandContext): vscode.Disposable {
+export function registerRemove({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.removeWorktree',
     action(rt, async ({ info }: WorktreeNode) => {
@@ -27,7 +27,7 @@ export function registerRemove({ rt, tree }: CommandContext): vscode.Disposable 
       const res = await withProgress(`Removing ${info.name}…`, () =>
         removeWorktree({ cwd, target: info.path, force: choice.force, deleteBranch: choice.deleteBranch, log: rt.log }),
       );
-      tree.refresh();
+      void store.load();
       if (choice.deleteBranch && !res.branchDeleted) {
         vscode.window.showWarningMessage(
           `Removed ${info.name}. Branch ${res.branch} was kept: it is not fully merged.`,

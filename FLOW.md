@@ -147,15 +147,30 @@ _Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-007, D-0
 ---
 
 ## 5. VS Code Extension
-_Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, and first-run port strategy dialogs implemented; status bar and ledger view planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032_
+_Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, first-run port strategy dialogs, status bar and worktree switcher implemented; ledger view and port strategy editing planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032, D-033_
 
 **Implemented:**
-- **Activation:** VS Code calls `activate()` when the ParaSpace view is first shown or a ParaSpace command first runs. It creates a `ParaSpace` output channel (core's `Logger`), the tree view, the commands and the change watchers.
+- **Activation:** `onStartupFinished`, so the status bar appears without opening the view. `activate()` creates the `ParaSpace` output channel (core's `Logger`), the `WorktreeStore`, the tree view, the status bar, the commands and the change watchers, then loads the store once.
+- **WorktreeStore** (D-033): the only caller of `listWorktrees` in the extension. `load()` records the repo root, rows and any error, then fires `onDidChange`. A load requested while one is running causes exactly one more load afterwards. The tree and status bar render from it, and commands call `store.load()` after a change. `current` is the row containing the window's folder, with the deepest match winning.
 - **Which repo:** the workspace folder of the active editor, else the first workspace folder.
 - **Sidebar** (activity bar container `paraSpace`, view `paraSpace.worktrees`): one flat row per worktree from core's `listWorktrees()`. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. With no folder open, a welcome message offers Open Folder. If listing fails, the error is shown above the empty tree and logged.
-- **Refresh:** the title-bar ↻ button (`paraSpace.refresh`), plus automatic, debounced (300 ms) refreshes when `~/.para-space/state.json` is created, changed or deleted (CLI or agent runs), when workspace folders change, and when the window regains focus (covers plain `git worktree` commands). Listing doesn't write `state.json` unless it prunes, so refreshes don't trigger themselves (D-031).
+- **Refresh:** the title-bar ↻ button (`paraSpace.refresh`), plus automatic, debounced (300 ms) store reloads when:
+  - `~/.para-space/state.json` is created, changed or deleted (CLI or agent runs),
+  - workspace folders change,
+  - the window regains focus (covers plain `git worktree` commands),
+  - the active editor moves to a different repo (multi-root).
+  Listing doesn't write `state.json` unless it prunes, so refreshes don't trigger themselves (D-031).
+- **Current worktree marker:** in the tree, the current worktree's row has a ✓ icon.
+- **Status bar** (left side):
+  - `$(git-branch) <branch> · :<port>`, or `$(repo) <branch>` for the main repo.
+  - Preceded by a ● dot in the worktree's ParaSpace color, when it has one.
+  - The tooltip shows path, branch, status, port and deps. Clicking opens the switcher.
+  - Hidden when the window's folder is not in a git repo.
 - **Open in New Window** (`paraSpace.openInNewWindow`): inline button and context-menu item on every row. Opens the worktree with `vscode.openFolder` and `forceNewWindow`. Hidden from the Command Palette because it needs a row.
-- **`ParaSpace: List Worktrees`** (`paraSpace.listWorktrees`): the same rows in a quick pick. Picking one opens it in a new window.
+- **`ParaSpace: List Worktrees`** (`paraSpace.listWorktrees`, the switcher; also opened from the status bar): reloads the store, then shows a quick pick.
+  - The first row is **Create Worktree…**, which runs `paraSpace.createWorktree`.
+  - Then every worktree, the current one marked ✓ and `current`.
+  - Picking another worktree opens it in a new window; picking the current one does nothing.
 - **Create Worktree…** (`paraSpace.createWorktree`, the **+** in the view title, also in the Command Palette):
   1. Input: branch name, validated in the box (no spaces, no `..`, `~ ^ : ? * [ \`, no leading `-`, no trailing `/` or `.lock`).
   2. If the branch doesn't exist yet: quick pick of the base from `listBranches()` (most recent first). An existing branch skips this step.
@@ -174,7 +189,6 @@ _Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate /
   - `removeWorktree` runs with progress. If a branch delete was asked for but the branch wasn't merged (non-force), a warning says the branch was kept.
 - **Errors:** command errors are written to the output channel and shown as a notification. A dismissed prompt (`CancelledError`) is not an error.
 - Row actions (Open, Isolate, Remove) are hidden from the Command Palette because they need a row.
-- **Status bar:** current worktree name + color; click opens a quick switcher.
 - **Port strategy UI / history view:** edit `.para-space.json`, browse `context-history.md`.
 
 ---
@@ -191,3 +205,4 @@ _Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate /
 | 2026-10-17 | VS Code extension scaffolded (`packages/vscode-extension`): activation, output-channel logger, `ParaSpace: List Worktrees` quick pick that opens the chosen worktree in a new window | 0, 5 | D-030 |
 | 2026-10-17 | Sidebar tree view with refresh button, auto-refresh (state.json watcher, folder changes, window focus) and Open in New Window; `list` writes state only when pruning | 2, 5 | D-031 |
 | 2026-10-17 | Extension gains Create / Isolate / Remove (dialogs, progress, force-on-dirty, refuse removing the open worktree) and `vscodePrompter`; core gains `listBranches()` and shared `PORT_STRATEGY_CHOICES` | 5 | D-032 |
+| 2026-10-17 | Status bar (color dot + branch · port) and worktree switcher (Create first, current marked); `WorktreeStore` shared by tree and status bar; activation on startup; reload when the active editor changes repo | 5 | D-033 |

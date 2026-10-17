@@ -44,6 +44,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-030 | Extension ships as one CommonJS bundle with core inlined | Accepted | 2026-10-17 |
 | D-031 | Tree view refreshes on state.json changes and focus; `list` writes only when pruning | Accepted | 2026-10-17 |
 | D-032 | Extension actions use modal confirms, a VS Code prompter and core-owned shared choices | Accepted | 2026-10-17 |
+| D-033 | Shared `WorktreeStore`; status bar with color dot; startup activation | Accepted | 2026-10-17 |
 
 ---
 
@@ -255,6 +256,19 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Code layout:** one module per command under `src/commands/`, mirroring the CLI.
   - **Testing:** vitest resolves `@para-space/core` to its source, so front-end tests never depend on a stale core build.
 - **Problem Solved:** The sidebar covers the whole worktree lifecycle without a terminal, with the same safety rules as the CLI and one source for shared text and git queries.
+
+
+## D-033 — Shared `WorktreeStore`; status bar with color dot; startup activation
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** Phase 2 step 4 adds a status bar item for the current worktree and a quick switcher. The tree and the status bar need the same data. Calling `listWorktrees` from each, which runs `git status` per worktree, would double the work on every refresh, and the two could disagree.
+- **Decision Made:**
+  - **One store.** A single `WorktreeStore` owns loading. The tree and status bar subscribe to `onDidChange`; commands and watchers call `store.load()`. Overlapping load requests collapse into one extra run, so the last change is never missed and loads never pile up.
+  - **Current worktree** = the row whose path contains the window's folder, with the deepest match winning. It's marked ✓ in the tree and the switcher.
+  - **Status bar** = two items: a ● dot colored with the worktree's ParaSpace color, and `branch · :port`. VS Code only lets a status bar item's *background* use error or warning theme colors, so a tinted foreground dot is the only way to show an arbitrary hex color. The dot is hidden when there's no recorded color (the main repo and unmanaged worktrees).
+  - **Switcher.** `paraSpace.listWorktrees` becomes the switcher (same id, so nothing breaks), with **Create Worktree…** as its first row.
+  - **Activation.** `onStartupFinished`, so the status bar shows without opening the view, without slowing VS Code's startup.
+  - **Multi-root.** Switching the active editor reloads only when it moves to a different repo.
+- **Problem Solved:** Every window shows which worktree it is and its port at a glance, and switching takes two clicks. All views stay consistent at the cost of one `listWorktrees` per refresh.
 
 ---
 

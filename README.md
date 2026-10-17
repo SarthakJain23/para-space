@@ -2,7 +2,7 @@
 
 Parallel workspace orchestrator for multi-agent and multi-task IDE workflows: Git worktrees with zero-duplication dependency sharing, per-worktree ports, and opt-in IDE window coloring. Ships as a CLI (`para`) and a VS Code extension.
 
-> Status: Phase 1 (core engine + `para` CLI) implemented. Phase 2 (VS Code extension) in progress: the ParaSpace sidebar works: list with auto-refresh, plus Create, Open in New Window, Isolate and Remove. The status bar and ledger view are still to come. File watchers (Phase 3) are not built yet.
+> Status: Phase 1 (core engine + `para` CLI) implemented. Phase 2 (VS Code extension) in progress: the ParaSpace sidebar works (list with auto-refresh, plus Create, Open in New Window, Isolate and Remove), as do the status bar indicator and the worktree switcher. The ledger view is still to come. File watchers (Phase 3) are not built yet.
 
 ## Quick start
 
@@ -36,7 +36,7 @@ The first `create` in a repo asks for a port strategy and saves it to `.para-spa
 | `packages/core/src/{frameworks,ports}/` | Strategy patterns: Node/Python/Env and offset/scan/pool/passthrough |
 | `packages/core/src/util/` | Shared helpers (exec, fs, markdown formatting) |
 | `packages/cli/src/commands/` | One file per `para` command; `runtime.ts` holds the shared logger, prompter choice and error handling |
-| `packages/vscode-extension/src/` | `extension.ts` (activation wiring), `commands/` (one file per command), `tree.ts` (sidebar), `refresh.ts` (auto-refresh), `prompter.ts` (VS Code `Prompter`), `runtime.ts` (logger, errors, dialogs), `workspace.ts`, and the vscode-free `items.ts` / `dialogs.ts`; bundled with core into one CommonJS file |
+| `packages/vscode-extension/src/` | `extension.ts` (activation wiring), `commands/` (one file per command), `tree.ts` (sidebar), `store.ts` (the one place worktrees are loaded), `statusbar.ts`, `refresh.ts` (auto-refresh), `prompter.ts` (VS Code `Prompter`), `runtime.ts` (logger, errors, dialogs), `workspace.ts`, and the vscode-free `items.ts` / `dialogs.ts`; bundled with core into one CommonJS file |
 | `.vscode/launch.json`, `tasks.json` | F5 launch config for developing the extension |
 
 ## Documentation

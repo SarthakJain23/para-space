@@ -1,23 +1,29 @@
-import { listWorktrees } from '@para-space/core';
 import * as vscode from 'vscode';
-import { toWorktreeItem } from '../items.js';
+import { CREATE_ITEM, switcherItems } from '../items.js';
 import { action, pick } from '../runtime.js';
 import type { WorktreeNode } from '../tree.js';
 import { requireWorkspaceRoot } from '../workspace.js';
 import { type CommandContext, openInNewWindow } from './context.js';
 
-/** `paraSpace.listWorktrees`: quick pick of all worktrees; the chosen one opens in a new window. */
-export function registerList({ rt }: CommandContext): vscode.Disposable {
+/**
+ * `paraSpace.listWorktrees`: the worktree switcher (also opened from the status bar).
+ * "Create Worktree…" first, then every worktree with the current one checked; picking
+ * another worktree opens it in a new window.
+ */
+export function registerList({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.listWorktrees',
     action(rt, async () => {
-      const rows = await listWorktrees({ cwd: requireWorkspaceRoot(), log: rt.log });
-      const picked = await pick(rows.map(toWorktreeItem), {
+      requireWorkspaceRoot();
+      await store.load();
+      if (store.error) throw new Error(store.error);
+      const picked = await pick(switcherItems(store.rows, store.current), {
         title: 'ParaSpace Worktrees',
-        placeHolder: 'Select a worktree to open in a new window',
+        placeHolder: 'Switch to a worktree (opens in a new window)',
         matchOnDescription: true,
       });
-      await openInNewWindow(picked.path);
+      if (picked === CREATE_ITEM) await vscode.commands.executeCommand('paraSpace.createWorktree');
+      else if (picked.path && !picked.current) await openInNewWindow(picked.path);
     }),
   );
 }
@@ -33,9 +39,9 @@ export function registerOpen({ rt }: CommandContext): vscode.Disposable {
 }
 
 /** `paraSpace.refresh`: the ↻ button in the view title. */
-export function registerRefresh({ rt, tree }: CommandContext): vscode.Disposable {
+export function registerRefresh({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.refresh',
-    action(rt, async () => tree.refresh()),
+    action(rt, () => store.load()),
   );
 }

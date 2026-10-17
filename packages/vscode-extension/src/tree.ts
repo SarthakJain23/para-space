@@ -1,15 +1,18 @@
-import { type Logger, type WorktreeInfo, listWorktrees } from '@para-space/core';
+import type { WorktreeInfo } from '@para-space/core';
 import * as vscode from 'vscode';
 import { describeWorktree, worktreeTooltip } from './items.js';
-import { findWorkspaceRoot } from './workspace.js';
+import type { WorktreeStore } from './store.js';
 
 /** A row in the Worktrees view. `contextValue` drives which menu actions appear (see package.json). */
 export class WorktreeNode extends vscode.TreeItem {
-  constructor(readonly info: WorktreeInfo) {
+  constructor(
+    readonly info: WorktreeInfo,
+    isCurrent: boolean,
+  ) {
     super(info.name, vscode.TreeItemCollapsibleState.None);
     this.description = describeWorktree(info);
     this.tooltip = worktreeTooltip(info);
-    this.iconPath = new vscode.ThemeIcon(info.isMain ? 'repo' : 'git-branch');
+    this.iconPath = new vscode.ThemeIcon(isCurrent ? 'check' : info.isMain ? 'repo' : 'git-branch');
     // worktree.main · worktree.linked · worktree.linked.shared (deps still symlinked → can isolate)
     this.contextValue = info.isMain
       ? 'worktree.main'
@@ -17,44 +20,35 @@ export class WorktreeNode extends vscode.TreeItem {
   }
 }
 
-/** Data source for the `paraSpace.worktrees` view: one flat list from core's `listWorktrees()`. */
-export class WorktreeTreeProvider implements vscode.TreeDataProvider<WorktreeNode> {
+/** Renders the `paraSpace.worktrees` view from the store: one flat list, current worktree checked. */
+export class WorktreeTreeProvider implements vscode.TreeDataProvider<WorktreeNode>, vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.changed.event;
-  /** Set by `extension.ts`; shows load errors above the (empty) tree. */
-  view?: vscode.TreeView<WorktreeNode>;
+  readonly view: vscode.TreeView<WorktreeNode>;
+  private readonly subscription: vscode.Disposable;
 
-  constructor(private readonly log: Logger) {}
-
-  refresh(): void {
-    this.changed.fire();
+  constructor(private readonly store: WorktreeStore) {
+    this.view = vscode.window.createTreeView('paraSpace.worktrees', { treeDataProvider: this });
+    this.subscription = store.onDidChange(() => {
+      // With no folder open the rows are empty and the view's welcome text explains what to do.
+      this.view.message = store.error ? `Could not list worktrees for ${store.root}: ${store.error}` : undefined;
+      this.changed.fire();
+    });
   }
 
   getTreeItem(node: WorktreeNode): WorktreeNode {
     return node;
   }
 
-  async getChildren(node?: WorktreeNode): Promise<WorktreeNode[]> {
+  getChildren(node?: WorktreeNode): WorktreeNode[] {
     if (node) return [];
-    const cwd = findWorkspaceRoot();
-    if (!cwd) return []; // the view's welcome text explains what to do
-    try {
-      const rows = await listWorktrees({ cwd, log: this.log });
-      this.setMessage(undefined);
-      return rows.map((r) => new WorktreeNode(r));
-    } catch (err) {
-      const message = (err as Error).message;
-      this.log.warn(message);
-      this.setMessage(`Could not list worktrees for ${cwd}: ${message}`);
-      return [];
-    }
+    const current = this.store.current;
+    return this.store.rows.map((r) => new WorktreeNode(r, r.path === current?.path));
   }
 
   dispose(): void {
+    this.subscription.dispose();
+    this.view.dispose();
     this.changed.dispose();
-  }
-
-  private setMessage(message: string | undefined): void {
-    if (this.view) this.view.message = message;
   }
 }

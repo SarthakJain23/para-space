@@ -6,7 +6,7 @@ import { requireWorkspaceRoot } from '../workspace.js';
 import type { CommandContext } from './context.js';
 
 /** `paraSpace.isolateWorktree`: row action; confirms, asks an optional reason, runs core's `isolateWorktree`. */
-export function registerIsolate({ rt, tree }: CommandContext): vscode.Disposable {
+export function registerIsolate({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.isolateWorktree',
     action(rt, async ({ info }: WorktreeNode) => {
@@ -33,7 +33,7 @@ export function registerIsolate({ rt, tree }: CommandContext): vscode.Disposable
       const res = await withProgress(`Isolating dependencies of ${info.name}…`, () =>
         isolateWorktree({ cwd: requireWorkspaceRoot(), target: info.path, reason, log: rt.log }),
       );
-      tree.refresh();
+      void store.load();
       vscode.window.showInformationMessage(
         res.isolated.length
           ? `${info.name} now has its own dependencies (${res.isolated.join(', ')}).`

@@ -13,7 +13,7 @@ const TITLE = 'ParaSpace: Create Worktree';
  * `paraSpace.createWorktree`: asks for branch, base (only for a new branch) and an optional
  * reason, then runs core's `createWorktree` with editor dialogs as the prompter.
  */
-export function registerCreate({ rt, tree }: CommandContext): vscode.Disposable {
+export function registerCreate({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.createWorktree',
     action(rt, async () => {
@@ -48,7 +48,7 @@ export function registerCreate({ rt, tree }: CommandContext): vscode.Disposable 
       const res = await withProgress(`Creating worktree ${branch}…`, () =>
         createWorktree({ cwd, branch, base, requirement, prompter: vscodePrompter, ide: 'ask', log: rt.log }),
       );
-      tree.refresh();
+      void store.load();
 
       const open = 'Open in New Window';
       const port = res.port !== undefined ? ` on port ${res.port}` : '';
