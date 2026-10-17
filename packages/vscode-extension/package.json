@@ -14,13 +14,76 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "paraSpace",
+          "title": "ParaSpace",
+          "icon": "media/para-space.svg"
+        }
+      ]
+    },
+    "views": {
+      "paraSpace": [
+        {
+          "id": "paraSpace.worktrees",
+          "name": "Worktrees",
+          "icon": "media/para-space.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "paraSpace.worktrees",
+        "contents": "Open a folder inside a git repository to see its worktrees.\n[Open Folder](command:vscode.openFolder)"
+      }
+    ],
     "commands": [
       {
         "command": "paraSpace.listWorktrees",
         "title": "List Worktrees",
         "category": "ParaSpace"
+      },
+      {
+        "command": "paraSpace.refresh",
+        "title": "Refresh",
+        "category": "ParaSpace",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "paraSpace.openInNewWindow",
+        "title": "Open in New Window",
+        "category": "ParaSpace",
+        "icon": "$(empty-window)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "paraSpace.refresh",
+          "when": "view == paraSpace.worktrees",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "paraSpace.openInNewWindow",
+          "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\./",
+          "group": "inline"
+        },
+        {
+          "command": "paraSpace.openInNewWindow",
+          "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\./",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "paraSpace.openInNewWindow",
+          "when": "false"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "tsup",

@@ -4,7 +4,7 @@ import { loadConfig } from '../config.js';
 import { sharedPaths } from '../frameworks/index.js';
 import * as git from '../git.js';
 import { mainRepoPort } from '../ports/index.js';
-import { type DepsMode, updateRepoState } from '../state.js';
+import { type DepsMode, getRepoState, updateRepoState } from '../state.js';
 import type { CommonOptions } from './types.js';
 
 export interface WorktreeInfo {
@@ -36,6 +36,7 @@ async function depsModeOf(wtPath: string, isMain: boolean): Promise<DepsMode> {
  * Lists the main repo and every worktree with branch, dirty count, port and dependency mode.
  *
  * Git is the source of truth: state records whose worktree no longer exists are pruned.
+ * `state.json` is written only when there is something to prune.
  * Worktrees not created by ParaSpace are included with `managed: false`. See FLOW.md §2.
  *
  * @param opts - `cwd`: any directory inside the repo or one of its worktrees.
@@ -52,11 +53,13 @@ export async function listWorktrees(opts: CommonOptions): Promise<WorktreeInfo[]
   const trees = (await git.worktreeList(mainRoot)).filter((t) => !t.bare);
   const livePaths = new Set(trees.map((t) => path.resolve(t.path)));
 
-  // Prune state entries whose worktree no longer exists.
-  const records = await updateRepoState(mainRoot, (r) => {
-    r.worktrees = r.worktrees.filter((w) => livePaths.has(w.path));
-    return new Map(r.worktrees.map((w) => [w.path, w]));
-  });
+  // Prune state entries whose worktree no longer exists. Write only when something is stale,
+  // so listing never touches state.json (the extension refreshes when it changes) (D-031).
+  const known = (await getRepoState(mainRoot)).worktrees;
+  const live = known.some((w) => !livePaths.has(w.path))
+    ? await updateRepoState(mainRoot, (r) => (r.worktrees = r.worktrees.filter((w) => livePaths.has(w.path))))
+    : known;
+  const records = new Map(live.map((w) => [w.path, w]));
 
   return Promise.all(
     trees.map(async (t): Promise<WorktreeInfo> => {

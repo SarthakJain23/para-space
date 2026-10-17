@@ -1,6 +1,6 @@
 import type { WorktreeInfo } from '@para-space/core';
 import { describe, expect, it } from 'vitest';
-import { toWorktreeItem } from '../src/items.js';
+import { describeWorktree, toWorktreeItem, worktreeTooltip } from '../src/items.js';
 
 const row = (over: Partial<WorktreeInfo>): WorktreeInfo => ({
   name: 'app-feat-x',
@@ -24,8 +24,30 @@ describe('toWorktreeItem', () => {
   });
 
   it('omits a missing port and flags unmanaged worktrees', () => {
-    expect(toWorktreeItem(row({ branch: undefined, depsMode: 'None', managed: false })).description).toBe(
+    expect(describeWorktree(row({ branch: undefined, depsMode: 'None', managed: false }))).toBe(
       '(no branch) · clean · None · unmanaged',
     );
+  });
+});
+
+describe('worktreeTooltip', () => {
+  it('lists path, branch, status, port and deps mode', () => {
+    expect(worktreeTooltip(row({ dirty: 1, port: 3001 }))).toBe(
+      [
+        'app-feat-x',
+        '/code/app-feat-x',
+        '',
+        'Branch: feat/x',
+        'Status: 1 uncommitted change(s)',
+        'Port: 3001',
+        'Dependencies: Symlinked',
+      ].join('\n'),
+    );
+  });
+
+  it('notes missing ports and unmanaged worktrees', () => {
+    const tip = worktreeTooltip(row({ managed: false }));
+    expect(tip).toContain('Port: not assigned');
+    expect(tip).toContain('Not created by ParaSpace.');
   });
 });

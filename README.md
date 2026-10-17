@@ -2,7 +2,7 @@
 
 Parallel workspace orchestrator for multi-agent and multi-task IDE workflows: Git worktrees with zero-duplication dependency sharing, per-worktree ports, and opt-in IDE window coloring. Ships as a CLI (`para`) and a VS Code extension.
 
-> Status: Phase 1 (core engine + `para` CLI) implemented. Phase 2 (VS Code extension) in progress: scaffold and `ParaSpace: List Worktrees` work. File watchers (Phase 3) are not built yet.
+> Status: Phase 1 (core engine + `para` CLI) implemented. Phase 2 (VS Code extension) in progress: the ParaSpace sidebar (worktree list, auto-refresh, Open in New Window) and `ParaSpace: List Worktrees` work. File watchers (Phase 3) are not built yet.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ para isolate feat/TK-101        # break the shared node_modules/.venv link
 para remove feat/TK-101 --delete-branch
 ```
 
-**VS Code extension (development):** open this repo in VS Code and press **F5** (Run → "Run ParaSpace Extension"). It builds core and the extension, then opens an Extension Development Host window. In that window, open any git repo and run **ParaSpace: List Worktrees** from the Command Palette. Logs are in the Output panel under "ParaSpace".
+**VS Code extension (development):** open this repo in VS Code and press **F5** (Run → "Run ParaSpace Extension"). It builds core and the extension, then opens an Extension Development Host window. In that window, open any git repo and click the **ParaSpace** icon in the activity bar, or run **ParaSpace: List Worktrees** from the Command Palette. Logs are in the Output panel under "ParaSpace".
 
 The first `create` in a repo asks for a port strategy and saves it to `.para-space.json`, which you should commit. For agents and scripts, pass `--yes`, and optionally `--port-strategy <offset|scan|pool|passthrough>` and `--ide`. Nothing will prompt.
 
@@ -36,7 +36,7 @@ The first `create` in a repo asks for a port strategy and saves it to `.para-spa
 | `packages/core/src/{frameworks,ports}/` | Strategy patterns: Node/Python/Env and offset/scan/pool/passthrough |
 | `packages/core/src/util/` | Shared helpers (exec, fs, markdown formatting) |
 | `packages/cli/src/commands/` | One file per `para` command; `runtime.ts` holds the shared logger, prompter choice and error handling |
-| `packages/vscode-extension/src/` | `extension.ts` (activation, commands) and vscode-free view helpers such as `items.ts`; bundled with core into one CommonJS file |
+| `packages/vscode-extension/src/` | `extension.ts` (activation wiring), `commands.ts`, `tree.ts` (sidebar), `refresh.ts` (auto-refresh), `workspace.ts`, `runtime.ts` (logger, error handling), and the vscode-free `items.ts`; bundled with core into one CommonJS file |
 | `.vscode/launch.json`, `tasks.json` | F5 launch config for developing the extension |
 
 ## Documentation

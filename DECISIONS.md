@@ -42,6 +42,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-028 | TSDoc on the public API; one-line "why" comments elsewhere | Accepted | 2026-10-16 |
 | D-029 | GUIDELINES.md is the single home for contributor rules | Accepted | 2026-10-16 |
 | D-030 | Extension ships as one CommonJS bundle with core inlined | Accepted | 2026-10-17 |
+| D-031 | Tree view refreshes on state.json changes and focus; `list` writes only when pruning | Accepted | 2026-10-17 |
 
 ---
 
@@ -232,6 +233,13 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Requirement Context:** Phase 2 starts the VS Code extension, a third front end over core (D-008). VS Code loads extensions with `require()`, while core is ESM and depends on the ESM-only `get-port`. Published extensions should not depend on a `node_modules` folder.
 - **Decision Made:** New package `packages/vscode-extension` (package name `para-space-vscode`, display name ParaSpace, `private`). `tsup` bundles `src/extension.ts` into a single CommonJS `dist/extension.js` with source maps. `@para-space/core` is a devDependency and is inlined (`noExternal`); only `vscode` stays external. Engine `^1.90.0` with matching `@types/vscode`. There are no explicit `activationEvents`: since VS Code 1.74, contributed commands activate the extension on first use. Logic that doesn't need the VS Code API lives in vscode-free modules (e.g. `items.ts`) so vitest can test it. The root `.vscode/launch.json` and `tasks.json` make F5 build core and the extension and open an Extension Development Host. The first command is `ParaSpace: List Worktrees`. `publisher` is a placeholder (`para-space`) until a Marketplace publisher exists.
 - **Problem Solved:** The extension reuses core unchanged, installs without dependencies, starts fast, and is developed with the same toolchain as the other packages (D-011).
+
+
+## D-031 — Tree view refreshes on state.json changes and focus; `list` writes only when pruning
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** The sidebar must stay correct when worktrees are created or removed outside the extension: by the `para` CLI, by agents, or by plain `git worktree` commands. But `listWorktrees` rewrote `state.json` on every call, so a view that refreshes when `state.json` changes would trigger itself in an endless loop. Every list also took the state lock for no reason.
+- **Decision Made:** (1) `listWorktrees` reads state without the lock and calls `updateRepoState` only when some record's worktree is gone. Otherwise `state.json` isn't touched. (2) The extension refreshes the view, debounced by 300 ms, on: a `FileSystemWatcher` on `~/.para-space/state.json` (create, change, delete), workspace-folder changes, and the window regaining focus. Focus covers plain git commands, which never touch `state.json`. A manual ↻ button covers anything else. Polling and watching `.git/worktrees` were rejected: polling wastes work, and the git internals differ between the main repo and worktrees. (3) The tree is a flat list (main first). Rows carry `contextValue` `worktree.main` / `worktree.linked` so later actions can target one or the other. Open in New Window, an inline button on every row, came forward from roadmap step 4 because it was one line.
+- **Problem Solved:** The view stays in sync with CLI, agent and git activity without polling or refresh loops. Listing becomes fully read-only in the common case.
 
 ---
 

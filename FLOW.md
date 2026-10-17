@@ -88,10 +88,10 @@ Every state write (create, isolate, remove, list's prune) goes through `updateRe
 ---
 
 ## 2. List Worktrees — `para list` (`ls`)
-_Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-010_
+_Status: Implemented · Last updated: 2026-10-17 · Decisions: D-001, D-010, D-031_
 
 1. `git worktree list --porcelain` is the source of truth for paths and branches.
-2. Prune state entries whose worktree no longer exists, then merge state for port and color.
+2. Read state (no lock). Only if some entry's worktree no longer exists, prune it under the state lock. Otherwise `state.json` isn't written (D-031). Then merge state for port and color.
 3. For each worktree, `git status --porcelain` → `Clean` or `N dirty`.
 4. Deps mode (checks `node_modules` / `.venv`): `Source` (main repo), `Symlinked` (path is a link), `Isolated` (real directory), `None`.
 5. Main's port = `basePort` (none for `passthrough`). Worktrees not created by para are tagged `(unmanaged)`.
@@ -147,15 +147,19 @@ _Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-007, D-0
 ---
 
 ## 5. VS Code Extension
-_Status: In progress (Phase 2): scaffold and `ParaSpace: List Worktrees` implemented; the rest is planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-030_
+_Status: In progress (Phase 2): scaffold, sidebar tree view, `List Worktrees` and `Open in New Window` implemented; the rest is planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-030, D-031_
 
 **Implemented:**
-- **Activation:** VS Code calls `activate()` the first time a ParaSpace command runs. It creates a `ParaSpace` output channel, which serves as core's `Logger`.
-- **`ParaSpace: List Worktrees`** (`paraSpace.listWorktrees`): the repo is the workspace folder of the active editor, else the first workspace folder. The command calls core's `listWorktrees()` and shows a quick pick: name, then branch · clean/dirty · port · deps mode (and `unmanaged`), with the path as detail. Picking a row opens that worktree in a new window (`vscode.openFolder`, `forceNewWindow`). Errors are written to the output channel and shown as an error notification.
+- **Activation:** VS Code calls `activate()` when the ParaSpace view is first shown or a ParaSpace command first runs. It creates a `ParaSpace` output channel (core's `Logger`), the tree view, the commands and the change watchers.
+- **Which repo:** the workspace folder of the active editor, else the first workspace folder.
+- **Sidebar** (activity bar container `paraSpace`, view `paraSpace.worktrees`): one flat row per worktree from core's `listWorktrees()`. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. With no folder open, a welcome message offers Open Folder. If listing fails, the error is shown above the empty tree and logged.
+- **Refresh:** the title-bar ↻ button (`paraSpace.refresh`), plus automatic, debounced (300 ms) refreshes when `~/.para-space/state.json` is created, changed or deleted (CLI or agent runs), when workspace folders change, and when the window regains focus (covers plain `git worktree` commands). Listing doesn't write `state.json` unless it prunes, so refreshes don't trigger themselves (D-031).
+- **Open in New Window** (`paraSpace.openInNewWindow`): inline button and context-menu item on every row. Opens the worktree with `vscode.openFolder` and `forceNewWindow`. Hidden from the Command Palette because it needs a row.
+- **`ParaSpace: List Worktrees`** (`paraSpace.listWorktrees`): the same rows in a quick pick. Picking one opens it in a new window.
+- **Errors:** command errors are written to the output channel and shown as a notification.
 
 **Planned:**
-- **Sidebar:** read state + `git worktree list`; populate the ParaSpace sidebar tree view.
-- **Tree item actions:** Open in New Window · Isolate Dependencies · Delete Worktree — each calls the same core functions as the CLI.
+- **Tree item actions:** Isolate Dependencies · Delete Worktree · Create Worktree, each calling the same core functions as the CLI.
 - **Status bar:** current worktree name + color; click opens a quick switcher.
 - **Port strategy UI / history view:** edit `.para-space.json`, browse `context-history.md`.
 
@@ -171,3 +175,4 @@ _Status: In progress (Phase 2): scaffold and `ParaSpace: List Worktrees` impleme
 | 2026-10-16 | Renamed ParallelTree → ParaSpace: CLI `para`, `.para-space.json`, `.para-space/`, `~/.para-space`, `PARA_SPACE_HOME` | All | D-026 |
 | 2026-10-16 | State writes serialized by `~/.para-space/state.lock`; `create` reserves index and port under the lock right after `git worktree add`, and rollback drops the reservation | 0, 1 | D-027 |
 | 2026-10-17 | VS Code extension scaffolded (`packages/vscode-extension`): activation, output-channel logger, `ParaSpace: List Worktrees` quick pick that opens the chosen worktree in a new window | 0, 5 | D-030 |
+| 2026-10-17 | Sidebar tree view with refresh button, auto-refresh (state.json watcher, folder changes, window focus) and Open in New Window; `list` writes state only when pruning | 2, 5 | D-031 |

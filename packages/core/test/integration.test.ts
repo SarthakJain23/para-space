@@ -5,7 +5,7 @@ import { lstat, mkdir, mkdtemp, readFile, readlink, realpath, rm, writeFile } fr
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createWorktree, isolateWorktree, listWorktrees, removeWorktree } from '../src/commands/index.js';
 import type { Prompter } from '../src/prompts.js';
-import { readState, stateLockPath, updateRepoState } from '../src/state.js';
+import { readState, stateLockPath, statePath, updateRepoState } from '../src/state.js';
 import { withFileLock } from '../src/util/lock.js';
 
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -115,6 +115,20 @@ describe('worktree lifecycle', () => {
     expect((await lstat(path.join(repo, '.venv'))).isDirectory()).toBe(true);
     expect(await readFile(path.join(repo, '.env'), 'utf8')).toBe('SECRET=shh\n');
     expect(git(repo, 'branch', '--list', 'feat/*')).toBe('');
+    expect((await readState()).repos[repo].worktrees).toEqual([]);
+  });
+
+  it('list writes state.json only when it prunes (D-031)', async () => {
+    await listWorktrees({ cwd: repo });
+    await expect(lstat(statePath())).rejects.toThrow(); // nothing to prune → never written
+
+    const wt = (await createWorktree({ cwd: repo, branch: 'feat/x' })).path;
+    const before = (await lstat(statePath())).mtimeMs;
+    await listWorktrees({ cwd: repo });
+    expect((await lstat(statePath())).mtimeMs).toBe(before);
+
+    git(repo, 'worktree', 'remove', '--force', wt); // removed behind para's back → stale record
+    await listWorktrees({ cwd: repo });
     expect((await readState()).repos[repo].worktrees).toEqual([]);
   });
 

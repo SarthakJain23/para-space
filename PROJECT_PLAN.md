@@ -214,11 +214,11 @@ para remove feat/TK-101 --delete-branch
 
 ### Phase 2: VS Code Extension
 - [x] Initialize `packages/vscode-extension`.
-- [ ] Sidebar TreeView displaying active worktrees, branches, and statuses.
+- [x] Sidebar TreeView displaying active worktrees, branches, and statuses.
 - [ ] Status bar indicator and quick switcher.
 - [ ] Peacock-style window coloring (with permission prompt).
 - [ ] Interactive UI for selecting port strategies and viewing the decision history.
-- [ ] One-click "Launch in New Window".
+- [x] One-click "Launch in New Window".
 
 ### Phase 3: Safety, Watchers & Isolation
 - [ ] Manifest watcher: alert developer when `package.json` changes in a symlinked worktree.
