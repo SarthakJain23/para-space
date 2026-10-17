@@ -175,6 +175,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "package": "npx @vscode/vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
