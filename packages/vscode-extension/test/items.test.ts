@@ -1,11 +1,14 @@
-import type { WorktreeInfo } from '@para-space/core';
+import type { LedgerEntry, WorktreeInfo } from '@para-space/core';
 import { describe, expect, it } from 'vitest';
 import {
   CREATE_ITEM,
   currentWorktree,
   describeWorktree,
+  formatLedgerDate,
+  ledgerTooltip,
   statusBarText,
   switcherItems,
+  toLedgerDetails,
   toWorktreeItem,
   worktreeTooltip,
 } from '../src/items.js';
@@ -89,5 +92,58 @@ describe('switcher and status bar', () => {
     expect(statusBarText(feat)).toBe('$(git-branch) feat/x · :3001');
     expect(statusBarText(main)).toBe('$(repo) main · :3000');
     expect(statusBarText(row({ branch: undefined }))).toBe('$(git-branch) app-feat-x');
+  });
+});
+
+describe('ledger items', () => {
+  const entry: LedgerEntry = {
+    title: 'Worktree Created: feat/TK-101',
+    requirement: 'Auth redesign',
+    decisions: ['Symlinked node_modules', 'Assigned port 3001'],
+    problemSolved: 'Prevented port collision',
+    date: new Date('2026-10-17T14:30:00'),
+  };
+
+  it('formats dates consistently', () => {
+    expect(formatLedgerDate(entry.date)).toBe('2026-10-17 14:30');
+    expect(formatLedgerDate(undefined)).toBe('');
+  });
+
+  it('generates rich tooltip', () => {
+    const tip = ledgerTooltip(entry);
+    expect(tip).toContain('[2026-10-17 14:30] Worktree Created: feat/TK-101');
+    expect(tip).toContain('Requirement: Auth redesign');
+    expect(tip).toContain('• Symlinked node_modules');
+    expect(tip).toContain('• Assigned port 3001');
+    expect(tip).toContain('Problem Solved: Prevented port collision');
+  });
+
+  it('converts entry to details with correct icons and kinds', () => {
+    const details = toLedgerDetails(entry);
+    expect(details).toHaveLength(4);
+    expect(details[0]).toEqual({
+      kind: 'requirement',
+      label: 'Requirement: Auth redesign',
+      tooltip: 'Auth redesign',
+      icon: 'info',
+    });
+    expect(details[1]).toEqual({
+      kind: 'decision',
+      label: 'Decision: Symlinked node_modules',
+      tooltip: 'Symlinked node_modules',
+      icon: 'check',
+    });
+    expect(details[2]).toEqual({
+      kind: 'decision',
+      label: 'Decision: Assigned port 3001',
+      tooltip: 'Assigned port 3001',
+      icon: 'check',
+    });
+    expect(details[3]).toEqual({
+      kind: 'problemSolved',
+      label: 'Problem Solved: Prevented port collision',
+      tooltip: 'Prevented port collision',
+      icon: 'pass',
+    });
   });
 });

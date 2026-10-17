@@ -1,4 +1,4 @@
-import type { WorktreeInfo } from '@para-space/core';
+import type { LedgerEntry, WorktreeInfo } from '@para-space/core';
 import { isInside } from './dialogs.js';
 
 // Pure row text for the tree, switcher and status bar. No `vscode` import, so it is unit-testable (GUIDELINES 6.3).
@@ -103,4 +103,58 @@ export function statusBarText(w: WorktreeInfo): string {
   const icon = w.isMain ? 'repo' : 'git-branch';
   const port = w.port !== undefined ? ` · :${w.port}` : '';
   return `$(${icon}) ${w.branch ?? w.name}${port}`;
+}
+
+export interface LedgerDetailItem {
+  kind: 'requirement' | 'decision' | 'problemSolved';
+  label: string;
+  tooltip: string;
+  icon: string;
+}
+
+/** Formats a Date as YYYY-MM-DD HH:MM. */
+export function formatLedgerDate(d?: Date): string {
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Multi-line hover text for a ledger entry. */
+export function ledgerTooltip(e: LedgerEntry): string {
+  const d = formatLedgerDate(e.date);
+  return [
+    d ? `[${d}] ${e.title}` : e.title,
+    '',
+    `Requirement: ${e.requirement}`,
+    'Decisions:',
+    ...e.decisions.map((dec) => `  • ${dec}`),
+    `Problem Solved: ${e.problemSolved}`,
+  ].join('\n');
+}
+
+/** Decomposes a ledger entry into detail items for tree display. */
+export function toLedgerDetails(e: LedgerEntry): LedgerDetailItem[] {
+  const items: LedgerDetailItem[] = [
+    {
+      kind: 'requirement',
+      label: `Requirement: ${e.requirement}`,
+      tooltip: e.requirement,
+      icon: 'info',
+    },
+  ];
+  for (const d of e.decisions) {
+    items.push({
+      kind: 'decision',
+      label: `Decision: ${d}`,
+      tooltip: d,
+      icon: 'check',
+    });
+  }
+  items.push({
+    kind: 'problemSolved',
+    label: `Problem Solved: ${e.problemSolved}`,
+    tooltip: e.problemSolved,
+    icon: 'pass',
+  });
+  return items;
 }

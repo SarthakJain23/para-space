@@ -23,6 +23,21 @@ export interface EnsureConfigOptions extends CommonOptions {
   portPool?: string;
 }
 
+export interface UpdateConfigOptions extends CommonOptions {
+  /** Prompter for interactive choices when fields are omitted. */
+  prompter?: Prompter;
+  portStrategy?: PortStrategyName;
+  basePort?: number;
+  portPool?: string;
+  envKeys?: string[];
+  reason?: string;
+}
+
+export interface UpdateConfigResult {
+  config: ParaSpaceConfig;
+  previous?: ParaSpaceConfig;
+}
+
 async function chooseStrategy(opts: EnsureConfigOptions): Promise<PortStrategyAnswer> {
   const basePort = opts.basePort ?? DEFAULT_BASE_PORT;
   if (opts.portStrategy || !opts.prompter) {
@@ -69,4 +84,95 @@ export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config:
     problemSolved: 'Future worktrees reuse this choice without prompting; dev servers get non-colliding ports.',
   });
   return { config, created: true };
+}
+
+/**
+ * Reads the repository's `.para-space.json` configuration, if it exists.
+ *
+ * @param cwd - Working directory inside the repository or one of its worktrees.
+ * @returns The main repository root and the loaded config (or undefined if unconfigured).
+ *
+ * @example
+ * const { root, config } = await getConfig();
+ * if (config) console.log(config.portStrategy);
+ */
+export async function getConfig(cwd: string = process.cwd()): Promise<{ root: string; config?: ParaSpaceConfig }> {
+  const mainRoot = await git.mainRepoRoot(cwd);
+  const config = await loadConfig(mainRoot);
+  return { root: mainRoot, config };
+}
+
+/**
+ * Updates the repository's `.para-space.json` configuration and logs the change to the context ledger (D-004, D-007).
+ *
+ * If fields are omitted and a prompter is supplied, the prompter asks the user for choices,
+ * defaulting to the previous values. If no previous config exists, it creates one.
+ *
+ * @param opts - `cwd`, optional `prompter`, new configuration fields, and an optional `reason` for the ledger.
+ * @returns The updated config and the previous config (if any).
+ * @throws If values are invalid.
+ *
+ * @example
+ * const { config } = await updateConfig({
+ *   cwd: '/code/app',
+ *   portStrategy: 'scan',
+ *   reason: 'Avoid port clashes with Docker',
+ * });
+ */
+export async function updateConfig(opts: UpdateConfigOptions): Promise<UpdateConfigResult> {
+  const log = opts.log ?? silentLogger;
+  const mainRoot = await git.mainRepoRoot(opts.cwd);
+  const previous = await loadConfig(mainRoot);
+
+  let portStrategy = opts.portStrategy;
+  let basePort = opts.basePort;
+  let portPool = opts.portPool;
+
+  if (!portStrategy && opts.prompter) {
+    const answer = await opts.prompter.selectPortStrategy({
+      basePort: basePort ?? previous?.basePort ?? DEFAULT_BASE_PORT,
+    });
+    portStrategy = answer.portStrategy;
+    basePort = answer.basePort;
+    portPool = answer.portPool;
+  } else if (!portStrategy) {
+    portStrategy = previous?.portStrategy ?? 'offset';
+  }
+
+  basePort = basePort ?? previous?.basePort ?? DEFAULT_BASE_PORT;
+  const envKeys = opts.envKeys ?? previous?.envKeys ?? (await defaultEnvKeys(mainRoot));
+
+  const newConfig: ParaSpaceConfig = {
+    portStrategy,
+    basePort,
+    envKeys,
+  };
+  if (portPool !== undefined) {
+    newConfig.portPool = portPool;
+  } else if (previous?.portPool !== undefined && portStrategy === 'pool') {
+    newConfig.portPool = previous.portPool;
+  }
+
+  await saveConfig(mainRoot, newConfig);
+  const ignored = await ensureLines(path.join(mainRoot, '.gitignore'), [`${LEDGER_DIR}/`]);
+  log.info(`Updated ${CONFIG_FILE} (portStrategy: ${portStrategy}, basePort: ${basePort}).`);
+
+  const decisions = [
+    `Port strategy ${code(portStrategy)}, base port ${code(basePort)}, env keys ${codeList(envKeys)} saved to ${code(CONFIG_FILE)}.`,
+  ];
+  if (previous && previous.portStrategy !== portStrategy) {
+    decisions.push(`Changed port strategy from ${code(previous.portStrategy)} to ${code(portStrategy)}.`);
+  }
+  if (ignored.length) {
+    decisions.push(`Added ${code(`${LEDGER_DIR}/`)} to ${code('.gitignore')}.`);
+  }
+
+  await appendLedger(mainRoot, {
+    title: `Repository configuration updated: port strategy ${code(portStrategy)}`,
+    requirement: opts.reason ?? 'Developer updated repository port strategy configuration.',
+    decisions,
+    problemSolved: 'New worktrees will follow the updated port allocation rules.',
+  });
+
+  return { config: newConfig, previous };
 }

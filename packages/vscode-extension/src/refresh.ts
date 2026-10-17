@@ -20,14 +20,24 @@ export function watchForChanges(store: WorktreeStore): vscode.Disposable[] {
   };
 
   const file = statePath();
-  const watcher = vscode.workspace.createFileSystemWatcher(
+  const stateWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(vscode.Uri.file(path.dirname(file)), path.basename(file)),
   );
+  const repoWatcher = vscode.workspace.createFileSystemWatcher('**/.para-space/**');
+  const configWatcher = vscode.workspace.createFileSystemWatcher('**/.para-space.json');
   return [
-    watcher,
-    watcher.onDidCreate(schedule),
-    watcher.onDidChange(schedule),
-    watcher.onDidDelete(schedule),
+    stateWatcher,
+    stateWatcher.onDidCreate(schedule),
+    stateWatcher.onDidChange(schedule),
+    stateWatcher.onDidDelete(schedule),
+    repoWatcher,
+    repoWatcher.onDidCreate(schedule),
+    repoWatcher.onDidChange(schedule),
+    repoWatcher.onDidDelete(schedule),
+    configWatcher,
+    configWatcher.onDidCreate(schedule),
+    configWatcher.onDidChange(schedule),
+    configWatcher.onDidDelete(schedule),
     vscode.workspace.onDidChangeWorkspaceFolders(schedule),
     vscode.window.onDidChangeWindowState((s) => s.focused && schedule()),
     vscode.window.onDidChangeActiveTextEditor(() => findWorkspaceRoot() !== store.root && schedule()),

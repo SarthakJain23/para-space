@@ -5,6 +5,7 @@ import { mergeSettings, parseJsonc } from '../src/ide.js';
 import { slugify, worktreePathFor } from '../src/paths.js';
 import { getPortStrategy } from '../src/ports/index.js';
 import { PALETTE, colorForIndex, peacockSettings } from '../src/colors.js';
+import { formatEntry, parseLedger, type LedgerEntry } from '../src/ledger.js';
 
 describe('paths', () => {
   it('slugifies branch names', () => {
@@ -120,5 +121,60 @@ describe('ide settings', () => {
     for (const [key, value] of Object.entries(s)) {
       if (key.endsWith('Background')) expect(value).toMatch(/^#[0-9a-f]{6}$/);
     }
+  });
+});
+
+describe('ledger', () => {
+  it('formats and parses context ledger entries symmetrically', () => {
+    const entry: LedgerEntry = {
+      title: 'Repository configured: port strategy `scan`',
+      requirement: 'First ParaSpace worktree in this repository.',
+      decisions: [
+        'Port strategy `scan`, base port `3000`, env keys `PORT` saved to `.para-space.json`.',
+        'Added `.para-space/` to `.gitignore`.',
+      ],
+      problemSolved: 'Future worktrees reuse this choice without prompting.',
+      date: new Date('2026-10-17T12:00:00'),
+    };
+    const formatted = formatEntry(entry);
+    const parsed = parseLedger(formatted);
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].title).toBe('Repository configured: port strategy `scan`');
+    expect(parsed[0].requirement).toBe('First ParaSpace worktree in this repository.');
+    expect(parsed[0].decisions).toEqual([
+      'Port strategy `scan`, base port `3000`, env keys `PORT` saved to `.para-space.json`.',
+      'Added `.para-space/` to `.gitignore`.',
+    ]);
+    expect(parsed[0].problemSolved).toBe('Future worktrees reuse this choice without prompting.');
+    expect(parsed[0].date?.toISOString()).toBe(new Date('2026-10-17T12:00:00').toISOString());
+  });
+
+  it('parses multiple entries preserving order', () => {
+    const md = [
+      '# ParaSpace Context History',
+      '',
+      '## [2026-10-16 10:00] First Entry',
+      '- **Requirement Context:** Req 1',
+      '- **Decision Made:**',
+      '  - Dec 1a',
+      '  - Dec 1b',
+      '- **Problem Solved:** Solved 1',
+      '',
+      '## [2026-10-16 11:30] Second Entry',
+      '- **Requirement Context:** Req 2',
+      '- **Decision Made:**',
+      '  - Dec 2a',
+      '- **Problem Solved:** Solved 2',
+    ].join('\n');
+    const parsed = parseLedger(md);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].title).toBe('First Entry');
+    expect(parsed[1].title).toBe('Second Entry');
+  });
+
+  it('returns empty array for empty markdown or non-entry text', () => {
+    expect(parseLedger('')).toEqual([]);
+    expect(parseLedger('# Just a header\nSome intro text')).toEqual([]);
   });
 });

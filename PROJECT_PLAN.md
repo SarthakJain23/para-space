@@ -216,14 +216,14 @@ para remove feat/TK-101 --delete-branch
 - [x] Initialize `packages/vscode-extension`.
 - [x] Sidebar TreeView displaying active worktrees, branches, and statuses.
 - [x] Status bar indicator and quick switcher.
-- [ ] Peacock-style window coloring (with permission prompt).
-- [ ] Interactive UI for selecting port strategies and viewing the decision history.
+- [x] Peacock-style window coloring (with permission prompt and equal-lightness OKLCH palette, D-006, D-034).
+- [x] Interactive UI for selecting port strategies and viewing the decision history (D-035).
 - [x] One-click "Launch in New Window".
 
 ### Phase 3: Safety, Watchers & Isolation
-- [ ] Manifest watcher: alert developer when `package.json` changes in a symlinked worktree.
-- [ ] One-click / automated `para isolate` command.
-- [ ] macOS APFS Copy-on-Write (CoW) fast cloning support.
+- [ ] Manifest watcher: alert developer when `package.json` / dependency manifests change in a symlinked worktree.
+- [ ] Prompt / one-click automated isolation workflow when dependencies diverge.
+- [x] macOS APFS Copy-on-Write (CoW) fast cloning support in `core/src/link.ts`.
 
 ### Phase 4: Monorepo & Ecosystem Expansion
 - [ ] Monorepo support (pnpm workspaces, Turborepo, Nx).

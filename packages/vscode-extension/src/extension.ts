@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { registerCommands } from './commands/index.js';
+import { LedgerTreeProvider } from './ledgerTree.js';
 import { watchForChanges } from './refresh.js';
 import { createRuntime } from './runtime.js';
 import { createStatusBar } from './statusbar.js';
@@ -10,11 +11,14 @@ import { WorktreeTreeProvider } from './tree.js';
 export function activate(context: vscode.ExtensionContext): void {
   const rt = createRuntime();
   const store = new WorktreeStore(rt.log);
+  const worktreeTree = new WorktreeTreeProvider(store);
+  const ledgerTree = new LedgerTreeProvider(store);
 
   context.subscriptions.push(
     rt.output,
     store,
-    new WorktreeTreeProvider(store),
+    worktreeTree,
+    ledgerTree,
     createStatusBar(store),
     ...registerCommands({ rt, store }),
     ...watchForChanges(store),

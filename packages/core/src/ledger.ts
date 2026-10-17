@@ -36,6 +36,95 @@ export function formatEntry(e: LedgerEntry): string {
 }
 
 /**
+ * Parses markdown text of a context-history ledger into structured entries.
+ *
+ * @param markdown - Raw markdown text from `.para-space/context-history.md`.
+ * @returns Array of parsed entries in chronological order.
+ *
+ * @example
+ * const entries = parseLedger(markdownContent);
+ * console.log(entries[0].title);
+ */
+export function parseLedger(markdown: string): LedgerEntry[] {
+  const lines = markdown.split(/\r?\n/);
+  const entries: LedgerEntry[] = [];
+  let current: LedgerEntry | undefined;
+  let section: 'requirement' | 'decisions' | 'problemSolved' | undefined;
+
+  for (const line of lines) {
+    const headerMatch = /^##\s+\[(.*?)\]\s+(.*?)\s*$/.exec(line);
+    if (headerMatch) {
+      if (current) entries.push(current);
+      const [, rawDate, title] = headerMatch;
+      let date: Date | undefined;
+      const parsed = new Date(rawDate.replace(' ', 'T'));
+      if (!Number.isNaN(parsed.getTime())) date = parsed;
+      current = {
+        title,
+        requirement: '',
+        decisions: [],
+        problemSolved: '',
+        ...(date ? { date } : {}),
+      };
+      section = undefined;
+      continue;
+    }
+
+    if (!current) continue;
+
+    const reqMatch = /^\s*-\s+\*\*Requirement Context:\*\*\s*(.*)$/.exec(line);
+    if (reqMatch) {
+      current.requirement = reqMatch[1].trim();
+      section = 'requirement';
+      continue;
+    }
+
+    if (/^\s*-\s+\*\*Decision(?:s)? Made:\*\*\s*$/.test(line)) {
+      section = 'decisions';
+      continue;
+    }
+
+    const probMatch = /^\s*-\s+\*\*Problem Solved:\*\*\s*(.*)$/.exec(line);
+    if (probMatch) {
+      current.problemSolved = probMatch[1].trim();
+      section = 'problemSolved';
+      continue;
+    }
+
+    if (section === 'decisions') {
+      const bulletMatch = /^\s*-\s+(.*)$/.exec(line);
+      if (bulletMatch) {
+        current.decisions.push(bulletMatch[1].trim());
+      }
+    } else if (section === 'requirement' && line.startsWith('  ')) {
+      current.requirement += ' ' + line.trim();
+    } else if (section === 'problemSolved' && line.startsWith('  ')) {
+      current.problemSolved += ' ' + line.trim();
+    }
+  }
+
+  if (current) entries.push(current);
+  return entries;
+}
+
+/**
+ * Reads and parses the repo's context ledger (`<mainRoot>/.para-space/context-history.md`).
+ * Returns an empty array if the ledger file does not exist.
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @returns Array of parsed ledger entries in chronological order.
+ *
+ * @example
+ * const history = await readLedger('/path/to/repo');
+ * // history[0].title → 'Repository configured: port strategy `offset`'
+ */
+export async function readLedger(mainRoot: string): Promise<LedgerEntry[]> {
+  const text = await readTextIfExists(ledgerPath(mainRoot));
+  if (!text) return [];
+  return parseLedger(text);
+}
+
+/**
  * Appends a timestamped entry to the repo's context ledger, creating the file if needed (D-007).
  *
  * @example

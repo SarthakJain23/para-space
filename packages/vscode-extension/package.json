@@ -32,6 +32,10 @@
           "id": "paraSpace.worktrees",
           "name": "Worktrees",
           "icon": "media/para-space.svg"
+        },
+        {
+          "id": "paraSpace.ledger",
+          "name": "Context History"
         }
       ]
     },
@@ -39,6 +43,10 @@
       {
         "view": "paraSpace.worktrees",
         "contents": "Open a folder inside a git repository to see its worktrees.\n[Open Folder](command:vscode.openFolder)"
+      },
+      {
+        "view": "paraSpace.ledger",
+        "contents": "No context history recorded yet.\nContext is automatically recorded when worktrees are created or configured."
       }
     ],
     "commands": [
@@ -66,6 +74,18 @@
         "icon": "$(add)"
       },
       {
+        "command": "paraSpace.configureRepo",
+        "title": "Configure Port Strategy…",
+        "category": "ParaSpace",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "paraSpace.openLedgerFile",
+        "title": "Open Context History in Editor",
+        "category": "ParaSpace",
+        "icon": "$(go-to-file)"
+      },
+      {
         "command": "paraSpace.isolateWorktree",
         "title": "Isolate Dependencies…",
         "category": "ParaSpace"
@@ -85,8 +105,23 @@
           "group": "navigation@1"
         },
         {
+          "command": "paraSpace.configureRepo",
+          "when": "view == paraSpace.worktrees",
+          "group": "navigation@2"
+        },
+        {
           "command": "paraSpace.refresh",
           "when": "view == paraSpace.worktrees",
+          "group": "navigation@3"
+        },
+        {
+          "command": "paraSpace.openLedgerFile",
+          "when": "view == paraSpace.ledger",
+          "group": "navigation@1"
+        },
+        {
+          "command": "paraSpace.refresh",
+          "when": "view == paraSpace.ledger",
           "group": "navigation@2"
         }
       ],
@@ -110,6 +145,11 @@
           "command": "paraSpace.removeWorktree",
           "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\.linked/",
           "group": "3_remove"
+        },
+        {
+          "command": "paraSpace.openLedgerFile",
+          "when": "view == paraSpace.ledger && viewItem == ledger.entry",
+          "group": "inline"
         }
       ],
       "commandPalette": [

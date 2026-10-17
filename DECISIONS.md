@@ -46,6 +46,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-032 | Extension actions use modal confirms, a VS Code prompter and core-owned shared choices | Accepted | 2026-10-17 |
 | D-033 | Shared `WorktreeStore`; status bar with color dot; startup activation | Accepted | 2026-10-17 |
 | D-034 | Equal-lightness OKLCH window palette; color only title and status bars | Accepted | 2026-10-17 |
+| D-035 | Context history tree view and interactive port strategy configuration | Accepted | 2026-10-17 |
 
 ---
 
@@ -288,6 +289,19 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - `peacockSettings` now takes a `ColorProfile` instead of a hex string.
   - Existing worktrees keep the settings they were created with; the new colors apply to worktrees created from now on.
 - **Problem Solved:** Windows are identifiable at a glance by two calm bands of color that look like one designed family, with readable text everywhere and no muddy blends.
+
+
+## D-035 — Context history tree view and interactive port strategy configuration
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** Phase 2 required visual inspection of the decision ledger (`.para-space/context-history.md`) in the VS Code sidebar, and an interactive way to inspect and reconfigure repository port strategies without manually editing `.para-space.json`.
+- **Decision Made:**
+  - **Core:** Added `parseLedger()` and `readLedger()` to parse context ledger markdown into structured `LedgerEntry` objects (timestamp, requirement, decisions, problem solved). Added `updateConfig()` to validate and save `.para-space.json` while appending an update record to the ledger.
+  - **CLI:** Added `para config` to view active repository configuration, or update port strategy, base port, and pool options interactively or via flags.
+  - **Extension:**
+    - Secondary view `paraSpace.ledger` ("Context History") under the `paraSpace` container, rendering entries newest-first. Each entry expands into its Requirement, Decisions list, and Problem Solved with theme icons (`info`, `check`, `pass`).
+    - Title actions: `Open Context History in Editor` (`paraSpace.openLedgerFile`) and `Configure Port Strategy…` (`paraSpace.configureRepo`).
+    - File watchers: watching `**/.para-space/**` and `**/.para-space.json` debounced so changes made by the CLI or agents update the views immediately.
+- **Problem Solved:** Completed all Phase 2 features. Developers and agents can inspect project context and change port strategies directly in both the IDE and the CLI.
 
 ---
 

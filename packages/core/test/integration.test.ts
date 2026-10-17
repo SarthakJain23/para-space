@@ -3,7 +3,15 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { lstat, mkdir, mkdtemp, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createWorktree, isolateWorktree, listBranches, listWorktrees, removeWorktree } from '../src/commands/index.js';
+import {
+  createWorktree,
+  isolateWorktree,
+  listBranches,
+  listWorktrees,
+  removeWorktree,
+  updateConfig,
+} from '../src/commands/index.js';
+import { readLedger } from '../src/ledger.js';
 import type { Prompter } from '../src/prompts.js';
 import { readState, stateLockPath, statePath, updateRepoState } from '../src/state.js';
 import { withFileLock } from '../src/util/lock.js';
@@ -153,6 +161,26 @@ describe('worktree lifecycle', () => {
     expect((await lstat(path.join(repo, 'node_modules'))).isDirectory()).toBe(true);
     // the slot reservation was released
     expect((await readState()).repos[repo]?.worktrees ?? []).toEqual([]);
+  });
+
+  it('updateConfig updates .para-space.json and records to context ledger', async () => {
+    await createWorktree({ cwd: repo, branch: 'feat/first', base: 'main' });
+    const { config, previous } = await updateConfig({
+      cwd: repo,
+      portStrategy: 'scan',
+      basePort: 4000,
+      reason: 'Shift ports for microservices',
+    });
+    expect(previous?.portStrategy).toBe('offset');
+    expect(config.portStrategy).toBe('scan');
+    expect(config.basePort).toBe(4000);
+
+    const history = await readLedger(repo);
+    expect(history.length).toBeGreaterThanOrEqual(2);
+    const last = history[history.length - 1];
+    expect(last.title).toBe('Repository configuration updated: port strategy `scan`');
+    expect(last.requirement).toBe('Shift ports for microservices');
+    expect(last.decisions.some((d) => d.includes('Changed port strategy from `offset` to `scan`.'))).toBe(true);
   });
 });
 

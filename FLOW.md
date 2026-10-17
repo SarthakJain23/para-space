@@ -4,7 +4,7 @@ How ParaSpace behaves, step by step, for each operation. This describes the **cu
 
 **How to update:** after any change that alters a flow, edit the affected section, bump its `Last updated` line, and reference the decision ID that caused it. Add a row to the changelog at the bottom.
 
-Implementation status: §1–4 are **Implemented** (Phase 1: `packages/core` + `packages/cli`). §5 is In progress (Phase 2: `packages/vscode-extension`). The Phase 3 manifest watcher is Planned.
+Implementation status: §1–5 are **Implemented** (Phase 1: `packages/core` + `packages/cli`; Phase 2: `packages/vscode-extension`). The Phase 3 manifest watcher is Planned.
 
 ---
 
@@ -147,15 +147,18 @@ _Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-007, D-0
 ---
 
 ## 5. VS Code Extension
-_Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, first-run port strategy dialogs, status bar and worktree switcher implemented; ledger view and port strategy editing planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032, D-033_
+_Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, first-run and reconfigurable port strategy dialogs, status bar, worktree switcher, context history view and ledger editor integration · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032, D-033, D-035_
 
 **Implemented:**
-- **Activation:** `onStartupFinished`, so the status bar appears without opening the view. `activate()` creates the `ParaSpace` output channel (core's `Logger`), the `WorktreeStore`, the tree view, the status bar, the commands and the change watchers, then loads the store once.
+- **Activation:** `onStartupFinished`, so the status bar appears without opening the view. `activate()` creates the `ParaSpace` output channel (core's `Logger`), the `WorktreeStore`, the worktree tree view, the context history (ledger) tree view, the status bar, the commands and the change watchers, then loads the store once.
 - **WorktreeStore** (D-033): the only caller of `listWorktrees` in the extension. `load()` records the repo root, rows and any error, then fires `onDidChange`. A load requested while one is running causes exactly one more load afterwards. The tree and status bar render from it, and commands call `store.load()` after a change. `current` is the row containing the window's folder, with the deepest match winning.
 - **Which repo:** the workspace folder of the active editor, else the first workspace folder.
-- **Sidebar** (activity bar container `paraSpace`, view `paraSpace.worktrees`): one flat row per worktree from core's `listWorktrees()`. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. With no folder open, a welcome message offers Open Folder. If listing fails, the error is shown above the empty tree and logged.
+- **Sidebar** (activity bar container `paraSpace`):
+  - **Worktrees view (`paraSpace.worktrees`):** one flat row per worktree from core's `listWorktrees()`. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. With no folder open, a welcome message offers Open Folder. If listing fails, the error is shown above the empty tree and logged. Title actions: **Create Worktree…** (+), **Configure Port Strategy…** (gear), **Refresh** (↻).
+  - **Context History view (`paraSpace.ledger`):** renders entries from `.para-space/context-history.md` (newest first). Each entry node shows title and timestamp, with expandable child nodes for **Requirement Context** (info), **Decisions** (check), and **Problem Solved** (pass). Title actions: **Open Context History in Editor**, **Refresh**.
 - **Refresh:** the title-bar ↻ button (`paraSpace.refresh`), plus automatic, debounced (300 ms) store reloads when:
   - `~/.para-space/state.json` is created, changed or deleted (CLI or agent runs),
+  - `.para-space/**` or `.para-space.json` is modified,
   - workspace folders change,
   - the window regains focus (covers plain `git worktree` commands),
   - the active editor moves to a different repo (multi-root).
@@ -180,6 +183,11 @@ _Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate /
      - IDE colors: a modal confirm. Dismissing it means "no", because the worktree already exists by then.
   5. The tree refreshes, and a notification shows the name and port with an **Open in New Window** button.
   - Escape on any prompt cancels quietly; nothing has been created at that point. A failure after the checkout rolls back as in §1.
+- **Configure Port Strategy…** (`paraSpace.configureRepo`, gear icon in Worktrees view title, and Command Palette):
+  - Prompts for reason (recorded in context ledger), then prompts for strategy, base port, and pool range.
+  - Updates `.para-space.json` via `updateConfig()`, appends an entry to `.para-space/context-history.md`, and refreshes the store and ledger views.
+- **Open Context History in Editor** (`paraSpace.openLedgerFile`, in Context History title or entry context menu):
+  - Opens `.para-space/context-history.md` directly in the editor.
 - **Isolate Dependencies…** (`paraSpace.isolateWorktree`, right-click on a worktree whose deps are still `Symlinked`, contextValue `worktree.linked.shared`):
   - A modal confirm explains the copy or install, then an optional reason is asked.
   - `isolateWorktree` runs with progress. The result names the isolated strategies, or says there was nothing to isolate.
@@ -189,7 +197,6 @@ _Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate /
   - `removeWorktree` runs with progress. If a branch delete was asked for but the branch wasn't merged (non-force), a warning says the branch was kept.
 - **Errors:** command errors are written to the output channel and shown as a notification. A dismissed prompt (`CancelledError`) is not an error.
 - Row actions (Open, Isolate, Remove) are hidden from the Command Palette because they need a row.
-- **Port strategy UI / history view:** edit `.para-space.json`, browse `context-history.md`.
 
 ---
 
@@ -207,3 +214,4 @@ _Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate /
 | 2026-10-17 | Extension gains Create / Isolate / Remove (dialogs, progress, force-on-dirty, refuse removing the open worktree) and `vscodePrompter`; core gains `listBranches()` and shared `PORT_STRATEGY_CHOICES` | 5 | D-032 |
 | 2026-10-17 | Status bar (color dot + branch · port) and worktree switcher (Create first, current marked); `WorktreeStore` shared by tree and status bar; activation on startup; reload when the active editor changes repo | 5 | D-033 |
 | 2026-10-17 | New window palette (Graphite + 7 equal-lightness OKLCH colors, WCAG AA with white text); title and status bars colored, activity bar left to the theme, solid inactive title bar | 1 | D-034 |
+| 2026-10-17 | Context history (ledger) view in sidebar, file open command, interactive repo port strategy config (`para config` and `paraSpace.configureRepo`), and auto-refresh on ledger/config changes | 5 | D-035 |
