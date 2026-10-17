@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { registerCommands } from './commands.js';
+import { registerCommands } from './commands/index.js';
 import { watchForChanges } from './refresh.js';
 import { createRuntime } from './runtime.js';
 import { WorktreeTreeProvider } from './tree.js';
@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext): void {
     rt.output,
     tree,
     tree.view,
-    ...registerCommands(rt, tree),
+    ...registerCommands({ rt, tree }),
     ...watchForChanges(() => tree.refresh()),
   );
 }

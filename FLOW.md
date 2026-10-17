@@ -147,7 +147,7 @@ _Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-007, D-0
 ---
 
 ## 5. VS Code Extension
-_Status: In progress (Phase 2): scaffold, sidebar tree view, `List Worktrees` and `Open in New Window` implemented; the rest is planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-030, D-031_
+_Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, and first-run port strategy dialogs implemented; status bar and ledger view planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032_
 
 **Implemented:**
 - **Activation:** VS Code calls `activate()` when the ParaSpace view is first shown or a ParaSpace command first runs. It creates a `ParaSpace` output channel (core's `Logger`), the tree view, the commands and the change watchers.
@@ -156,10 +156,24 @@ _Status: In progress (Phase 2): scaffold, sidebar tree view, `List Worktrees` an
 - **Refresh:** the title-bar ↻ button (`paraSpace.refresh`), plus automatic, debounced (300 ms) refreshes when `~/.para-space/state.json` is created, changed or deleted (CLI or agent runs), when workspace folders change, and when the window regains focus (covers plain `git worktree` commands). Listing doesn't write `state.json` unless it prunes, so refreshes don't trigger themselves (D-031).
 - **Open in New Window** (`paraSpace.openInNewWindow`): inline button and context-menu item on every row. Opens the worktree with `vscode.openFolder` and `forceNewWindow`. Hidden from the Command Palette because it needs a row.
 - **`ParaSpace: List Worktrees`** (`paraSpace.listWorktrees`): the same rows in a quick pick. Picking one opens it in a new window.
-- **Errors:** command errors are written to the output channel and shown as a notification.
-
-**Planned:**
-- **Tree item actions:** Isolate Dependencies · Delete Worktree · Create Worktree, each calling the same core functions as the CLI.
+- **Create Worktree…** (`paraSpace.createWorktree`, the **+** in the view title, also in the Command Palette):
+  1. Input: branch name, validated in the box (no spaces, no `..`, `~ ^ : ? * [ \`, no leading `-`, no trailing `/` or `.lock`).
+  2. If the branch doesn't exist yet: quick pick of the base from `listBranches()` (most recent first). An existing branch skips this step.
+  3. Input: optional reason, recorded as the ledger's requirement.
+  4. `createWorktree` runs behind a progress notification, with `vscodePrompter` as the prompter and `ide: 'ask'`.
+     - First run in the repo: a port strategy quick pick, then base port and pool inputs as needed.
+     - IDE colors: a modal confirm. Dismissing it means "no", because the worktree already exists by then.
+  5. The tree refreshes, and a notification shows the name and port with an **Open in New Window** button.
+  - Escape on any prompt cancels quietly; nothing has been created at that point. A failure after the checkout rolls back as in §1.
+- **Isolate Dependencies…** (`paraSpace.isolateWorktree`, right-click on a worktree whose deps are still `Symlinked`, contextValue `worktree.linked.shared`):
+  - A modal confirm explains the copy or install, then an optional reason is asked.
+  - `isolateWorktree` runs with progress. The result names the isolated strategies, or says there was nothing to isolate.
+- **Remove Worktree…** (`paraSpace.removeWorktree`, right-click on any non-main worktree):
+  - Refused if this window has that worktree open.
+  - A modal confirm with **Remove** / **Remove and Delete Branch**. A dirty worktree gets only **Force Remove** variants, and the detail says how many changes will be lost and that unmerged commits go with the branch.
+  - `removeWorktree` runs with progress. If a branch delete was asked for but the branch wasn't merged (non-force), a warning says the branch was kept.
+- **Errors:** command errors are written to the output channel and shown as a notification. A dismissed prompt (`CancelledError`) is not an error.
+- Row actions (Open, Isolate, Remove) are hidden from the Command Palette because they need a row.
 - **Status bar:** current worktree name + color; click opens a quick switcher.
 - **Port strategy UI / history view:** edit `.para-space.json`, browse `context-history.md`.
 
@@ -176,3 +190,4 @@ _Status: In progress (Phase 2): scaffold, sidebar tree view, `List Worktrees` an
 | 2026-10-16 | State writes serialized by `~/.para-space/state.lock`; `create` reserves index and port under the lock right after `git worktree add`, and rollback drops the reservation | 0, 1 | D-027 |
 | 2026-10-17 | VS Code extension scaffolded (`packages/vscode-extension`): activation, output-channel logger, `ParaSpace: List Worktrees` quick pick that opens the chosen worktree in a new window | 0, 5 | D-030 |
 | 2026-10-17 | Sidebar tree view with refresh button, auto-refresh (state.json watcher, folder changes, window focus) and Open in New Window; `list` writes state only when pruning | 2, 5 | D-031 |
+| 2026-10-17 | Extension gains Create / Isolate / Remove (dialogs, progress, force-on-dirty, refuse removing the open worktree) and `vscodePrompter`; core gains `listBranches()` and shared `PORT_STRATEGY_CHOICES` | 5 | D-032 |

@@ -10,7 +10,10 @@ export class WorktreeNode extends vscode.TreeItem {
     this.description = describeWorktree(info);
     this.tooltip = worktreeTooltip(info);
     this.iconPath = new vscode.ThemeIcon(info.isMain ? 'repo' : 'git-branch');
-    this.contextValue = info.isMain ? 'worktree.main' : 'worktree.linked';
+    // worktree.main · worktree.linked · worktree.linked.shared (deps still symlinked → can isolate)
+    this.contextValue = info.isMain
+      ? 'worktree.main'
+      : `worktree.linked${info.depsMode === 'Symlinked' ? '.shared' : ''}`;
   }
 }
 

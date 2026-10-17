@@ -83,6 +83,12 @@ export async function worktreePrune(cwd: string): Promise<void> {
   await git(cwd, 'worktree', 'prune');
 }
 
+/** Local branch names, most recently committed first. */
+export async function localBranches(cwd: string): Promise<string[]> {
+  const out = await git(cwd, 'for-each-ref', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads');
+  return out ? out.split('\n') : [];
+}
+
 export async function branchDelete(cwd: string, branch: string, force = false): Promise<void> {
   await git(cwd, 'branch', force ? '-D' : '-d', branch);
 }

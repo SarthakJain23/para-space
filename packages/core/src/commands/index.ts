@@ -1,4 +1,5 @@
 export type { CommonOptions } from './types.js';
+export { listBranches } from './branches.js';
 export { ensureConfig, type EnsureConfigOptions } from './config.js';
 export { createWorktree, type CreateOptions, type CreateResult } from './create.js';
 export { listWorktrees, type WorktreeInfo } from './list.js';

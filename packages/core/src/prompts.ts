@@ -1,5 +1,13 @@
 import type { PortStrategyName } from './config.js';
 
+/** Labels and hints for the port strategies, shared by every front end's picker. */
+export const PORT_STRATEGY_CHOICES: ReadonlyArray<{ value: PortStrategyName; label: string; hint: string }> = [
+  { value: 'offset', label: 'Offset', hint: 'base + worktree index (3001, 3002, …)' },
+  { value: 'scan', label: 'Free port scan', hint: 'lowest open port above base' },
+  { value: 'pool', label: 'Static pool', hint: 'from a range you define' },
+  { value: 'passthrough', label: 'Passthrough', hint: 'let the framework pick (e.g. Vite)' },
+];
+
 export interface PortStrategyAnswer {
   portStrategy: PortStrategyName;
   basePort: number;

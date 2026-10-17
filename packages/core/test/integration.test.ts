@@ -3,7 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { lstat, mkdir, mkdtemp, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createWorktree, isolateWorktree, listWorktrees, removeWorktree } from '../src/commands/index.js';
+import { createWorktree, isolateWorktree, listBranches, listWorktrees, removeWorktree } from '../src/commands/index.js';
 import type { Prompter } from '../src/prompts.js';
 import { readState, stateLockPath, statePath, updateRepoState } from '../src/state.js';
 import { withFileLock } from '../src/util/lock.js';
@@ -116,6 +116,12 @@ describe('worktree lifecycle', () => {
     expect(await readFile(path.join(repo, '.env'), 'utf8')).toBe('SECRET=shh\n');
     expect(git(repo, 'branch', '--list', 'feat/*')).toBe('');
     expect((await readState()).repos[repo].worktrees).toEqual([]);
+  });
+
+  it('lists local branches, most recent first', async () => {
+    expect(await listBranches({ cwd: repo })).toEqual(['main']);
+    await createWorktree({ cwd: repo, branch: 'feat/x', base: 'main' });
+    expect((await listBranches({ cwd: repo })).sort()).toEqual(['feat/x', 'main']);
   });
 
   it('list writes state.json only when it prunes (D-031)', async () => {

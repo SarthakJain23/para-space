@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import type { PortStrategyName, Prompter } from '@para-space/core';
+import { PORT_STRATEGY_CHOICES, type PortStrategyName, type Prompter } from '@para-space/core';
 
 function bail<T>(value: T | symbol): T {
   if (p.isCancel(value)) {
@@ -18,12 +18,7 @@ export const clackPrompter: Prompter = {
     const portStrategy = bail(
       await p.select<{ value: PortStrategyName; label: string; hint: string }[], PortStrategyName>({
         message: 'Which port strategy would you like to use for this project?',
-        options: [
-          { value: 'offset', label: 'Offset', hint: 'base + worktree index (3001, 3002, …)' },
-          { value: 'scan', label: 'Free port scan', hint: 'lowest open port above base' },
-          { value: 'pool', label: 'Static pool', hint: 'from a range you define' },
-          { value: 'passthrough', label: 'Passthrough', hint: 'let the framework pick (e.g. Vite)' },
-        ],
+        options: PORT_STRATEGY_CHOICES.map((c) => ({ ...c })),
       }),
     );
     if (portStrategy === 'passthrough') return { portStrategy, basePort };

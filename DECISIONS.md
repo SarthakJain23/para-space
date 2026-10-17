@@ -43,6 +43,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-029 | GUIDELINES.md is the single home for contributor rules | Accepted | 2026-10-16 |
 | D-030 | Extension ships as one CommonJS bundle with core inlined | Accepted | 2026-10-17 |
 | D-031 | Tree view refreshes on state.json changes and focus; `list` writes only when pruning | Accepted | 2026-10-17 |
+| D-032 | Extension actions use modal confirms, a VS Code prompter and core-owned shared choices | Accepted | 2026-10-17 |
 
 ---
 
@@ -240,6 +241,20 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Requirement Context:** The sidebar must stay correct when worktrees are created or removed outside the extension: by the `para` CLI, by agents, or by plain `git worktree` commands. But `listWorktrees` rewrote `state.json` on every call, so a view that refreshes when `state.json` changes would trigger itself in an endless loop. Every list also took the state lock for no reason.
 - **Decision Made:** (1) `listWorktrees` reads state without the lock and calls `updateRepoState` only when some record's worktree is gone. Otherwise `state.json` isn't touched. (2) The extension refreshes the view, debounced by 300 ms, on: a `FileSystemWatcher` on `~/.para-space/state.json` (create, change, delete), workspace-folder changes, and the window regaining focus. Focus covers plain git commands, which never touch `state.json`. A manual ↻ button covers anything else. Polling and watching `.git/worktrees` were rejected: polling wastes work, and the git internals differ between the main repo and worktrees. (3) The tree is a flat list (main first). Rows carry `contextValue` `worktree.main` / `worktree.linked` so later actions can target one or the other. Open in New Window, an inline button on every row, came forward from roadmap step 4 because it was one line.
 - **Problem Solved:** The view stays in sync with CLI, agent and git activity without polling or refresh loops. Listing becomes fully read-only in the common case.
+
+
+## D-032 — Extension actions use modal confirms, a VS Code prompter and core-owned shared choices
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** Phase 2 step 3 brings Create, Isolate and Remove to the sidebar. They must be as safe as the CLI, must need no terminal, and must not duplicate logic between front ends.
+- **Decision Made:**
+  - **Prompter:** `vscodePrompter` implements core's `Prompter` with quick picks, input boxes and a modal confirm. Core is unchanged (D-020).
+  - **Cancel vs. "no":** Escape on a prompt throws `CancelledError`, which `action()` swallows. Before `git worktree add` this means nothing was created. Dismissing the IDE-settings dialog returns "no" instead of cancelling, because the worktree already exists by then and cancelling would only trigger a rollback.
+  - **Destructive actions** use modal confirmations. Remove offers **Force** variants only when the row shows uncommitted changes, so a clean worktree can never be force-removed by accident. It refuses to remove the worktree open in the current window.
+  - **Long operations** (create, isolate, remove) run behind a progress notification.
+  - **Shared with core:** `listBranches()` (for the base picker) and `PORT_STRATEGY_CHOICES` (labels and hints for both front ends) live in core, so the extension never runs git itself and the CLI and extension stay consistent. Field validation lives in the extension's vscode-free `dialogs.ts`; pool validation reuses core's `parsePortPool`.
+  - **Code layout:** one module per command under `src/commands/`, mirroring the CLI.
+  - **Testing:** vitest resolves `@para-space/core` to its source, so front-end tests never depend on a stale core build.
+- **Problem Solved:** The sidebar covers the whole worktree lifecycle without a terminal, with the same safety rules as the CLI and one source for shared text and git queries.
 
 ---
 

@@ -55,14 +55,36 @@
         "title": "Open in New Window",
         "category": "ParaSpace",
         "icon": "$(empty-window)"
+      },
+      {
+        "command": "paraSpace.createWorktree",
+        "title": "Create Worktree…",
+        "category": "ParaSpace",
+        "icon": "$(add)"
+      },
+      {
+        "command": "paraSpace.isolateWorktree",
+        "title": "Isolate Dependencies…",
+        "category": "ParaSpace"
+      },
+      {
+        "command": "paraSpace.removeWorktree",
+        "title": "Remove Worktree…",
+        "category": "ParaSpace",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "paraSpace.createWorktree",
+          "when": "view == paraSpace.worktrees",
+          "group": "navigation@1"
+        },
+        {
           "command": "paraSpace.refresh",
           "when": "view == paraSpace.worktrees",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -74,12 +96,30 @@
         {
           "command": "paraSpace.openInNewWindow",
           "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\./",
-          "group": "navigation"
+          "group": "1_open"
+        },
+        {
+          "command": "paraSpace.isolateWorktree",
+          "when": "view == paraSpace.worktrees && viewItem == worktree.linked.shared",
+          "group": "2_manage"
+        },
+        {
+          "command": "paraSpace.removeWorktree",
+          "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\.linked/",
+          "group": "3_remove"
         }
       ],
       "commandPalette": [
         {
           "command": "paraSpace.openInNewWindow",
+          "when": "false"
+        },
+        {
+          "command": "paraSpace.isolateWorktree",
+          "when": "false"
+        },
+        {
+          "command": "paraSpace.removeWorktree",
           "when": "false"
         }
       ]
