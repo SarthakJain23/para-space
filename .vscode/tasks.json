@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build extension",
+      "detail": "Builds core, then bundles the extension into packages/vscode-extension/dist",
+      "type": "shell",
+      "command": "pnpm --filter para-space-vscode... build",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

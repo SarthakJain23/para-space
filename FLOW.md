@@ -4,7 +4,7 @@ How ParaSpace behaves, step by step, for each operation. This describes the **cu
 
 **How to update:** after any change that alters a flow, edit the affected section, bump its `Last updated` line, and reference the decision ID that caused it. Add a row to the changelog at the bottom.
 
-Implementation status: §1–4 are **Implemented** (Phase 1: `packages/core` + `packages/cli`). §5 is Planned (Phase 2). The Phase 3 manifest watcher is Planned.
+Implementation status: §1–4 are **Implemented** (Phase 1: `packages/core` + `packages/cli`). §5 is In progress (Phase 2: `packages/vscode-extension`). The Phase 3 manifest watcher is Planned.
 
 ---
 
@@ -16,7 +16,7 @@ para CLI ──┐   packages/core/src/commands/        ┌── Git Engine    
  commands/* ├─► create.ts   list.ts                ├── Dependency Linker     link.ts           (absolute symlinks, junctions, CoW clone)
  runtime.ts │   isolate.ts  remove.ts ─────────────┼── Port & Env Allocator  ports/, envfile.ts (offset / scan / pool / passthrough)
 VS Code ext ┘   resolve.ts  (find worktree)        ├── Git ignore helper     ignore.ts         (info/exclude, .gitignore)
- (Phase 2)                                         ├── IDE Configurator      ide.ts, colors.ts (opt-in .vscode/settings.json)
+ vscode-extension/src/                             ├── IDE Configurator      ide.ts, colors.ts (opt-in .vscode/settings.json)
                                                    ├── Context Logger        ledger.ts         (.para-space/context-history.md)
                                                    ├── State Store           state.ts          (~/.para-space/state.json)
                                                    └── util/                 exec, fs, format, lock  (shared helpers; lock = state.lock)
@@ -147,9 +147,14 @@ _Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-007, D-0
 ---
 
 ## 5. VS Code Extension
-_Status: Planned (Phase 2) · Last updated: 2026-10-16 · Decisions: D-006, D-008_
+_Status: In progress (Phase 2): scaffold and `ParaSpace: List Worktrees` implemented; the rest is planned · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-030_
 
-- **Activation:** read state + `git worktree list`; populate the ParaSpace sidebar tree view.
+**Implemented:**
+- **Activation:** VS Code calls `activate()` the first time a ParaSpace command runs. It creates a `ParaSpace` output channel, which serves as core's `Logger`.
+- **`ParaSpace: List Worktrees`** (`paraSpace.listWorktrees`): the repo is the workspace folder of the active editor, else the first workspace folder. The command calls core's `listWorktrees()` and shows a quick pick: name, then branch · clean/dirty · port · deps mode (and `unmanaged`), with the path as detail. Picking a row opens that worktree in a new window (`vscode.openFolder`, `forceNewWindow`). Errors are written to the output channel and shown as an error notification.
+
+**Planned:**
+- **Sidebar:** read state + `git worktree list`; populate the ParaSpace sidebar tree view.
 - **Tree item actions:** Open in New Window · Isolate Dependencies · Delete Worktree — each calls the same core functions as the CLI.
 - **Status bar:** current worktree name + color; click opens a quick switcher.
 - **Port strategy UI / history view:** edit `.para-space.json`, browse `context-history.md`.
@@ -165,3 +170,4 @@ _Status: Planned (Phase 2) · Last updated: 2026-10-16 · Decisions: D-006, D-00
 | 2026-10-16 | Refactor, no behaviour change: orchestrator split into `core/src/commands/*` (one file per flow), CLI split into `cli/src/commands/*`, shared helpers moved to `util/`; strategies declare `kind` | 0 | D-023 |
 | 2026-10-16 | Renamed ParallelTree → ParaSpace: CLI `para`, `.para-space.json`, `.para-space/`, `~/.para-space`, `PARA_SPACE_HOME` | All | D-026 |
 | 2026-10-16 | State writes serialized by `~/.para-space/state.lock`; `create` reserves index and port under the lock right after `git worktree add`, and rollback drops the reservation | 0, 1 | D-027 |
+| 2026-10-17 | VS Code extension scaffolded (`packages/vscode-extension`): activation, output-channel logger, `ParaSpace: List Worktrees` quick pick that opens the chosen worktree in a new window | 0, 5 | D-030 |

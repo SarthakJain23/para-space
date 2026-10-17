@@ -41,6 +41,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-027 | Lock file serializes state writes; `create` reserves its slot under the lock | Accepted | 2026-10-16 |
 | D-028 | TSDoc on the public API; one-line "why" comments elsewhere | Accepted | 2026-10-16 |
 | D-029 | GUIDELINES.md is the single home for contributor rules | Accepted | 2026-10-16 |
+| D-030 | Extension ships as one CommonJS bundle with core inlined | Accepted | 2026-10-17 |
 
 ---
 
@@ -224,6 +225,13 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Requirement Context:** Working rules were spread across the README, decision entries and individual instructions. The user asked for one guidelines file, updated every time a new protocol is agreed.
 - **Decision Made:** `GUIDELINES.md` at the repo root holds every contributor rule as numbered items in sections (living docs, code structure, comments, state and concurrency, safety, testing, formatting and commits), each linking to the decision behind it. A new rule is added there in the same change that introduces it, with a changelog row. The README's "Keeping the docs current" section moved there; the README now only links to it. The file is tool-neutral, so no `CLAUDE.md` or other agent-specific files are added.
 - **Problem Solved:** Humans and AI agents have one place to read before working, and rules don't drift between several copies.
+
+
+## D-030 — Extension ships as one CommonJS bundle with core inlined
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** Phase 2 starts the VS Code extension, a third front end over core (D-008). VS Code loads extensions with `require()`, while core is ESM and depends on the ESM-only `get-port`. Published extensions should not depend on a `node_modules` folder.
+- **Decision Made:** New package `packages/vscode-extension` (package name `para-space-vscode`, display name ParaSpace, `private`). `tsup` bundles `src/extension.ts` into a single CommonJS `dist/extension.js` with source maps. `@para-space/core` is a devDependency and is inlined (`noExternal`); only `vscode` stays external. Engine `^1.90.0` with matching `@types/vscode`. There are no explicit `activationEvents`: since VS Code 1.74, contributed commands activate the extension on first use. Logic that doesn't need the VS Code API lives in vscode-free modules (e.g. `items.ts`) so vitest can test it. The root `.vscode/launch.json` and `tasks.json` make F5 build core and the extension and open an Extension Development Host. The first command is `ParaSpace: List Worktrees`. `publisher` is a placeholder (`para-space`) until a Marketplace publisher exists.
+- **Problem Solved:** The extension reuses core unchanged, installs without dependencies, starts fast, and is developed with the same toolchain as the other packages (D-011).
 
 ---
 

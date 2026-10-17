@@ -1,0 +1,34 @@
+{
+  "name": "para-space-vscode",
+  "displayName": "ParaSpace",
+  "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "para-space",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "paraSpace.listWorktrees",
+        "title": "List Worktrees",
+        "category": "ParaSpace"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@para-space/core": "workspace:*",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "~1.90.0"
+  }
+}

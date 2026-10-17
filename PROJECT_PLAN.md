@@ -213,7 +213,7 @@ para remove feat/TK-101 --delete-branch
 - [x] Permission check before touching `.vscode/settings.json`.
 
 ### Phase 2: VS Code Extension
-- [ ] Initialize `packages/vscode-extension`.
+- [x] Initialize `packages/vscode-extension`.
 - [ ] Sidebar TreeView displaying active worktrees, branches, and statuses.
 - [ ] Status bar indicator and quick switcher.
 - [ ] Peacock-style window coloring (with permission prompt).

@@ -45,6 +45,7 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 
 6.1. Every behavior change gets a test. Pure logic goes in `test/unit.test.ts`; flows go in `test/integration.test.ts`, which runs against real temporary git repos with `PARA_SPACE_HOME` sandboxed.
 6.2. Before finishing a change, all of these pass: `pnpm typecheck`, `pnpm test`, `pnpm format:check`.
+6.3. In the VS Code extension, keep logic that doesn't need the VS Code API in modules that never import `vscode` (e.g. `items.ts`), and unit-test those with vitest. `extension.ts` only wires commands and UI to core (D-030).
 
 ## 7. Formatting and commits
 
@@ -59,3 +60,4 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 | Date | Change | Rules |
 | :--- | :--- | :--- |
 | 2026-10-16 | Initial guidelines, collected from README, DECISIONS.md and agreed working rules | All |
+| 2026-10-17 | Added rule for testable, vscode-free extension modules | 6.3 |
