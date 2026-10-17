@@ -47,6 +47,7 @@ The first `create` in a repo asks for a port strategy and saves it to `.para-spa
 | [DECISIONS.md](DECISIONS.md) | Decision log — why each design choice was made, plus open questions |
 | [FLOW.md](FLOW.md) | How each operation works step by step (current intended behavior) |
 | [GUIDELINES.md](GUIDELINES.md) | Rules every contributor follows; updated whenever a new rule is agreed |
+| [VISUAL_BRIEF.md](VISUAL_BRIEF.md) | Project context for generating images, diagrams and posts with AI tools |
 
 ## Contributing
 
