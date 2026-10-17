@@ -14,7 +14,8 @@ pnpm build
 pnpm test                       # unit + integration (temp git repos)
 pnpm format                     # Prettier (pnpm format:check in CI)
 # pnpm install also installs a pre-commit hook that runs Prettier on staged files
-pnpm --filter @para-space/cli link --global   # optional: puts `para` on PATH
+(cd packages/cli && npm link)   # optional: puts `para` on PATH
+pnpm package:extension          # packages the VS Code extension .vsix
 ```
 
 ```bash
