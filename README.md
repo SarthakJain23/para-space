@@ -2,7 +2,7 @@
 
 Parallel workspace orchestrator for multi-agent and multi-task IDE workflows: Git worktrees with zero-duplication dependency sharing, per-worktree ports, and opt-in IDE window coloring. Ships as a CLI (`para`) and a VS Code extension.
 
-> Status: Phase 1 (core engine + `para` CLI) and Phase 2 (VS Code extension: worktrees sidebar, status bar indicator, quick switcher, context history ledger view, and port strategy configuration) are implemented. Phase 3 (Safety, Watchers & Dependency Divergence Detection) is next.
+> Status: Phase 1 (core engine + `para` CLI), Phase 2 (VS Code extension UI: worktrees sidebar, status bar indicator, quick switcher, context history ledger view, and port strategy configuration), and Phase 3 (Safety, Watchers & Dependency Divergence Detection: manifest watchers, `para check`, divergence warning indicators, and 1-click breakaway isolation) are implemented. Phase 4 (Monorepo & Ecosystem Expansion) is next.
 
 ## Quick start
 

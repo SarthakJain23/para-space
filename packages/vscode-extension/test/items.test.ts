@@ -47,6 +47,14 @@ describe('toWorktreeItem', () => {
       '(no branch) · clean · None · unmanaged',
     );
   });
+
+  it('flags diverged dependencies in description and switcher item', () => {
+    const divergedRow = row({ diverged: true });
+    expect(describeWorktree(divergedRow)).toBe('feat/x · clean · Symlinked (diverged)');
+    const item = toWorktreeItem(divergedRow, false);
+    expect(item.label).toBe('$(warning) app-feat-x');
+    expect(item.description).toContain('Symlinked (diverged)');
+  });
 });
 
 describe('worktreeTooltip', () => {

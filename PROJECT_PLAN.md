@@ -221,8 +221,8 @@ para remove feat/TK-101 --delete-branch
 - [x] One-click "Launch in New Window".
 
 ### Phase 3: Safety, Watchers & Isolation
-- [ ] Manifest watcher: alert developer when `package.json` / dependency manifests change in a symlinked worktree.
-- [ ] Prompt / one-click automated isolation workflow when dependencies diverge.
+- [x] Manifest watcher: alert developer when `package.json` / dependency manifests change in a symlinked worktree (D-036).
+- [x] Prompt / one-click automated isolation workflow when dependencies diverge (D-003, D-036).
 - [x] macOS APFS Copy-on-Write (CoW) fast cloning support in `core/src/link.ts`.
 
 ### Phase 4: Monorepo & Ecosystem Expansion

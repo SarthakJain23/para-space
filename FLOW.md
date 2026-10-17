@@ -4,7 +4,7 @@ How ParaSpace behaves, step by step, for each operation. This describes the **cu
 
 **How to update:** after any change that alters a flow, edit the affected section, bump its `Last updated` line, and reference the decision ID that caused it. Add a row to the changelog at the bottom.
 
-Implementation status: §1–5 are **Implemented** (Phase 1: `packages/core` + `packages/cli`; Phase 2: `packages/vscode-extension`). The Phase 3 manifest watcher is Planned.
+Implementation status: §1–6 are **Implemented** (Phase 1: `packages/core` + `packages/cli`; Phase 2: `packages/vscode-extension`; Phase 3: Manifest Watchers & Divergence Safety). Phase 4 (Monorepo & Ecosystem Expansion) is Planned.
 
 ---
 
@@ -200,6 +200,43 @@ _Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate /
 
 ---
 
+## 6. Manifest Watching & Dependency Divergence Detection
+_Status: Implemented (Phase 3): framework manifest metadata, binary divergence check in core, CLI `para check`, `para list` divergence warning, extension file watcher and 1-click breakaway isolation prompt · Last updated: 2026-10-17 · Decisions: D-003, D-017, D-036_
+
+```mermaid
+flowchart TD
+    A[Manifest modified in worktree<br/>package.json, lockfile, requirements.txt] --> B{Dependencies symlinked?}
+    B -- No: Isolated / Source --> C[No risk: worktree has independent dependencies]
+    B -- Yes: Symlinked --> D[checkDivergence compares main vs. worktree]
+    D --> E{Contents differ?}
+    E -- No --> F[Safe: manifests match]
+    E -- Yes --> G[Mark worktree diverged: true]
+    G --> H[VS Code: warning notification<br/>'Dependencies in worktree have diverged']
+    G --> I[CLI: para check fails / para list flags diverged]
+    H --> J{User clicks 'Isolate Dependencies'}
+    J -- Yes --> K[isolateWorktree unlinks & runs CoW clone / fresh install]
+    K --> L[depsMode becomes Isolated; diverged becomes false]
+    J -- No: Ignore --> M[Dismiss notification]
+```
+
+1. **Manifest Definitions:** Each `FrameworkStrategy` with `kind: 'dependencies'` declares `manifestFiles`:
+   - Node: `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, `bun.lock`.
+   - Python: `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`, `poetry.lock`.
+2. **Divergence Engine (`checkDivergence`):** Compares binary contents of each manifest file between `mainRoot` and `worktreeRoot`. If any manifest exists in one and not the other or contents differ, the worktree is flagged `diverged: true`.
+3. **Core Listing (`listWorktrees`):** Any worktree with `depsMode: 'Symlinked'` is automatically evaluated for divergence and receives `diverged: true | false`.
+4. **CLI (`para check` and `para list`):**
+   - `para check` scans all worktrees in the repo; outputs any diverged worktrees and files, exiting with code 1 if divergence is detected.
+   - `para list` renders `Symlinked (diverged)` with a yellow highlight and prints a warning tip.
+5. **VS Code Watcher (`watchManifests`):**
+   - Listens to workspace file events on `**/{manifestFiles}` with 500 ms debounce.
+   - Identifies the containing worktree; if symlinked and diverged, triggers a notification:
+     > *"Dependencies in worktree `<branch>` have diverged from main (`<files>`). Installing packages here may alter the shared environment."*
+     > **[Isolate Dependencies]** / **[Ignore]**
+   - Clicking **Isolate Dependencies** triggers `isolateWorktree` (APFS copy-on-write clone or localized install), transitions the worktree to `Isolated`, and clears the divergence state.
+   - Sidebar rows show a warning icon and an inline **Isolate Dependencies** action.
+
+---
+
 ## Changelog
 
 | Date | Change | Sections | Decision |
@@ -215,3 +252,4 @@ _Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate /
 | 2026-10-17 | Status bar (color dot + branch · port) and worktree switcher (Create first, current marked); `WorktreeStore` shared by tree and status bar; activation on startup; reload when the active editor changes repo | 5 | D-033 |
 | 2026-10-17 | New window palette (Graphite + 7 equal-lightness OKLCH colors, WCAG AA with white text); title and status bars colored, activity bar left to the theme, solid inactive title bar | 1 | D-034 |
 | 2026-10-17 | Context history (ledger) view in sidebar, file open command, interactive repo port strategy config (`para config` and `paraSpace.configureRepo`), and auto-refresh on ledger/config changes | 5 | D-035 |
+| 2026-10-17 | Manifest watcher, dependency divergence detection in core (`checkDivergence`), `para check` CLI command, warning indicators, and 1-click breakaway isolation flow | 2, 3, 5, 6 | D-036 |

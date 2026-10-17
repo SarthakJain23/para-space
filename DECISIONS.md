@@ -47,6 +47,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-033 | Shared `WorktreeStore`; status bar with color dot; startup activation | Accepted | 2026-10-17 |
 | D-034 | Equal-lightness OKLCH window palette; color only title and status bars | Accepted | 2026-10-17 |
 | D-035 | Context history tree view and interactive port strategy configuration | Accepted | 2026-10-17 |
+| D-036 | Manifest watching, dependency divergence detection, and one-click breakaway isolation | Accepted | 2026-10-17 |
 
 ---
 
@@ -302,6 +303,20 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
     - Title actions: `Open Context History in Editor` (`paraSpace.openLedgerFile`) and `Configure Port Strategy…` (`paraSpace.configureRepo`).
     - File watchers: watching `**/.para-space/**` and `**/.para-space.json` debounced so changes made by the CLI or agents update the views immediately.
 - **Problem Solved:** Completed all Phase 2 features. Developers and agents can inspect project context and change port strategies directly in both the IDE and the CLI.
+
+
+## D-036 — Manifest watching, dependency divergence detection, and one-click breakaway isolation
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** Phase 3 required detecting when package manifests or lockfiles are modified in a symlinked worktree, warning developers before packages are installed in the shared root, and providing a one-click breakaway isolation flow (D-003).
+- **Decision Made:**
+  - **Framework manifest metadata:** `FrameworkStrategy` declares `manifestFiles?: string[]` (Node: `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, bun locks; Python: `requirements.txt`, `pyproject.toml`, Pipfiles, poetry locks).
+  - **Core divergence engine:** Added `checkDivergence(mainRoot, worktreeRoot)` to compare binary contents of manifest files. If any manifest differs while dependencies are symlinked, `WorktreeInfo` is marked `diverged: true`.
+  - **CLI:** Added `para check` command to inspect all worktrees for manifest divergence with non-zero exit code on divergence (ideal for CI/scripts/agents). `para list` displays `Symlinked (diverged)` with a yellow warning.
+  - **VS Code extension:**
+    - `watchManifests()` watcher debounces file events on manifest patterns across the workspace.
+    - On divergence, displays a modal-free warning notification with **Isolate Dependencies** and **Ignore**, throttling duplicate alerts per divergence state.
+    - Diverged worktree tree items receive a warning icon, `worktree.linked.shared.diverged` context, and an inline **Isolate Dependencies** action right on the sidebar row.
+- **Problem Solved:** Fully delivers Phase 3 safety guarantees, eliminating the risk of accidental mutations to the shared dependency root.
 
 ---
 

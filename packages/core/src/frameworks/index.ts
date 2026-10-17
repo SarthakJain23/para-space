@@ -26,6 +26,13 @@ export function sharedPaths(kind?: FrameworkStrategy['kind']): string[] {
   return FRAMEWORK_STRATEGIES.filter((s) => !kind || s.kind === kind).flatMap((s) => s.sharedPaths);
 }
 
+/** Every manifest and lockfile watched across dependency strategies. */
+export function manifestFiles(): string[] {
+  return [
+    ...new Set(FRAMEWORK_STRATEGIES.filter((s) => s.kind === 'dependencies').flatMap((s) => s.manifestFiles ?? [])),
+  ];
+}
+
 /** `PORT` plus whatever the detected stacks conventionally read (D-018). */
 export async function defaultEnvKeys(root: string): Promise<string[]> {
   const keys = new Set(['PORT']);

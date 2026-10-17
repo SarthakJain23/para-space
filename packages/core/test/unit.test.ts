@@ -1,6 +1,11 @@
+import os from 'node:os';
+import path from 'node:path';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { parsePortPool, validateConfig } from '../src/config.js';
+import { checkDivergence } from '../src/divergence.js';
 import { upsertEnv } from '../src/envfile.js';
+import { manifestFiles } from '../src/frameworks/index.js';
 import { mergeSettings, parseJsonc } from '../src/ide.js';
 import { slugify, worktreePathFor } from '../src/paths.js';
 import { getPortStrategy } from '../src/ports/index.js';
@@ -176,5 +181,38 @@ describe('ledger', () => {
   it('returns empty array for empty markdown or non-entry text', () => {
     expect(parseLedger('')).toEqual([]);
     expect(parseLedger('# Just a header\nSome intro text')).toEqual([]);
+  });
+});
+
+describe('manifests and divergence', () => {
+  it('manifestFiles returns non-empty list of watched manifests', () => {
+    const files = manifestFiles();
+    expect(files).toContain('package.json');
+    expect(files).toContain('package-lock.json');
+    expect(files).toContain('requirements.txt');
+    expect(files).toContain('pyproject.toml');
+  });
+
+  it('detects manifest divergence between directories', async () => {
+    const dir = await realpath(await mkdtemp(path.join(os.tmpdir(), 'para-test-div-')));
+    const main = path.join(dir, 'main');
+    const wt = path.join(dir, 'wt');
+    await mkdir(main, { recursive: true });
+    await mkdir(wt, { recursive: true });
+
+    await writeFile(path.join(main, 'package.json'), JSON.stringify({ name: 'foo', version: '1.0.0' }));
+    await writeFile(path.join(wt, 'package.json'), JSON.stringify({ name: 'foo', version: '1.0.0' }));
+
+    const res1 = await checkDivergence(main, wt);
+    expect(res1.diverged).toBe(false);
+    expect(res1.divergedFiles).toEqual([]);
+
+    await writeFile(path.join(wt, 'package.json'), JSON.stringify({ name: 'foo', version: '2.0.0' }));
+    const res2 = await checkDivergence(main, wt);
+    expect(res2.diverged).toBe(true);
+    expect(res2.divergedFiles).toContain('package.json');
+    expect(res2.strategies).toContain('NodeStrategy');
+
+    await rm(dir, { recursive: true, force: true });
   });
 });

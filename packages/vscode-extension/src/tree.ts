@@ -12,11 +12,16 @@ export class WorktreeNode extends vscode.TreeItem {
     super(info.name, vscode.TreeItemCollapsibleState.None);
     this.description = describeWorktree(info);
     this.tooltip = worktreeTooltip(info);
-    this.iconPath = new vscode.ThemeIcon(isCurrent ? 'check' : info.isMain ? 'repo' : 'git-branch');
-    // worktree.main · worktree.linked · worktree.linked.shared (deps still symlinked → can isolate)
+    this.iconPath = isCurrent
+      ? new vscode.ThemeIcon('check')
+      : info.diverged
+        ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('problemsWarningIcon.foreground'))
+        : new vscode.ThemeIcon(info.isMain ? 'repo' : 'git-branch');
+    // worktree.main · worktree.linked · worktree.linked.shared · worktree.linked.shared.diverged
+    const sharedKind = info.diverged ? '.shared.diverged' : '.shared';
     this.contextValue = info.isMain
       ? 'worktree.main'
-      : `worktree.linked${info.depsMode === 'Symlinked' ? '.shared' : ''}`;
+      : `worktree.linked${info.depsMode === 'Symlinked' ? sharedKind : ''}`;
   }
 }
 

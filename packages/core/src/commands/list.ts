@@ -1,6 +1,7 @@
-import path from 'node:path';
 import { lstat } from 'node:fs/promises';
+import path from 'node:path';
 import { loadConfig } from '../config.js';
+import { checkDivergence } from '../divergence.js';
 import { sharedPaths } from '../frameworks/index.js';
 import * as git from '../git.js';
 import { mainRepoPort } from '../ports/index.js';
@@ -17,6 +18,8 @@ export interface WorktreeInfo {
   depsMode: DepsMode;
   color?: string;
   managed: boolean;
+  /** True when dependency manifests differ from the main repo while dependencies are symlinked. */
+  diverged?: boolean;
 }
 
 /** Source (main) · Symlinked (any dep dir is a link) · Isolated (real dep dirs) · None. */
@@ -66,6 +69,8 @@ export async function listWorktrees(opts: CommonOptions): Promise<WorktreeInfo[]
       const p = path.resolve(t.path);
       const isMain = p === mainRoot;
       const rec = records.get(p);
+      const depsMode = await depsModeOf(p, isMain);
+      const diverged = depsMode === 'Symlinked' ? (await checkDivergence(mainRoot, p)).diverged : false;
       return {
         name: isMain ? '(main)' : path.basename(p),
         path: p,
@@ -73,9 +78,10 @@ export async function listWorktrees(opts: CommonOptions): Promise<WorktreeInfo[]
         isMain,
         dirty: await git.dirtyCount(p).catch(() => 0),
         port: isMain ? mainRepoPort(config) : rec?.port,
-        depsMode: await depsModeOf(p, isMain),
+        depsMode,
         color: rec?.color,
         managed: isMain || !!rec,
+        diverged,
       };
     }),
   );

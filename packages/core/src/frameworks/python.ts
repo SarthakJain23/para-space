@@ -17,6 +17,7 @@ export const pythonStrategy: FrameworkStrategy = {
   name: 'PythonStrategy',
   kind: 'dependencies',
   sharedPaths: [VENV],
+  manifestFiles: ['requirements.txt', 'pyproject.toml', 'Pipfile', 'Pipfile.lock', 'poetry.lock'],
 
   detect: (root) => hasAny(root, ['pyproject.toml', 'requirements.txt', VENV]),
 

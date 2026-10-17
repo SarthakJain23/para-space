@@ -27,11 +27,12 @@ export const CREATE_ITEM: WorktreeItem = { label: '$(add) Create Worktree…', a
  * // → 'feat/x · 2 dirty · :3001 · Symlinked'
  */
 export function describeWorktree(w: WorktreeInfo): string {
+  const deps = w.diverged ? `${w.depsMode} (diverged)` : w.depsMode;
   return [
     w.branch ?? '(no branch)',
     w.dirty ? `${w.dirty} dirty` : 'clean',
     w.port !== undefined ? `:${w.port}` : undefined,
-    w.depsMode,
+    deps,
     w.managed ? undefined : 'unmanaged',
   ]
     .filter(Boolean)
@@ -53,7 +54,7 @@ export function worktreeTooltip(w: WorktreeInfo): string {
     `Branch: ${w.branch ?? '(no branch)'}`,
     `Status: ${w.dirty ? `${w.dirty} uncommitted change(s)` : 'clean'}`,
     `Port: ${w.port ?? 'not assigned'}`,
-    `Dependencies: ${w.depsMode}`,
+    `Dependencies: ${w.depsMode}${w.diverged ? ' (diverged from main — isolation recommended)' : ''}`,
     ...(w.managed ? [] : ['', 'Not created by ParaSpace.']),
   ].join('\n');
 }
@@ -67,7 +68,7 @@ export function worktreeTooltip(w: WorktreeInfo): string {
  * // → { label: '$(git-branch) app-feat-x', description: 'feat/x · clean · :3001 · Symlinked', detail: '/code/app-feat-x', ... }
  */
 export function toWorktreeItem(w: WorktreeInfo, current = false): WorktreeItem {
-  const icon = current ? 'check' : w.isMain ? 'repo' : 'git-branch';
+  const icon = current ? 'check' : w.diverged ? 'warning' : w.isMain ? 'repo' : 'git-branch';
   return {
     label: `$(${icon}) ${w.name}`,
     description: current ? `current · ${describeWorktree(w)}` : describeWorktree(w),

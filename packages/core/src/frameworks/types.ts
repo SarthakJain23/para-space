@@ -21,6 +21,8 @@ export interface FrameworkStrategy {
   kind: 'dependencies' | 'config';
   /** Root-relative paths this strategy links from the main repo. */
   sharedPaths: string[];
+  /** Manifest and lockfile paths watched for dependency divergence (e.g. `package.json`). */
+  manifestFiles?: string[];
   detect(projectRoot: string): Promise<boolean>;
   /** Link shared paths into the worktree; returns the absolute link paths created. */
   linkDependencies(mainRoot: string, worktreeRoot: string, log: Logger): Promise<string[]>;

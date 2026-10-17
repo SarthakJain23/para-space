@@ -182,6 +182,32 @@ describe('worktree lifecycle', () => {
     expect(last.requirement).toBe('Shift ports for microservices');
     expect(last.decisions.some((d) => d.includes('Changed port strategy from `offset` to `scan`.'))).toBe(true);
   });
+
+  it('detects dependency divergence and resolves it after isolate', async () => {
+    const res = await createWorktree({ cwd: repo, branch: 'feat/div', base: 'main' });
+    const wt = res.path;
+
+    let rows = await listWorktrees({ cwd: repo });
+    let wtRow = rows.find((r) => r.path === wt)!;
+    expect(wtRow.depsMode).toBe('Symlinked');
+    expect(wtRow.diverged).toBe(false);
+
+    await writeFile(
+      path.join(wt, 'package.json'),
+      JSON.stringify({ name: 'app', devDependencies: { vite: '^5', lodash: '^4' } }),
+    );
+
+    rows = await listWorktrees({ cwd: repo });
+    wtRow = rows.find((r) => r.path === wt)!;
+    expect(wtRow.depsMode).toBe('Symlinked');
+    expect(wtRow.diverged).toBe(true);
+
+    await isolateWorktree({ cwd: repo, target: 'feat/div' });
+    rows = await listWorktrees({ cwd: repo });
+    wtRow = rows.find((r) => r.path === wt)!;
+    expect(wtRow.depsMode).toBe('Isolated');
+    expect(wtRow.diverged).toBe(false);
+  });
 });
 
 describe('concurrency (D-027)', () => {

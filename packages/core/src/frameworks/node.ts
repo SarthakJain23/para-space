@@ -24,6 +24,7 @@ export const nodeStrategy: FrameworkStrategy = {
   name: 'NodeStrategy',
   kind: 'dependencies',
   sharedPaths: [NODE_MODULES],
+  manifestFiles: ['package.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'bun.lock'],
 
   detect: (root) => exists(path.join(root, 'package.json')),
 

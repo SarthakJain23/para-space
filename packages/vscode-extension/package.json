@@ -138,8 +138,13 @@
         },
         {
           "command": "paraSpace.isolateWorktree",
-          "when": "view == paraSpace.worktrees && viewItem == worktree.linked.shared",
+          "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\.linked\\.shared/",
           "group": "2_manage"
+        },
+        {
+          "command": "paraSpace.isolateWorktree",
+          "when": "view == paraSpace.worktrees && viewItem == worktree.linked.shared.diverged",
+          "group": "inline"
         },
         {
           "command": "paraSpace.removeWorktree",
