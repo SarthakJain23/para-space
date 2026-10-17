@@ -36,7 +36,7 @@ Modern software engineering with AI coding agents (such as GitHub Copilot, Claud
 
 ### A. The Peacock Pattern
 Originating from the popular VS Code extension *Peacock* (by John Papa), this pattern customizes the IDE window frame (`titleBar.activeBackground`, `activityBar.background`, `statusBar.background`) with distinct accent colors per workspace.
-- **Application in ParaSpace:** Each worktree receives a distinct color profile (e.g., Ticket 101 = Teal, Ticket 102 = Amber, Main = Blue) so developers can instantly identify which ticket/agent is running in each window.
+- **Application in ParaSpace:** Each worktree receives a distinct color profile (e.g., Ticket 101 = Lagoon, Ticket 102 = Coral, Main = Graphite) so developers can instantly identify which ticket/agent is running in each window.
 - **User Permission:** Any modification to `.vscode/settings.json` is strictly opt-in and requires user confirmation.
 
 ### B. Dependency Isolation: What happens when a package is installed in a worktree?
@@ -150,7 +150,7 @@ Every command, configuration shift, or automated agent change logs to a structur
   - Created worktree at `/Users/.../repo-TK-101`.
   - Strategy `NodeStrategy` applied: symlinked `node_modules`.
   - Port strategy `offset` used: assigned port `3001` (written to `.env.local`).
-  - `.vscode/settings.json` window color set to Teal `#008080` (user approved).
+  - `.vscode/settings.json` window color set to Lagoon `#137d87` (user approved).
 - **Problem Solved:** Prevents IDE window confusion, eliminates 4-minute npm install, avoids port 3000 collision.
 ```
 

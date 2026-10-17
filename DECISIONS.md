@@ -45,6 +45,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-031 | Tree view refreshes on state.json changes and focus; `list` writes only when pruning | Accepted | 2026-10-17 |
 | D-032 | Extension actions use modal confirms, a VS Code prompter and core-owned shared choices | Accepted | 2026-10-17 |
 | D-033 | Shared `WorktreeStore`; status bar with color dot; startup activation | Accepted | 2026-10-17 |
+| D-034 | Equal-lightness OKLCH window palette; color only title and status bars | Accepted | 2026-10-17 |
 
 ---
 
@@ -269,6 +270,24 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Activation.** `onStartupFinished`, so the status bar shows without opening the view, without slowing VS Code's startup.
   - **Multi-root.** Switching the active editor reloads only when it moves to a different repo.
 - **Problem Solved:** Every window shows which worktree it is and its port at a glance, and switching takes two clicks. All views stay consistent at the cost of one `listWorktrees` per refresh.
+
+
+## D-034 — Equal-lightness OKLCH window palette; color only title and status bars
+- **Status:** Accepted · 2026-10-17
+- **Requirement Context:** The user found the window colors ugly. The old palette (Teal, Amber, Purple, Crimson, Green, Slate, Magenta) was hand-picked, so some colors looked much louder than others. Slate was barely a color. The colors were applied as flat fills over the title bar, activity bar and status bar. The inactive title bar was the color at 60% opacity, which blends with what is behind it and turns muddy.
+- **Decision Made:**
+  - **Palette.** Built in OKLCH: main = Graphite (neutral, `#414853`); worktrees = Lagoon, Coral, Violet, Ochre, Cobalt, Jade, Orchid.
+    - Every worktree color has lightness L≈0.54, so none dominates. Chroma is tuned per hue to stay inside the sRGB gamut.
+    - Hues are about 45° apart and ordered to alternate warm/cool, so consecutive worktrees (the ones open side by side) differ most.
+    - Checked: white text ≥ 4.78:1 (WCAG AA) on every color and its deeper shade, the dot on a dark status bar ≥ 3.29:1, and the closest pair ΔE_ok ≥ 0.09.
+  - **Shades.** Each `ColorProfile` now carries `dark` (L−0.07) and `light` (L+0.06) shades of the same hue. They are precomputed, so core needs no color math at runtime.
+  - **Application** (`peacockSettings(profile)`):
+    - Title bar and status bar get the color with white text. The inactive title bar, `titleBar.border` and `statusBar.border` get the solid deeper shade. Status bar hover gets the lighter shade.
+    - The activity bar stays in the user's theme, with only a colored active marker and badge.
+    - No translucent fills.
+  - `peacockSettings` now takes a `ColorProfile` instead of a hex string.
+  - Existing worktrees keep the settings they were created with; the new colors apply to worktrees created from now on.
+- **Problem Solved:** Windows are identifiable at a glance by two calm bands of color that look like one designed family, with readable text everywhere and no muddy blends.
 
 ---
 

@@ -70,7 +70,7 @@ describe('worktree lifecycle', () => {
 
     // IDE settings written with consent, interpreter path absolute
     const settings = JSON.parse(await readFile(path.join(wt, '.vscode', 'settings.json'), 'utf8'));
-    expect(settings['workbench.colorCustomizations']['titleBar.activeBackground']).toBe('#008080');
+    expect(settings['workbench.colorCustomizations']['titleBar.activeBackground']).toBe('#137d87');
     expect(settings['python.defaultInterpreterPath']).toBe(path.join(wt, '.venv', 'bin', 'python'));
 
     // links excluded via info/exclude → worktree status shows only the (untracked) .vscode dir

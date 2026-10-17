@@ -77,7 +77,7 @@ flowchart TD
 4. For each detected `FrameworkStrategy`, call `linkDependencies()`. Node links `node_modules` (skipped for Yarn PnP). Python links `.venv`. Env links `.env` and copies `.env.local`. Existing paths in the worktree (e.g. a tracked `.env`) are left alone.
 5. Write root-anchored patterns for the links and `.env.local` to `$GIT_COMMON_DIR/info/exclude`.
 6. Write the reserved port to every `envKeys` entry in the worktree's `.env.local` (skipped for `passthrough`).
-7. IDE settings: Peacock colors for the index, plus `configureIdeSettings()` (Python interpreter path → `<worktree>/.venv/bin/python`). Written only with `--ide` or interactive consent, merged into the existing JSONC settings.
+7. IDE settings: the index's palette color (D-034). The title bar and status bar get the color with white text; the inactive title bar and borders get its solid deeper shade; status bar hover gets its lighter shade; the activity bar keeps the theme and only gets a colored active marker and badge. Plus `configureIdeSettings()` (Python interpreter path → `<worktree>/.venv/bin/python`). Written only with `--ide` or interactive consent, merged into the existing JSONC settings.
 8. Complete the reserved record with `links` and `color`, then append a ledger entry (the requirement comes from `--requirement`).
 9. If steps 3a–8 fail, roll back (D-022), which also removes the reservation.
 
@@ -206,3 +206,4 @@ _Status: In progress (Phase 2): sidebar tree view with Create / Open / Isolate /
 | 2026-10-17 | Sidebar tree view with refresh button, auto-refresh (state.json watcher, folder changes, window focus) and Open in New Window; `list` writes state only when pruning | 2, 5 | D-031 |
 | 2026-10-17 | Extension gains Create / Isolate / Remove (dialogs, progress, force-on-dirty, refuse removing the open worktree) and `vscodePrompter`; core gains `listBranches()` and shared `PORT_STRATEGY_CHOICES` | 5 | D-032 |
 | 2026-10-17 | Status bar (color dot + branch · port) and worktree switcher (Create first, current marked); `WorktreeStore` shared by tree and status bar; activation on startup; reload when the active editor changes repo | 5 | D-033 |
+| 2026-10-17 | New window palette (Graphite + 7 equal-lightness OKLCH colors, WCAG AA with white text); title and status bars colored, activity bar left to the theme, solid inactive title bar | 1 | D-034 |

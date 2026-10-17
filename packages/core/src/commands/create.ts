@@ -161,7 +161,7 @@ async function applyIdeSettings(
   opts: Pick<CreateOptions, 'ide' | 'prompter'>,
 ): Promise<{ file: string; color: ColorProfile } | undefined> {
   const color = colorForIndex(index);
-  const settings: Record<string, unknown> = { 'workbench.colorCustomizations': peacockSettings(color.hex) };
+  const settings: Record<string, unknown> = { 'workbench.colorCustomizations': peacockSettings(color) };
   for (const s of strategies) Object.assign(settings, await s.configureIdeSettings?.(mainRoot, wtPath));
 
   if (

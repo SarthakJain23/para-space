@@ -4,7 +4,7 @@ import { upsertEnv } from '../src/envfile.js';
 import { mergeSettings, parseJsonc } from '../src/ide.js';
 import { slugify, worktreePathFor } from '../src/paths.js';
 import { getPortStrategy } from '../src/ports/index.js';
-import { colorForIndex } from '../src/colors.js';
+import { PALETTE, colorForIndex, peacockSettings } from '../src/colors.js';
 
 describe('paths', () => {
   it('slugifies branch names', () => {
@@ -91,9 +91,34 @@ describe('ide settings', () => {
       'workbench.colorCustomizations': { 'editor.background': '#000', 'titleBar.activeBackground': '#008080' },
     });
   });
-  it('gives each worktree index a distinct non-main color', () => {
-    expect(colorForIndex(1).name).toBe('Teal');
-    expect(colorForIndex(2).name).toBe('Amber');
-    expect(colorForIndex(1).hex).not.toBe(colorForIndex(0).hex);
+  it('gives each worktree index a distinct non-main color, cycling after 7', () => {
+    expect(colorForIndex(1).name).toBe('Lagoon');
+    expect(colorForIndex(2).name).toBe('Coral');
+    expect(colorForIndex(8)).toBe(colorForIndex(1));
+    const worktreeHexes = Array.from({ length: 7 }, (_, i) => colorForIndex(i + 1).hex);
+    expect(new Set(worktreeHexes).size).toBe(7);
+    expect(worktreeHexes).not.toContain(colorForIndex(0).hex);
+  });
+
+  it('every palette color keeps white text readable (WCAG AA ≥ 4.5:1)', () => {
+    const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lum = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    for (const c of PALETTE) {
+      for (const shade of [c.hex, c.dark]) expect(1.05 / (lum(shade) + 0.05)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('colors title and status bars, leaves the activity bar to the theme, no translucent fills', () => {
+    const s = peacockSettings(colorForIndex(1));
+    expect(s['titleBar.activeBackground']).toBe('#137d87');
+    expect(s['titleBar.inactiveBackground']).toBe('#006871');
+    expect(s['statusBar.background']).toBe('#137d87');
+    expect(s['activityBar.background']).toBeUndefined();
+    for (const [key, value] of Object.entries(s)) {
+      if (key.endsWith('Background')) expect(value).toMatch(/^#[0-9a-f]{6}$/);
+    }
   });
 });

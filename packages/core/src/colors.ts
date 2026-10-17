@@ -1,27 +1,37 @@
+/** A worktree's window color, with a deeper shade (inactive title bar, borders) and a lighter one (hover). */
 export interface ColorProfile {
   name: string;
   hex: string;
+  dark: string;
+  light: string;
 }
 
-/** Index 0 is reserved for the main repo. */
+/**
+ * Index 0 is the main repo; 1–7 are worktree colors (D-034).
+ *
+ * Built in OKLCH so every worktree color has the same perceived lightness (L≈0.54): none looks
+ * louder than another. Hues sit about 45° apart and alternate warm/cool, so neighbouring
+ * worktrees differ the most. Each passes WCAG AA for white text (≥ 4.7:1) and 3:1 as a dot
+ * on a dark status bar. `dark` is L−0.07, `light` is L+0.06, same hue.
+ */
 export const PALETTE: ColorProfile[] = [
-  { name: 'Blue', hex: '#1e5aa8' },
-  { name: 'Teal', hex: '#008080' },
-  { name: 'Amber', hex: '#b36b00' },
-  { name: 'Purple', hex: '#6b3fa0' },
-  { name: 'Crimson', hex: '#a3213a' },
-  { name: 'Green', hex: '#2e7d32' },
-  { name: 'Slate', hex: '#455a64' },
-  { name: 'Magenta', hex: '#a0307a' },
+  { name: 'Graphite', hex: '#414853', dark: '#30363f', light: '#525864' },
+  { name: 'Lagoon', hex: '#137d87', dark: '#006871', light: '#2f8f99' },
+  { name: 'Coral', hex: '#be414a', dark: '#a32f39', light: '#d3555b' },
+  { name: 'Violet', hex: '#7855c3', dark: '#6442a8', light: '#8967d7' },
+  { name: 'Ochre', hex: '#9e6414', dark: '#875100', light: '#b2762c' },
+  { name: 'Cobalt', hex: '#2d6fbe', dark: '#1c5aa3', light: '#4081d2' },
+  { name: 'Jade', hex: '#34814e', dark: '#216b3c', light: '#47935f' },
+  { name: 'Orchid', hex: '#a5478e', dark: '#8c3578', light: '#b95aa0' },
 ];
 
 /**
  * Window color for a worktree index. 0 is the main repo; worktrees cycle through the rest.
  *
  * @example
- * colorForIndex(0); // → { name: 'Blue', hex: '#1e5aa8' }
- * colorForIndex(1); // → { name: 'Teal', hex: '#008080' }
- * colorForIndex(8); // → Teal again (7 worktree colors)
+ * colorForIndex(0); // → Graphite #414853
+ * colorForIndex(1); // → Lagoon #137d87
+ * colorForIndex(8); // → Lagoon again (7 worktree colors)
  */
 export function colorForIndex(index: number): ColorProfile {
   if (index <= 0) return PALETTE[0];
@@ -29,20 +39,31 @@ export function colorForIndex(index: number): ColorProfile {
 }
 
 /**
- * VS Code `workbench.colorCustomizations` that tint the title, activity and status bars (D-006).
+ * VS Code `workbench.colorCustomizations` for a worktree window (D-006, D-034).
+ *
+ * Colors the two bands that identify a window, the title bar and the status bar, and leaves the
+ * activity bar in the user's theme with only a colored active-item marker, so the window stays
+ * calm. The inactive title bar uses the solid deeper shade: semi-transparent colors blend with
+ * whatever is behind them and turn muddy.
  *
  * @example
- * settings['workbench.colorCustomizations'] = peacockSettings(colorForIndex(1).hex);
+ * settings['workbench.colorCustomizations'] = peacockSettings(colorForIndex(1));
  */
-export function peacockSettings(hex: string): Record<string, string> {
+export function peacockSettings({ hex, dark, light }: ColorProfile): Record<string, string> {
   return {
     'titleBar.activeBackground': hex,
     'titleBar.activeForeground': '#ffffff',
-    'titleBar.inactiveBackground': `${hex}99`,
-    'titleBar.inactiveForeground': '#ffffffaa',
-    'activityBar.background': hex,
-    'activityBar.foreground': '#ffffff',
+    'titleBar.inactiveBackground': dark,
+    'titleBar.inactiveForeground': '#ffffffb3',
+    'titleBar.border': dark,
+    'activityBar.activeBorder': hex,
+    'activityBarBadge.background': hex,
+    'activityBarBadge.foreground': '#ffffff',
     'statusBar.background': hex,
     'statusBar.foreground': '#ffffff',
+    'statusBar.border': dark,
+    'statusBarItem.hoverBackground': light,
+    'statusBarItem.remoteBackground': dark,
+    'statusBarItem.remoteForeground': '#ffffff',
   };
 }
