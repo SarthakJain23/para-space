@@ -67,10 +67,11 @@ export function worktreeTooltip(w: WorktreeInfo): string {
  * toWorktreeItem(row, false);
  * // → { label: '$(git-branch) app-feat-x', description: 'feat/x · clean · :3001 · Symlinked', detail: '/code/app-feat-x', ... }
  */
-export function toWorktreeItem(w: WorktreeInfo, current = false): WorktreeItem {
+export function toWorktreeItem(w: WorktreeInfo, current = false, repoName?: string): WorktreeItem {
   const icon = current ? 'check' : w.diverged ? 'warning' : w.isMain ? 'repo' : 'git-branch';
+  const prefix = repoName ? `[${repoName}] ` : '';
   return {
-    label: `$(${icon}) ${w.name}`,
+    label: `$(${icon}) ${prefix}${w.name}`,
     description: current ? `current · ${describeWorktree(w)}` : describeWorktree(w),
     detail: w.path,
     path: w.path,
@@ -79,8 +80,12 @@ export function toWorktreeItem(w: WorktreeInfo, current = false): WorktreeItem {
 }
 
 /** Switcher rows: "Create Worktree…" first, then every worktree, the current one checked. */
-export function switcherItems(rows: WorktreeInfo[], current: WorktreeInfo | undefined): WorktreeItem[] {
-  return [CREATE_ITEM, ...rows.map((r) => toWorktreeItem(r, r.path === current?.path))];
+export function switcherItems(
+  rows: WorktreeInfo[],
+  current: WorktreeInfo | undefined,
+  repoNameForPath?: (path: string) => string | undefined,
+): WorktreeItem[] {
+  return [CREATE_ITEM, ...rows.map((r) => toWorktreeItem(r, r.path === current?.path, repoNameForPath?.(r.path)))];
 }
 
 /**

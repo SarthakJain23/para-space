@@ -38,28 +38,26 @@ export interface UpdateConfigResult {
   previous?: ParaSpaceConfig;
 }
 
-async function chooseStrategy(opts: EnsureConfigOptions): Promise<PortStrategyAnswer> {
+function chooseStrategy(opts: EnsureConfigOptions): PortStrategyAnswer {
   const basePort = opts.basePort ?? DEFAULT_BASE_PORT;
-  if (opts.portStrategy || !opts.prompter) {
-    return { portStrategy: opts.portStrategy ?? 'offset', basePort, portPool: opts.portPool };
-  }
-  return opts.prompter.selectPortStrategy({ basePort });
+  return { portStrategy: opts.portStrategy ?? 'offset', basePort, portPool: opts.portPool };
 }
 
 /**
  * Loads the repo's `.para-space.json`, creating it on first run.
  *
- * On first run the port strategy comes from `opts.portStrategy`, else the `prompter`, else
- * `offset`. It also adds `.para-space/` to `.gitignore` and writes a ledger entry
- * (D-004, D-014, D-020). `createWorktree` calls this itself.
+ * On first run the port strategy comes from `opts.portStrategy`, defaulting to `offset`
+ * without interrupting the user. It also adds `.para-space/` to `.gitignore` and writes
+ * a ledger entry (D-004, D-014). To configure a different strategy interactively, use
+ * `updateConfig()` / `para config` / `ParaSpace: Configure Port Strategy…`.
  *
- * @param opts - `cwd`, optional `prompter`, and first-run `portStrategy` / `basePort` / `portPool`.
+ * @param opts - `cwd`, optional `portStrategy` / `basePort` / `portPool`.
  * @returns The config, and `created: true` if it was just written.
  * @throws If an existing `.para-space.json` is invalid.
  *
  * @example
- * const { config } = await ensureConfig({ cwd: '/code/app', portStrategy: 'scan' });
- * // config → { portStrategy: 'scan', basePort: 3000, envKeys: ['PORT'] }
+ * const { config } = await ensureConfig({ cwd: '/code/app' });
+ * // config → { portStrategy: 'offset', basePort: 3000, envKeys: ['PORT'] }
  */
 export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config: ParaSpaceConfig; created: boolean }> {
   const log = opts.log ?? silentLogger;
@@ -67,7 +65,7 @@ export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config:
   const existing = await loadConfig(mainRoot);
   if (existing) return { config: existing, created: false };
 
-  const { portStrategy, basePort, portPool } = await chooseStrategy(opts);
+  const { portStrategy, basePort, portPool } = chooseStrategy(opts);
   const config: ParaSpaceConfig = { portStrategy, basePort, envKeys: await defaultEnvKeys(mainRoot) };
   if (portPool) config.portPool = portPool;
   await saveConfig(mainRoot, config);

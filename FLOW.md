@@ -41,18 +41,15 @@ Files ParaSpace reads/writes:
 ---
 
 ## 1. Create Worktree — `para create <branch> [--base <ref>]`
-_Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-012–D-020, D-022, D-027_
+_Status: Implemented · Last updated: 2026-10-18 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-012–D-020, D-022, D-027, D-037_
 
 Flags: `--port-strategy`, `--base-port`, `--port-pool` (first run only), `--ide` / `--no-ide`, `-r/--requirement <text>`, `-y/--yes`, `--json`.
 
 ```mermaid
 flowchart TD
     A[para create branch --base main] --> B{.para-space.json exists?}
-    B -- No --> C{Prompter available?}
-    C -- Yes --> C1[Prompt: port strategy + base port + pool]
-    C -- No --> C2[--port-strategy or offset]
-    C1 --> D[Write .para-space.json<br/>append .para-space/ to .gitignore<br/>ledger entry]
-    C2 --> D
+    B -- No --> C[Default to offset strategy silently<br/>or use --port-strategy flag]
+    C --> D[Write .para-space.json<br/>append .para-space/ to .gitignore<br/>ledger entry]
     B -- Yes --> E[Load config]
     D --> E
     E --> F[git worktree add -b branch ../repo-slug base<br/>or reuse existing branch]
@@ -71,7 +68,7 @@ flowchart TD
 ```
 
 1. Resolve the **main** repo root via `git rev-parse --git-common-dir` (works from inside any worktree). The target is `../<repo>-<slug>`, and it fails if that path already exists.
-2. **First run:** if `.para-space.json` is missing, ask the Prompter. With no Prompter, use `--port-strategy` (default `offset`). `envKeys` = `PORT` plus strategy defaults (`VITE_PORT` for Vite). Append `.para-space/` to `.gitignore` and write a ledger entry.
+2. **First run:** if `.para-space.json` is missing, use `--port-strategy` or default to `offset` silently without interrupting the user (D-037). `envKeys` = `PORT` plus strategy defaults (`VITE_PORT` for Vite). Append `.para-space/` to `.gitignore` and write a ledger entry. (Interactive port strategy configuration is available on-demand via `para config` / `paraSpace.configureRepo`).
 3. `git worktree add -b <branch> <path> <base>`. If the branch already exists, it is checked out instead.
 3a. **Reserve a slot (D-027):** while holding `~/.para-space/state.lock`, take `worktreeIndex` = lowest unused index ≥ 1, allocate a port (`assignedPorts` = ports in state + `basePort`), and write a placeholder record. Concurrent creates therefore never share an index or port. This happens after `git worktree add` so a concurrent `list` doesn't prune the placeholder.
 4. For each detected `FrameworkStrategy`, call `linkDependencies()`. Node links `node_modules` (skipped for Yarn PnP). Python links `.venv`. Env links `.env` and copies `.env.local`. Existing paths in the worktree (e.g. a tracked `.env`) are left alone.
@@ -147,15 +144,19 @@ _Status: Implemented · Last updated: 2026-10-16 · Decisions: D-001, D-007, D-0
 ---
 
 ## 5. VS Code Extension
-_Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, first-run and reconfigurable port strategy dialogs, status bar, worktree switcher, context history view and ledger editor integration · Last updated: 2026-10-17 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032, D-033, D-035_
+_Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate / Remove, multi-repository workspace discovery and selection, reconfigurable port strategy dialogs, status bar, worktree switcher, context history view and ledger editor integration · Last updated: 2026-10-18 · Decisions: D-006, D-008, D-020, D-030, D-031, D-032, D-033, D-035, D-037_
 
 **Implemented:**
-- **Activation:** `onStartupFinished`, so the status bar appears without opening the view. `activate()` creates the `ParaSpace` output channel (core's `Logger`), the `WorktreeStore`, the worktree tree view, the context history (ledger) tree view, the status bar, the commands and the change watchers, then loads the store once.
-- **WorktreeStore** (D-033): the only caller of `listWorktrees` in the extension. `load()` records the repo root, rows and any error, then fires `onDidChange`. A load requested while one is running causes exactly one more load afterwards. The tree and status bar render from it, and commands call `store.load()` after a change. `current` is the row containing the window's folder, with the deepest match winning.
-- **Which repo:** the workspace folder of the active editor, else the first workspace folder.
+- **Activation:** `onStartupFinished`, so the status bar appears without opening the view. `activate()` creates the `ParaSpace` output channel (core's `Logger`), the `WorktreeStore` (backed by `context.workspaceState`), the worktree tree view, the context history (ledger) tree view, the status bar, the commands and the change watchers, then loads the store once.
+- **WorktreeStore** (D-033, D-037): the only caller of `listWorktrees` in the extension. Discovers all git repositories across workspace folders and includes all of them by default. Loads worktrees per included repository and tracks active repository (active editor or first).
+- **Multi-Repo Workspace Support (D-037):**
+  - **Select Repositories to Include… (`paraSpace.selectRepositories`):** View title action allowing developers to include or uncheck/remove specific repositories in multi-root workspaces.
+  - **Tree View Grouping:** When >1 repository is included, worktrees and context history are grouped under collapsible repository nodes. When 1 repository is open, trees remain flat.
+  - **Repository-Targeted Commands:** Right-clicking a repository node in the tree allows creating a worktree or configuring port strategy directly for that repository. Invoking from the view title prompts to select the target repository.
+  - **Unified Switcher:** `paraSpace.listWorktrees` displays worktrees across all included repositories, prefixing items with `[<repo>]`.
 - **Sidebar** (activity bar container `paraSpace`):
-  - **Worktrees view (`paraSpace.worktrees`):** one flat row per worktree from core's `listWorktrees()`. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. With no folder open, a welcome message offers Open Folder. If listing fails, the error is shown above the empty tree and logged. Title actions: **Create Worktree…** (+), **Configure Port Strategy…** (gear), **Refresh** (↻).
-  - **Context History view (`paraSpace.ledger`):** renders entries from `.para-space/context-history.md` (newest first). Each entry node shows title and timestamp, with expandable child nodes for **Requirement Context** (info), **Decisions** (check), and **Problem Solved** (pass). Title actions: **Open Context History in Editor**, **Refresh**.
+  - **Worktrees view (`paraSpace.worktrees`):** flat rows or repository groups. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. Title actions: **Create Worktree…** (+), **Select Repositories…** (filter), **Configure Port Strategy…** (gear), **Refresh** (↻).
+  - **Context History view (`paraSpace.ledger`):** renders entries from `.para-space/context-history.md` (newest first), grouped by repo when multiple repos exist. Each entry node shows title and timestamp, with expandable child nodes for **Requirement Context** (info), **Decisions** (check), and **Problem Solved** (pass). Title actions: **Open Context History in Editor**, **Refresh**.
 - **Refresh:** the title-bar ↻ button (`paraSpace.refresh`), plus automatic, debounced (300 ms) store reloads when:
   - `~/.para-space/state.json` is created, changed or deleted (CLI or agent runs),
   - `.para-space/**` or `.para-space.json` is modified,
@@ -174,17 +175,16 @@ _Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate /
   - The first row is **Create Worktree…**, which runs `paraSpace.createWorktree`.
   - Then every worktree, the current one marked ✓ and `current`.
   - Picking another worktree opens it in a new window; picking the current one does nothing.
-- **Create Worktree…** (`paraSpace.createWorktree`, the **+** in the view title, also in the Command Palette):
-  1. Input: branch name, validated in the box (no spaces, no `..`, `~ ^ : ? * [ \`, no leading `-`, no trailing `/` or `.lock`).
-  2. If the branch doesn't exist yet: quick pick of the base from `listBranches()` (most recent first). An existing branch skips this step.
-  3. Input: optional reason, recorded as the ledger's requirement.
-  4. `createWorktree` runs behind a progress notification, with `vscodePrompter` as the prompter and `ide: 'ask'`.
-     - First run in the repo: a port strategy quick pick, then base port and pool inputs as needed.
-     - IDE colors: a modal confirm. Dismissing it means "no", because the worktree already exists by then.
-  5. The tree refreshes, and a notification shows the name and port with an **Open in New Window** button.
+- **Create Worktree…** (`paraSpace.createWorktree`, the **+** in the view title, repository context menu, and Command Palette):
+  1. If invoked without repository context in a multi-repo workspace, prompts to select the target repository.
+  2. Input: branch name, validated in the box (no spaces, no `..`, `~ ^ : ? * [ \`, no leading `-`, no trailing `/` or `.lock`).
+  3. If the branch doesn't exist yet: quick pick of the base from `listBranches()` (most recent first). An existing branch skips this step.
+  4. Input: optional reason, recorded as the ledger's requirement.
+  5. `createWorktree` runs behind a progress notification. Port allocation silently defaults to `offset` on first run without prompting (D-037). IDE colors are asked via a modal confirm.
+  6. The tree refreshes, and a notification shows the name and port with an **Open in New Window** button.
   - Escape on any prompt cancels quietly; nothing has been created at that point. A failure after the checkout rolls back as in §1.
-- **Configure Port Strategy…** (`paraSpace.configureRepo`, gear icon in Worktrees view title, and Command Palette):
-  - Prompts for reason (recorded in context ledger), then prompts for strategy, base port, and pool range.
+- **Configure Port Strategy…** (`paraSpace.configureRepo`, gear icon in Worktrees view title, repo context menu, and Command Palette):
+  - Prompts for target repository (in multi-repo workspaces), then reason (recorded in context ledger), then prompts for strategy, base port, and pool range.
   - Updates `.para-space.json` via `updateConfig()`, appends an entry to `.para-space/context-history.md`, and refreshes the store and ledger views.
 - **Open Context History in Editor** (`paraSpace.openLedgerFile`, in Context History title or entry context menu):
   - Opens `.para-space/context-history.md` directly in the editor.
@@ -253,3 +253,4 @@ flowchart TD
 | 2026-10-17 | New window palette (Graphite + 7 equal-lightness OKLCH colors, WCAG AA with white text); title and status bars colored, activity bar left to the theme, solid inactive title bar | 1 | D-034 |
 | 2026-10-17 | Context history (ledger) view in sidebar, file open command, interactive repo port strategy config (`para config` and `paraSpace.configureRepo`), and auto-refresh on ledger/config changes | 5 | D-035 |
 | 2026-10-17 | Manifest watcher, dependency divergence detection in core (`checkDivergence`), `para check` CLI command, warning indicators, and 1-click breakaway isolation flow | 2, 3, 5, 6 | D-036 |
+| 2026-10-18 | Multi-repository workspace support (discover, select/remove, repo tree nodes, unified switcher) and silent default port allocation on worktree create | 1, 5 | D-037 |

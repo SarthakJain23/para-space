@@ -1,8 +1,8 @@
 import { updateConfig } from '@para-space/core';
 import * as vscode from 'vscode';
 import { vscodePrompter } from '../prompter.js';
-import { action, ask, withProgress } from '../runtime.js';
-import { requireWorkspaceRoot } from '../workspace.js';
+import { action, ask, pick, withProgress } from '../runtime.js';
+import { requireActiveRepoRoot } from '../workspace.js';
 import type { CommandContext } from './context.js';
 
 const TITLE = 'ParaSpace: Configure Port Strategy';
@@ -14,8 +14,25 @@ const TITLE = 'ParaSpace: Configure Port Strategy';
 export function registerConfigure({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.configureRepo',
-    action(rt, async () => {
-      const cwd = requireWorkspaceRoot();
+    action(rt, async (target?: unknown) => {
+      let cwd: string | undefined;
+      if (target && typeof target === 'object') {
+        const t = target as { repo?: { root: string }; repoRoot?: string };
+        cwd = t.repo?.root ?? t.repoRoot;
+      }
+
+      if (!cwd) {
+        if (store.repos.length > 1) {
+          const picked = await pick(
+            store.repos.map((r) => ({ label: r.name, description: r.root, root: r.root })),
+            { title: TITLE, placeHolder: 'Select repository to configure' },
+          );
+          cwd = picked.root;
+        } else {
+          cwd = requireActiveRepoRoot(store.roots);
+        }
+      }
+
       const requirement =
         (
           await ask({

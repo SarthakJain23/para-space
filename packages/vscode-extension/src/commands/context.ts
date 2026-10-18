@@ -7,6 +7,7 @@ export interface CommandContext {
   rt: Runtime;
   /** Call `store.load()` after a change so the tree and status bar update. */
   store: WorktreeStore;
+  extensionContext: vscode.ExtensionContext;
 }
 
 /** Open a worktree folder in a new VS Code window. */

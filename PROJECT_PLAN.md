@@ -50,7 +50,7 @@ Originating from the popular VS Code extension *Peacock* (by John Papa), this pa
 
 ### C. Port Conflict Resolution via Strategy Pattern
 When multiple dev servers run concurrently, port conflicts can halt parallel execution. ParaSpace handles ports using a **Pluggable Port Strategy Pattern**:
-- **First-Time Repository Configuration:** When creating the first worktree in a repository, ParaSpace asks the user which port strategy they prefer and persists this choice in `.para-space.json` (or `.vscode/para-space.json`) for all future worktrees in that repo.
+- **First-Time Repository Configuration:** On the first worktree in a repository, ParaSpace silently sets the default `offset` strategy and persists it in `.para-space.json` without prompting. Developers can customize the strategy at any time via `para config` or the VS Code Command Palette.
 - **Available Port Strategies:**
   1. **Offset Strategy (`offset`):** Increments base port by worktree index (e.g., base `3000` -> `3001`, `3002`) written to `.env.local` / `.env`.
   2. **Free Port Scanner (`scan`):** Uses dynamic socket probing (`get-port`) to find and allocate the lowest available open port.

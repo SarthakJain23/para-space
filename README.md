@@ -27,7 +27,7 @@ para remove feat/TK-101 --delete-branch
 
 **VS Code extension (development):** open this repo in VS Code and press **F5** (Run → "Run ParaSpace Extension"). It builds core and the extension, then opens an Extension Development Host window. In that window, open any git repo and click the **ParaSpace** icon in the activity bar, or run **ParaSpace: List Worktrees** from the Command Palette. Logs are in the Output panel under "ParaSpace".
 
-The first `create` in a repo asks for a port strategy and saves it to `.para-space.json`, which you should commit. For agents and scripts, pass `--yes`, and optionally `--port-strategy <offset|scan|pool|passthrough>` and `--ide`. Nothing will prompt.
+The first `create` in a repo automatically uses the `offset` strategy and saves it to `.para-space.json`, which you should commit. To configure a different strategy (`scan`, `pool`, `passthrough`), run `para config` or use **ParaSpace: Configure Port Strategy…** in VS Code. For agents and scripts, pass `--yes`, and optionally `--port-strategy <offset|scan|pool|passthrough>` and `--ide`. Nothing will prompt.
 
 ## Layout
 

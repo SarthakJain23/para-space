@@ -96,6 +96,12 @@ describe('switcher and status bar', () => {
     expect(items.slice(1).map((i) => i.current)).toEqual([false, true]);
   });
 
+  it('prefixes repo name in switcher items when repoNameForPath is provided', () => {
+    const items = switcherItems(rows, feat, (p) => (p.includes('app-feat') ? 'frontend' : 'backend'));
+    expect(items[1].label).toBe('$(repo) [backend] (main)');
+    expect(items[2].label).toBe('$(check) [frontend] app-feat-x');
+  });
+
   it('formats the status bar text', () => {
     expect(statusBarText(feat)).toBe('$(git-branch) feat/x · :3001');
     expect(statusBarText(main)).toBe('$(repo) main · :3000');

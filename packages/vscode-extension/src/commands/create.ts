@@ -4,20 +4,37 @@ import * as vscode from 'vscode';
 import { validateBranchName } from '../dialogs.js';
 import { vscodePrompter } from '../prompter.js';
 import { action, ask, pick, withProgress } from '../runtime.js';
-import { requireWorkspaceRoot } from '../workspace.js';
+import { requireActiveRepoRoot } from '../workspace.js';
 import { type CommandContext, openInNewWindow } from './context.js';
 
 const TITLE = 'ParaSpace: Create Worktree';
 
 /**
- * `paraSpace.createWorktree`: asks for branch, base (only for a new branch) and an optional
- * reason, then runs core's `createWorktree` with editor dialogs as the prompter.
+ * `paraSpace.createWorktree`: asks for target repository (if multiple exist and not targeted),
+ * branch, base (only for a new branch) and an optional reason, then runs core's `createWorktree`.
  */
 export function registerCreate({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.createWorktree',
-    action(rt, async () => {
-      const cwd = requireWorkspaceRoot();
+    action(rt, async (target?: unknown) => {
+      let cwd: string | undefined;
+      if (target && typeof target === 'object') {
+        const t = target as { repo?: { root: string }; repoRoot?: string };
+        cwd = t.repo?.root ?? t.repoRoot;
+      }
+
+      if (!cwd) {
+        if (store.repos.length > 1) {
+          const picked = await pick(
+            store.repos.map((r) => ({ label: r.name, description: r.root, root: r.root })),
+            { title: TITLE, placeHolder: 'Select repository for the new worktree' },
+          );
+          cwd = picked.root;
+        } else {
+          cwd = requireActiveRepoRoot(store.roots);
+        }
+      }
+
       const branches = await listBranches({ cwd });
 
       const branch = (

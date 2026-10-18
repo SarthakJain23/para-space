@@ -11,7 +11,7 @@ import { WorktreeTreeProvider } from './tree.js';
 /** Entry point: VS Code calls this once startup has finished (for the status bar), or earlier on first use. */
 export function activate(context: vscode.ExtensionContext): void {
   const rt = createRuntime();
-  const store = new WorktreeStore(rt.log);
+  const store = new WorktreeStore(rt.log, context.workspaceState);
   const worktreeTree = new WorktreeTreeProvider(store);
   const ledgerTree = new LedgerTreeProvider(store);
 
@@ -21,7 +21,7 @@ export function activate(context: vscode.ExtensionContext): void {
     worktreeTree,
     ledgerTree,
     createStatusBar(store),
-    ...registerCommands({ rt, store }),
+    ...registerCommands({ rt, store, extensionContext: context }),
     ...watchForChanges(store),
     ...watchManifests(store, rt),
   );

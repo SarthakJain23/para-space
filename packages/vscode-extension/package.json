@@ -74,6 +74,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "paraSpace.selectRepositories",
+        "title": "Select Repositories to Include…",
+        "category": "ParaSpace",
+        "icon": "$(filter)"
+      },
+      {
         "command": "paraSpace.configureRepo",
         "title": "Configure Port Strategy…",
         "category": "ParaSpace",
@@ -105,14 +111,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "paraSpace.configureRepo",
+          "command": "paraSpace.selectRepositories",
           "when": "view == paraSpace.worktrees",
           "group": "navigation@2"
         },
         {
-          "command": "paraSpace.refresh",
+          "command": "paraSpace.configureRepo",
           "when": "view == paraSpace.worktrees",
           "group": "navigation@3"
+        },
+        {
+          "command": "paraSpace.refresh",
+          "when": "view == paraSpace.worktrees",
+          "group": "navigation@4"
         },
         {
           "command": "paraSpace.openLedgerFile",
@@ -126,6 +137,16 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "paraSpace.createWorktree",
+          "when": "view == paraSpace.worktrees && viewItem == paraSpace.repo",
+          "group": "1_create"
+        },
+        {
+          "command": "paraSpace.configureRepo",
+          "when": "view == paraSpace.worktrees && viewItem == paraSpace.repo",
+          "group": "2_config"
+        },
         {
           "command": "paraSpace.openInNewWindow",
           "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\./",
@@ -154,6 +175,11 @@
         {
           "command": "paraSpace.openLedgerFile",
           "when": "view == paraSpace.ledger && viewItem == ledger.entry",
+          "group": "inline"
+        },
+        {
+          "command": "paraSpace.openLedgerFile",
+          "when": "view == paraSpace.ledger && viewItem == paraSpace.repoLedger",
           "group": "inline"
         }
       ],

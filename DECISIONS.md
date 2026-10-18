@@ -48,6 +48,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-034 | Equal-lightness OKLCH window palette; color only title and status bars | Accepted | 2026-10-17 |
 | D-035 | Context history tree view and interactive port strategy configuration | Accepted | 2026-10-17 |
 | D-036 | Manifest watching, dependency divergence detection, and one-click breakaway isolation | Accepted | 2026-10-17 |
+| D-037 | Multi-repository workspace support and silent default port allocation on worktree create | Accepted | 2026-10-18 |
 
 ---
 
@@ -317,6 +318,24 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
     - On divergence, displays a modal-free warning notification with **Isolate Dependencies** and **Ignore**, throttling duplicate alerts per divergence state.
     - Diverged worktree tree items receive a warning icon, `worktree.linked.shared.diverged` context, and an inline **Isolate Dependencies** action right on the sidebar row.
 - **Problem Solved:** Fully delivers Phase 3 safety guarantees, eliminating the risk of accidental mutations to the shared dependency root.
+
+
+## D-037 — Multi-repository workspace support and silent default port allocation on worktree create
+- **Status:** Accepted · 2026-10-18
+- **Requirement Context:**
+  1. In multi-root workspaces with multiple repositories open simultaneously, ParaSpace previously defaulted to only the active editor or first folder, leading to confusion about which repository was being targeted.
+  2. First-time worktree creation previously prompted users to select a port strategy, adding friction to creating worktrees when users just want automatic non-colliding ports.
+- **Decision Made:**
+  - **Silent port allocation on create:** `ensureConfig()` automatically uses the `offset` strategy without prompting the user. Interactive strategy configuration is an explicit, on-demand choice via `para config` (CLI) and `ParaSpace: Configure Port Strategy…` (VS Code).
+  - **Multi-repository discovery and selection:**
+    - Discover all git repository roots across workspace folders.
+    - All discovered repositories are selected by default.
+    - Added `ParaSpace: Select Repositories to Include…` (`paraSpace.selectRepositories`, filter icon in view title) so users can uncheck/remove or re-include any repository in the workspace. Selections persist per workspace in `workspaceState`.
+    - `WorktreeStore` tracks and updates worktrees for all included repositories.
+    - Tree views (`paraSpace.worktrees` and `paraSpace.ledger`) group entries by repository when >1 repository is included; single-repo workspaces remain flat.
+    - Worktree actions (Create, Configure, Open History) prompt for the repository when invoked from the view title in a multi-repo workspace, or automatically target the selected repository node when invoked from a repository's context menu.
+    - The switcher (`paraSpace.listWorktrees`) displays worktrees across all included repositories, prefixing each with `[<repo>]`.
+- **Problem Solved:** Eliminates prompt friction during `create` and seamlessly supports multi-root workspaces with multiple concurrent repositories.
 
 ---
 

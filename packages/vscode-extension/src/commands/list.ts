@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
+import { isInside } from '../dialogs.js';
 import { CREATE_ITEM, switcherItems } from '../items.js';
 import { action, pick } from '../runtime.js';
 import type { WorktreeNode } from '../tree.js';
-import { requireWorkspaceRoot } from '../workspace.js';
+import { requireActiveRepoRoot } from '../workspace.js';
 import { type CommandContext, openInNewWindow } from './context.js';
 
 /**
@@ -14,10 +15,15 @@ export function registerList({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.listWorktrees',
     action(rt, async () => {
-      requireWorkspaceRoot();
+      requireActiveRepoRoot(store.roots);
       await store.load();
       if (store.error) throw new Error(store.error);
-      const picked = await pick(switcherItems(store.rows, store.current), {
+      const isMultiRepo = store.repos.length > 1;
+      const repoNameForPath = isMultiRepo
+        ? (p: string) => store.repos.find((r) => isInside(p, r.root))?.name
+        : undefined;
+      const rows = isMultiRepo ? store.allRows : store.rows;
+      const picked = await pick(switcherItems(rows, store.current, repoNameForPath), {
         title: 'ParaSpace Worktrees',
         placeHolder: 'Switch to a worktree (opens in a new window)',
         matchOnDescription: true,

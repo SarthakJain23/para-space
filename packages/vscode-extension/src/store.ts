@@ -1,30 +1,65 @@
+import path from 'node:path';
 import { type Logger, type WorktreeInfo, listWorktrees } from '@para-space/core';
 import * as vscode from 'vscode';
 import { currentWorktree } from './items.js';
-import { findWorkspaceRoot } from './workspace.js';
+import { findActiveRepoRoot, getIncludedRepoRoots } from './workspace.js';
+
+export interface RepoWorktrees {
+  root: string;
+  name: string;
+  rows: WorktreeInfo[];
+  error?: string;
+}
 
 /**
- * The one place the extension loads worktrees. The tree view and the status bar render from it,
- * so a refresh runs `listWorktrees` once, however many views listen (D-033).
+ * The one place the extension loads worktrees. Manages all included repositories
+ * in multi-root workspaces, so tree views and status bar render consistently (D-033).
  */
 export class WorktreeStore implements vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<void>();
   /** Fires after every load, successful or not. */
   readonly onDidChange = this.changed.event;
 
-  /** Repo root the rows belong to; `undefined` when no folder is open. */
-  root: string | undefined;
-  rows: WorktreeInfo[] = [];
-  /** Why the last load failed, if it did. */
+  /** All repositories managed in the current workspace. */
+  repos: RepoWorktrees[] = [];
+  /** Included repository root paths. */
+  roots: string[] = [];
+
+  /** Why the last load failed entirely, if it did. */
   error: string | undefined;
 
   private loading: Promise<void> | undefined;
   private stale = false;
 
-  constructor(private readonly log: Logger) {}
+  constructor(
+    private readonly log: Logger,
+    private readonly memento?: vscode.Memento,
+  ) {}
+
+  /** Active repository root (from active editor, or the first repo). */
+  get root(): string | undefined {
+    return findActiveRepoRoot(this.roots);
+  }
+
+  /** Worktrees belonging to the active repository (or all rows if only one repo). */
+  get rows(): WorktreeInfo[] {
+    const active = this.repos.find((r) => r.root === this.root);
+    return active ? active.rows : this.allRows;
+  }
+
+  /** All worktree rows across all included repositories. */
+  get allRows(): WorktreeInfo[] {
+    return this.repos.flatMap((r) => r.rows);
+  }
 
   /** The row for the worktree this window has open. */
   get current(): WorktreeInfo | undefined {
+    const editor = vscode.window.activeTextEditor;
+    const activePath = editor ? editor.document.uri.fsPath : undefined;
+    if (activePath) {
+      const match = currentWorktree(this.allRows, activePath);
+      if (match) return match;
+    }
     return this.root ? currentWorktree(this.rows, this.root) : undefined;
   }
 
@@ -48,15 +83,26 @@ export class WorktreeStore implements vscode.Disposable {
   }
 
   private async fetch(): Promise<void> {
-    this.root = findWorkspaceRoot();
-    try {
-      this.rows = this.root ? await listWorktrees({ cwd: this.root, log: this.log }) : [];
-      this.error = undefined;
-    } catch (err) {
-      this.rows = [];
-      this.error = (err as Error).message;
-      this.log.warn(this.error);
+    this.roots = await getIncludedRepoRoots(this.memento);
+    const results: RepoWorktrees[] = [];
+
+    for (const root of this.roots) {
+      try {
+        const rows = await listWorktrees({ cwd: root, log: this.log });
+        results.push({ root, name: path.basename(root), rows });
+      } catch (err) {
+        const message = (err as Error).message;
+        results.push({ root, name: path.basename(root), rows: [], error: message });
+        this.log.warn(`Could not list worktrees for ${root}: ${message}`);
+      }
     }
+
+    this.repos = results;
+    this.error =
+      this.repos.length > 0 && this.repos.every((r) => r.error)
+        ? this.repos.map((r) => `${r.name}: ${r.error}`).join('; ')
+        : undefined;
+
     this.changed.fire();
   }
 }
