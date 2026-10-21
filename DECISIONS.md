@@ -49,6 +49,8 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-035 | Context history tree view and interactive port strategy configuration | Accepted | 2026-10-17 |
 | D-036 | Manifest watching, dependency divergence detection, and one-click breakaway isolation | Accepted | 2026-10-17 |
 | D-037 | Multi-repository workspace support and silent default port allocation on worktree create | Accepted | 2026-10-18 |
+| D-038 | Searchable branch selection and multi-repo workspace provisioning on create | Accepted | 2026-10-21 |
+| D-039 | Multi-repository workspace CLI command `para workspace create` | Accepted | 2026-10-21 |
 
 ---
 
@@ -336,6 +338,30 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
     - Worktree actions (Create, Configure, Open History) prompt for the repository when invoked from the view title in a multi-repo workspace, or automatically target the selected repository node when invoked from a repository's context menu.
     - The switcher (`paraSpace.listWorktrees`) displays worktrees across all included repositories, prefixing each with `[<repo>]`.
 - **Problem Solved:** Eliminates prompt friction during `create` and seamlessly supports multi-root workspaces with multiple concurrent repositories.
+
+## D-038 — Searchable branch selection and multi-repo workspace provisioning on create
+- **Status:** Accepted · 2026-10-21
+- **Requirement Context:**
+  1. In the VS Code extension, selecting a branch required manually typing the branch name in an input box, even when checking out an existing branch. Users had to remember branch names instead of browsing or filtering existing branches.
+  2. In multi-repo workspaces (e.g. 2 repos like frontend & backend), clicking Create Worktree asked the user to choose between the 2 repositories, instead of letting them choose a subset and create a workspace across that selection.
+- **Decision Made:**
+  - **Searchable branch QuickPick:** `pickBranch` presents a searchable QuickPick populated with existing local branches. Users can filter and select existing branches with 1 click without retyping, or type a new branch name to see a `$(plus) Create new branch "<name>"` action. Selecting an existing branch skips the base branch prompt; creating a new branch proceeds to base branch selection.
+  - **Repository selection:** At workspace level, creation lists all detected repositories in a searchable multi-select picker. Repositories currently included in ParaSpace are checked by default; users can choose a subset, but must select at least one. A repository-node context action continues to target that one repository without showing the multi-select picker.
+  - **Branch selection:** For multiple selected repositories, the default path selects one existing branch available in every selected repo, or creates the same new branch in all of them. New branches prompt for a base independently per repository. The Advanced path lets users select or create a branch separately in each repo. A branch existing in only some selected repos must be resolved through Advanced.
+  - **Review and provision:** Before changes are made, a confirmation summarizes repositories, branch names, and bases. On success, ParaSpace generates a `.code-workspace` file containing the resulting worktrees and offers to open it in a new window. If creation fails partway through, earlier worktrees are rolled back and rollback failures are reported.
+- **Problem Solved:** Eliminates manual branch typing with a smooth searchable picker and enables full multi-repository workspace workflows in VS Code.
+
+## D-039 — Multi-repository workspace CLI command `para workspace create`
+- **Status:** Accepted · 2026-10-21
+- **Requirement Context:** `para create <branch>` provisions a worktree for the single repository in `process.cwd()`. To manage parallel multi-repo setups from the terminal (e.g. frontend + backend), developers and scripts need a way to discover repositories, choose a shared branch or per-repo branches, provision parallel worktrees across all of them, and emit a `.code-workspace` file without changing existing single-repo scripts.
+- **Decision Made:**
+  - **New command:** Added `para workspace create [branch]` (with alias `para ws`).
+  - **Shared workspace logic in `@para-space/core`:** Moved `sharedBranches`, `buildMultiRepoWorkspaceConfig`, `multiRepoWorkspaceFilePath`, and added `discoverWorkspaceRepoRoots` to core, so CLI and extension share the exact same behavior and validation.
+  - **Discovery:** If `--repo <path...>` is omitted, automatically discovers repositories from cwd, any `.code-workspace` file in cwd, and immediate subdirectories. When multiple repos exist and interactive, prompts via `@clack/prompts` `multiselect` with all pre-selected by default.
+  - **Branch selection:** Supports shared branch selection across all repos or `--per-repo` / interactive Advanced selection per repository. If a branch name is given as an argument, verifies presence across repositories, creates new branches if absent, and warns or routes to per-repo selection if it exists in only some repositories.
+  - **Safety & Rollback:** Reviews the plan before creating; if any repository fails during provisioning, all previously created worktrees are automatically rolled back.
+  - **Output:** Writes a `.code-workspace` file grouping the new worktrees, prints formatted summaries with ports, or emits JSON when `--json` is supplied.
+- **Problem Solved:** Brings full multi-repo parallel workspace capabilities to the CLI with both interactive and non-interactive scriptable support while preserving single-repo `para create` behavior.
 
 ---
 

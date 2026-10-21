@@ -6,13 +6,22 @@ import { registerCreate } from './commands/create.js';
 import { registerIsolate } from './commands/isolate.js';
 import { registerList } from './commands/list.js';
 import { registerRemove } from './commands/remove.js';
+import { registerWorkspace } from './commands/workspace.js';
 
 const program = new Command()
   .name('para')
   .description('ParaSpace — parallel git worktrees with shared dependencies')
   .version('0.1.0');
 
-const commands = [registerCreate, registerList, registerIsolate, registerRemove, registerConfig, registerCheck];
+const commands = [
+  registerCreate,
+  registerWorkspace,
+  registerList,
+  registerIsolate,
+  registerRemove,
+  registerConfig,
+  registerCheck,
+];
 
 for (const register of commands) register(program);
 

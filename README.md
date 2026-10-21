@@ -20,6 +20,7 @@ pnpm package:extension          # packages the VS Code extension .vsix
 
 ```bash
 para create feat/TK-101 --base main -r "Auth redesign"   # ../<repo>-feat-TK-101
+para workspace create feat/TK-101                        # multi-repo: provisions all repos & .code-workspace
 para list
 para isolate feat/TK-101        # break the shared node_modules/.venv link
 para remove feat/TK-101 --delete-branch

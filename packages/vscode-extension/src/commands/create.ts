@@ -1,79 +1,341 @@
+import fs from 'node:fs';
 import path from 'node:path';
-import { createWorktree, listBranches } from '@para-space/core';
+import {
+  type CreateResult,
+  type Logger,
+  branchExists,
+  createWorktree,
+  listBranches,
+  removeWorktree,
+} from '@para-space/core';
 import * as vscode from 'vscode';
-import { validateBranchName } from '../dialogs.js';
+import {
+  type CodeWorkspaceConfig,
+  buildMultiRepoWorkspaceConfig,
+  multiRepoWorkspaceFilePath,
+  sharedBranches,
+} from '../dialogs.js';
 import { vscodePrompter } from '../prompter.js';
-import { action, ask, pick, withProgress } from '../runtime.js';
-import { requireActiveRepoRoot } from '../workspace.js';
+import { action, ask, pick, pickBranch, pickMany, withProgress, CancelledError } from '../runtime.js';
+import type { WorktreeStore } from '../store.js';
+import { discoverRepoRoots, requireActiveRepoRoot } from '../workspace.js';
 import { type CommandContext, openInNewWindow } from './context.js';
 
 const TITLE = 'ParaSpace: Create Worktree';
 
+export interface TargetRepo {
+  root: string;
+  name: string;
+}
+
+interface BranchPlan {
+  repo: TargetRepo;
+  branch: string;
+  base?: string;
+}
+
+interface ProvisionParams {
+  plans: BranchPlan[];
+  requirement?: string;
+  ide: 'ask' | 'yes' | 'no';
+  log: Logger;
+}
+
+/** Determines which repositories in the workspace to provision worktrees for. */
+async function resolveTargetRepos(target: unknown, store: WorktreeStore): Promise<TargetRepo[]> {
+  let targetRepoRoot: string | undefined;
+  if (target && typeof target === 'object') {
+    const t = target as { repo?: { root: string }; repoRoot?: string };
+    targetRepoRoot = t.repo?.root ?? t.repoRoot;
+  }
+
+  if (targetRepoRoot) {
+    const found = store.repos.find((r) => r.root === targetRepoRoot);
+    return [found ?? { root: targetRepoRoot, name: path.basename(targetRepoRoot) }];
+  }
+
+  const roots = await discoverRepoRoots();
+  if (roots.length <= 1) {
+    const root = roots[0] ?? requireActiveRepoRoot(store.roots);
+    return [{ root, name: path.basename(root) }];
+  }
+
+  const items = roots.map((root) => ({
+    label: path.basename(root),
+    description: root,
+    root,
+    picked: store.roots.includes(root),
+  }));
+  const selected = await pickMany(items, {
+    title: TITLE,
+    placeHolder: 'Select repositories for this ParaSpace workspace',
+  });
+  const repos = selected.map(({ root }) => ({ root, name: path.basename(root) }));
+  if (repos.length === 0) {
+    void vscode.window.showInformationMessage('Select at least one repository to create a ParaSpace workspace.');
+    throw new CancelledError();
+  }
+  return repos;
+}
+
+/** Prompts for the base branch in one repository when creating a new branch. */
+async function promptBaseBranch(repo: TargetRepo, branches: string[]): Promise<string | undefined> {
+  if (branches.length === 0) return undefined;
+  return (
+    await pick(
+      branches.map((branch) => ({ label: branch })),
+      { title: TITLE, placeHolder: `Base branch for ${repo.name}` },
+    )
+  ).label;
+}
+
+/** Prompts for a branch and optional base independently in each repository. */
+async function promptPerRepoBranchPlans(targetRepos: TargetRepo[], branchLists: string[][]): Promise<BranchPlan[]> {
+  const plans: BranchPlan[] = [];
+  for (let i = 0; i < targetRepos.length; i += 1) {
+    const repo = targetRepos[i];
+    const { branch, isNew } = await pickBranch(branchLists[i], {
+      title: TITLE,
+      placeHolder: `Select or create branch for ${repo.name}`,
+    });
+    const base = isNew ? await promptBaseBranch(repo, branchLists[i]) : undefined;
+    plans.push({ repo, branch, base });
+  }
+  return plans;
+}
+
+/** Picks one shared branch for every repo or lets the user configure branches repo by repo. */
+async function promptBranchPlans(targetRepos: TargetRepo[]): Promise<BranchPlan[]> {
+  const branchLists = await Promise.all(targetRepos.map((repo) => listBranches({ cwd: repo.root })));
+  if (targetRepos.length === 1) {
+    const repo = targetRepos[0];
+    const { branch, isNew } = await pickBranch(branchLists[0], {
+      title: TITLE,
+      placeHolder: `Select or create branch for ${repo.name}`,
+    });
+    const base = isNew ? await promptBaseBranch(repo, branchLists[0]) : undefined;
+    return [{ repo, branch, base }];
+  }
+
+  const choice = await pick(
+    [
+      {
+        label: 'Use a shared branch',
+        description: 'Choose an existing branch available in every selected repository, or create one across them',
+        value: 'shared' as const,
+      },
+      {
+        label: 'Choose branches per repository (Advanced)',
+        description: 'Select a different existing or new branch for each repository',
+        value: 'per-repo' as const,
+      },
+    ],
+    { title: TITLE, placeHolder: 'How should branches be selected?' },
+  );
+
+  if (choice.value === 'per-repo') {
+    return promptPerRepoBranchPlans(targetRepos, branchLists);
+  }
+
+  const availableBranches = sharedBranches(branchLists);
+  const { branch, isNew } = await pickBranch(availableBranches, {
+    title: TITLE,
+    placeHolder: 'Select a shared branch or type a new branch name',
+  });
+
+  if (!isNew) return targetRepos.map((repo) => ({ repo, branch }));
+  if (branchLists.some((branches) => branches.includes(branch))) {
+    const advanced = 'Choose branches per repository (Advanced)';
+    const answer = await vscode.window.showWarningMessage(
+      `Branch "${branch}" exists in only some selected repositories.`,
+      { modal: true, detail: 'Use Advanced to choose the existing or new branch separately for each repository.' },
+      advanced,
+    );
+    if (answer === advanced) return promptPerRepoBranchPlans(targetRepos, branchLists);
+    throw new CancelledError();
+  }
+
+  const plans: BranchPlan[] = [];
+  for (let i = 0; i < targetRepos.length; i += 1) {
+    const repo = targetRepos[i];
+    const base = await promptBaseBranch(repo, branchLists[i]);
+    plans.push({ repo, branch, base });
+  }
+  return plans;
+}
+
+/** Prompts for an optional reason for the worktree, recorded in the context ledger. */
+async function promptRequirement(): Promise<string | undefined> {
+  const answer = await ask({
+    title: TITLE,
+    prompt: 'Why does this worktree exist? Optional, recorded in the context ledger',
+    placeHolder: 'Auth redesign',
+  });
+  return answer.trim() || undefined;
+}
+
+/** Prompts once for IDE window coloring consent when multiple repositories are targeted. */
+async function promptIdeConsent(isMultiRepo: boolean): Promise<'ask' | 'yes' | 'no'> {
+  if (!isMultiRepo) return 'ask';
+  const write = 'Write Settings';
+  const answer = await vscode.window.showInformationMessage(
+    'Color worktree windows and set up IDE settings?',
+    {
+      modal: true,
+      detail: 'Writes window colors to .vscode/settings.json in each worktree.',
+    },
+    write,
+  );
+  return answer === write ? 'yes' : 'no';
+}
+
+/** Confirms the selected repositories and branch plan before creating worktrees. */
+async function confirmCreation(plans: BranchPlan[]): Promise<void> {
+  const isMultiRepo = plans.length > 1;
+  const create = isMultiRepo ? 'Create Workspace' : 'Create Worktree';
+  const details = plans
+    .map(({ repo, branch, base }) => `${repo.name}: ${branch}${base ? ` (based on ${base})` : ''}`)
+    .join('\n');
+  const answer = await vscode.window.showInformationMessage(
+    isMultiRepo
+      ? `Create a workspace across ${plans.length} repositories?`
+      : `Create worktree in ${plans[0].repo.name}?`,
+    { modal: true, detail: details },
+    create,
+  );
+  if (answer !== create) throw new CancelledError();
+}
+
+/** Provisions worktrees sequentially, rolling back earlier worktrees if a later repo fails. */
+async function provisionWorktrees({ plans, requirement, ide, log }: ProvisionParams): Promise<CreateResult[]> {
+  const created: CreateResult[] = [];
+  for (const { repo, branch, base } of plans) {
+    try {
+      const repoHasBranch = await branchExists(repo.root, branch);
+      const repoBase = !repoHasBranch && base && (await branchExists(repo.root, base)) ? base : undefined;
+      const res = await createWorktree({
+        cwd: repo.root,
+        branch,
+        base: repoBase,
+        requirement,
+        prompter: vscodePrompter,
+        ide,
+        log,
+      });
+      created.push(res);
+    } catch (err) {
+      const rollbackFailures: string[] = [];
+      for (const prev of created) {
+        try {
+          await removeWorktree({
+            cwd: prev.mainRoot,
+            target: prev.path,
+            force: true,
+            deleteBranch: prev.createdBranch,
+            log,
+          });
+        } catch (rollbackError) {
+          const message = (rollbackError as Error).message;
+          rollbackFailures.push(`${prev.path}: ${message}`);
+          log.warn(`Could not roll back worktree ${prev.path}: ${message}`);
+        }
+      }
+      if (rollbackFailures.length > 0) {
+        throw new Error(
+          `Worktree creation failed: ${(err as Error).message}. Rollback also failed: ${rollbackFailures.join('; ')}`,
+        );
+      }
+      throw err;
+    }
+  }
+  return created;
+}
+
+/** Notifies the user and opens the single worktree folder in a new window. */
+async function openSingleWorktree(res: CreateResult): Promise<void> {
+  const open = 'Open in New Window';
+  const port = res.port !== undefined ? ` on port ${res.port}` : '';
+  const answer = await vscode.window.showInformationMessage(`Worktree ready: ${path.basename(res.path)}${port}`, open);
+  if (answer === open) await openInNewWindow(res.path);
+}
+
+/** Generates or updates a .code-workspace file for multi-repo worktrees and opens it in a new window. */
+async function openMultiRepoWorkspace(results: CreateResult[], branch: string): Promise<void> {
+  let existingConfig: CodeWorkspaceConfig | undefined;
+  let existingWorkspaceFilePath: string | undefined;
+  if (vscode.workspace.workspaceFile && vscode.workspace.workspaceFile.scheme === 'file') {
+    existingWorkspaceFilePath = vscode.workspace.workspaceFile.fsPath;
+    try {
+      const raw = await fs.promises.readFile(existingWorkspaceFilePath, 'utf8');
+      existingConfig = JSON.parse(raw);
+    } catch {
+      // ignore read error
+    }
+  }
+
+  const workspaceConfig = buildMultiRepoWorkspaceConfig(
+    results.map((r) => ({ mainRoot: r.mainRoot, worktreePath: r.path })),
+    existingConfig,
+  );
+
+  const workspaceFilePath = multiRepoWorkspaceFilePath(
+    results.map((r) => r.path),
+    branch,
+    existingWorkspaceFilePath,
+    vscode.workspace.name,
+  );
+
+  await fs.promises.writeFile(workspaceFilePath, JSON.stringify(workspaceConfig, null, 2), 'utf8');
+
+  const open = 'Open in New Window';
+  const ports = results
+    .map((r) => (r.port !== undefined ? `${path.basename(r.mainRoot)}: ${r.port}` : undefined))
+    .filter(Boolean);
+  const portInfo = ports.length > 0 ? ` on ports ${ports.join(', ')}` : '';
+  const readyMessage =
+    branch === 'multi-branch'
+      ? `Workspace ready across ${results.length} repositories`
+      : `Workspace ready for ${branch}`;
+  const answer = await vscode.window.showInformationMessage(`${readyMessage}${portInfo}`, open);
+  if (answer === open) await openInNewWindow(workspaceFilePath);
+}
+
+/** Presents completion notifications and opens the resulting worktree or workspace. */
+async function notifyAndOpen(results: CreateResult[], workspaceLabel: string): Promise<void> {
+  if (results.length === 1) {
+    await openSingleWorktree(results[0]);
+  } else {
+    await openMultiRepoWorkspace(results, workspaceLabel);
+  }
+}
+
 /**
- * `paraSpace.createWorktree`: asks for target repository (if multiple exist and not targeted),
- * branch, base (only for a new branch) and an optional reason, then runs core's `createWorktree`.
+ * `paraSpace.createWorktree`: creates worktree(s) for a branch.
+ * If targeted on a specific repository, creates a worktree for that repo.
+ * In a multi-repo workspace, creates worktrees across all workspace repositories
+ * and opens them together as a multi-root workspace.
  */
 export function registerCreate({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.createWorktree',
     action(rt, async (target?: unknown) => {
-      let cwd: string | undefined;
-      if (target && typeof target === 'object') {
-        const t = target as { repo?: { root: string }; repoRoot?: string };
-        cwd = t.repo?.root ?? t.repoRoot;
-      }
+      const targetRepos = await resolveTargetRepos(target, store);
+      const plans = await promptBranchPlans(targetRepos);
+      const requirement = await promptRequirement();
+      await confirmCreation(plans);
+      const ide = await promptIdeConsent(targetRepos.length > 1);
+      const branchNames = Array.from(new Set(plans.map((plan) => plan.branch)));
+      const workspaceLabel = branchNames.length === 1 ? branchNames[0] : 'multi-branch';
 
-      if (!cwd) {
-        if (store.repos.length > 1) {
-          const picked = await pick(
-            store.repos.map((r) => ({ label: r.name, description: r.root, root: r.root })),
-            { title: TITLE, placeHolder: 'Select repository for the new worktree' },
-          );
-          cwd = picked.root;
-        } else {
-          cwd = requireActiveRepoRoot(store.roots);
-        }
-      }
-
-      const branches = await listBranches({ cwd });
-
-      const branch = (
-        await ask({
-          title: TITLE,
-          prompt: 'Branch name (new or existing)',
-          placeHolder: 'feat/TK-101',
-          validateInput: validateBranchName,
-        })
-      ).trim();
-      const base = branches.includes(branch)
-        ? undefined
-        : (
-            await pick(
-              branches.map((b) => ({ label: b })),
-              { title: TITLE, placeHolder: `Base branch for new branch ${branch}` },
-            )
-          ).label;
-      const requirement =
-        (
-          await ask({
-            title: TITLE,
-            prompt: 'Why does this worktree exist? Optional, recorded in the context ledger',
-            placeHolder: 'Auth redesign',
-          })
-        ).trim() || undefined;
-
-      const res = await withProgress(`Creating worktree ${branch}…`, () =>
-        createWorktree({ cwd, branch, base, requirement, prompter: vscodePrompter, ide: 'ask', log: rt.log }),
+      const results = await withProgress(
+        plans.length > 1
+          ? `Creating worktrees across ${plans.length} repositories…`
+          : `Creating worktree ${plans[0].branch}…`,
+        () => provisionWorktrees({ plans, requirement, ide, log: rt.log }),
       );
+
       void store.load();
-
-      const open = 'Open in New Window';
-      const port = res.port !== undefined ? ` on port ${res.port}` : '';
-      const answer = await vscode.window.showInformationMessage(
-        `Worktree ready: ${path.basename(res.path)}${port}`,
-        open,
-      );
-      if (answer === open) await openInNewWindow(res.path);
+      await notifyAndOpen(results, workspaceLabel);
     }),
   );
 }

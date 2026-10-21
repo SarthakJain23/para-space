@@ -1,7 +1,7 @@
-import os from 'node:os';
-import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { lstat, mkdir, mkdtemp, readFile, readlink, realpath, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createWorktree,
@@ -15,6 +15,7 @@ import { readLedger } from '../src/ledger.js';
 import type { Prompter } from '../src/prompts.js';
 import { readState, stateLockPath, statePath, updateRepoState } from '../src/state.js';
 import { withFileLock } from '../src/util/lock.js';
+import { discoverWorkspaceRepoRoots } from '../src/workspace.js';
 
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
@@ -248,5 +249,39 @@ describe('concurrency (D-027)', () => {
 
     await hold(process.pid);
     await expect(withFileLock(lock, async () => 'ok', { timeoutMs: 200 })).rejects.toThrow(/Timed out/);
+  });
+});
+
+describe('multi-repo workspace', () => {
+  it('discovers repositories and creates parallel workspace via cli', async () => {
+    const repo2 = path.join(sandbox, 'backend');
+    await mkdir(repo2, { recursive: true });
+    await writeFile(path.join(repo2, 'package.json'), JSON.stringify({ name: 'backend' }));
+    git(repo2, 'init', '-q', '-b', 'main');
+    git(repo2, 'add', '.');
+    git(repo2, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'init');
+
+    const discovered = await discoverWorkspaceRepoRoots(sandbox);
+    expect(discovered).toContain(repo);
+    expect(discovered).toContain(repo2);
+
+    const cliPath = path.resolve(__dirname, '../../cli/dist/index.js');
+    const out = execFileSync(
+      'node',
+      [cliPath, 'workspace', 'create', 'feat/cross-stack', '--yes', '--repo', repo, '--repo', repo2, '--json'],
+      {
+        cwd: sandbox,
+        encoding: 'utf8',
+        env: { ...process.env, PARA_SPACE_HOME: path.join(sandbox, 'home') },
+      },
+    );
+
+    const parsed = JSON.parse(out);
+    expect(parsed.worktrees).toHaveLength(2);
+    expect(parsed.workspaceFile).toMatch(/feat-cross-stack\.code-workspace$/);
+
+    const wsContent = JSON.parse(await readFile(parsed.workspaceFile, 'utf8'));
+    expect(wsContent.folders).toHaveLength(2);
+    expect(wsContent.folders.map((f: { name: string }) => f.name)).toEqual(['app', 'backend']);
   });
 });

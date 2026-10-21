@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import { PORT_STRATEGY_CHOICES, type PortStrategyName, type Prompter } from '@para-space/core';
 
-function bail<T>(value: T | symbol): T {
+export function bail<T>(value: T | symbol): T {
   if (p.isCancel(value)) {
     p.cancel('Cancelled.');
     process.exit(130);

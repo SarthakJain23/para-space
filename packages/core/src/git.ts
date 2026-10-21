@@ -25,6 +25,26 @@ export async function gitCommonDir(cwd: string): Promise<string> {
   return realpath(dir);
 }
 
+/**
+ * Validates a candidate git branch name according to git ref naming rules.
+ *
+ * @param value - Candidate branch name string.
+ * @returns Error message string if invalid, or undefined if valid.
+ *
+ * @example
+ * validateBranchName('feat/TK-101'); // → undefined
+ * validateBranchName('invalid branch name'); // → 'Branch names cannot contain spaces'
+ */
+export function validateBranchName(value: string): string | undefined {
+  const s = value.trim();
+  if (!s) return 'Enter a branch name';
+  if (/\s/.test(s)) return 'Branch names cannot contain spaces';
+  if (s.startsWith('-') || s.endsWith('/') || s.endsWith('.lock') || s.includes('..') || /[~^:?*[\\]/.test(s)) {
+    return 'Not a valid git branch name';
+  }
+  return undefined;
+}
+
 export async function branchExists(cwd: string, branch: string): Promise<boolean> {
   try {
     await git(cwd, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`);

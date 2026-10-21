@@ -84,6 +84,28 @@ Every state write (create, isolate, remove, list's prune) goes through `updateRe
 
 ---
 
+## 1a. Multi-Repository Workspace — `para workspace create [branch]` (`ws`)
+_Status: Implemented · Last updated: 2026-10-21 · Decisions: D-001, D-012, D-022, D-037, D-038, D-039_
+
+Flags: `--repo <paths...>`, `-b/--base <ref>`, `--per-repo`, `-r/--requirement <text>`, `--name <name>`, `--ide` / `--no-ide`, `-y/--yes`, `--json`.
+
+1. **Repository discovery & selection:**
+   - If `--repo <path...>` is given, resolves each path to its git main repository root.
+   - Otherwise, discovers repository roots from `cwd`, any `.code-workspace` file in `cwd`, and immediate child directories via `discoverWorkspaceRepoRoots`.
+   - When multiple repositories are discovered in interactive mode, prompts with a multi-select list (all checked by default). In non-interactive mode (`-y`), uses all discovered repositories.
+2. **Branch planning:**
+   - If `[branch]` argument is passed: checks existence across all selected repositories. If present in all, checks it out. If absent in all, creates it (using `--base` or prompting for base per repo). If present in only some, routes to per-repo confirmation or throws in non-interactive mode.
+   - If no branch is passed: prompts user to choose between **Use a shared branch** (only branches common to all repos or new branch created across all) or **Choose branches per repository (Advanced)**.
+3. **Review & Provisioning:**
+   - Summarizes the plan and prompts for confirmation in interactive mode.
+   - Provisions each repository sequentially via `createWorktree`.
+   - If provisioning fails for any repository, all previously created worktrees are automatically rolled back with `removeWorktree` and rollback issues are reported (D-022, D-039).
+4. **Workspace configuration file:**
+   - Emits or updates a `.code-workspace` file pointing to the new worktree paths (preserving workspace settings from any existing workspace file in cwd).
+   - Prints output or returns JSON when `--json` is supplied.
+
+---
+
 ## 2. List Worktrees — `para list` (`ls`)
 _Status: Implemented · Last updated: 2026-10-17 · Decisions: D-001, D-010, D-031_
 
@@ -176,13 +198,13 @@ _Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate /
   - Then every worktree, the current one marked ✓ and `current`.
   - Picking another worktree opens it in a new window; picking the current one does nothing.
 - **Create Worktree…** (`paraSpace.createWorktree`, the **+** in the view title, repository context menu, and Command Palette):
-  1. If invoked without repository context in a multi-repo workspace, prompts to select the target repository.
-  2. Input: branch name, validated in the box (no spaces, no `..`, `~ ^ : ? * [ \`, no leading `-`, no trailing `/` or `.lock`).
-  3. If the branch doesn't exist yet: quick pick of the base from `listBranches()` (most recent first). An existing branch skips this step.
+  1. Target determination: a repository-node context action targets only that repo. At workspace level, when multiple repositories are discovered, a searchable multi-select picker lists all of them; currently included repositories are checked by default. The user must select at least one repository (D-038).
+  2. Branch selection: for one target, a searchable QuickPick lists its existing local branches. For multiple targets, choose **Use a shared branch** or **Choose branches per repository (Advanced)**. Shared mode lists only existing branches found in every target; a new branch name can be shared across all targets. Advanced mode lets each repo use its own branch. A branch present in only some targets must be selected per repository.
+  3. For each new branch, choose a base branch independently in its repo when branches are available; if none are available, creation uses that repo's current `HEAD`.
   4. Input: optional reason, recorded as the ledger's requirement.
-  5. `createWorktree` runs behind a progress notification. Port allocation silently defaults to `offset` on first run without prompting (D-037). IDE colors are asked via a modal confirm.
-  6. The tree refreshes, and a notification shows the name and port with an **Open in New Window** button.
-  - Escape on any prompt cancels quietly; nothing has been created at that point. A failure after the checkout rolls back as in §1.
+  5. Review confirmation lists every selected repo, branch and base. After confirmation, `createWorktree` runs behind a progress notification (with rollback of earlier worktrees if a later repository fails; rollback failures are surfaced). Port allocation silently defaults to `offset` on first run without prompting (D-037). In multi-repo workspaces, IDE color consent is asked once.
+  6. In single-repo mode: opens the worktree folder in a new window. In multi-repo mode: generates or updates a `.code-workspace` file pointing to the new worktree paths (preserving workspace settings) and opens the new multi-repo workspace in a new window.
+  - Escape on any prompt cancels quietly; nothing has been created at that point. A failure after checkout rolls back as in §1.
 - **Configure Port Strategy…** (`paraSpace.configureRepo`, gear icon in Worktrees view title, repo context menu, and Command Palette):
   - Prompts for target repository (in multi-repo workspaces), then reason (recorded in context ledger), then prompts for strategy, base port, and pool range.
   - Updates `.para-space.json` via `updateConfig()`, appends an entry to `.para-space/context-history.md`, and refreshes the store and ledger views.
@@ -254,3 +276,5 @@ flowchart TD
 | 2026-10-17 | Context history (ledger) view in sidebar, file open command, interactive repo port strategy config (`para config` and `paraSpace.configureRepo`), and auto-refresh on ledger/config changes | 5 | D-035 |
 | 2026-10-17 | Manifest watcher, dependency divergence detection in core (`checkDivergence`), `para check` CLI command, warning indicators, and 1-click breakaway isolation flow | 2, 3, 5, 6 | D-036 |
 | 2026-10-18 | Multi-repository workspace support (discover, select/remove, repo tree nodes, unified switcher) and silent default port allocation on worktree create | 1, 5 | D-037 |
+| 2026-10-21 | Searchable branch QuickPick, multi-repo selection, shared or per-repo branch planning, and review before provisioning | 5 | D-038 |
+| 2026-10-21 | Multi-repository workspace CLI command `para workspace create` with discovery, shared/per-repo branches, and .code-workspace generation | 1a | D-039 |

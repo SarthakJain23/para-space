@@ -1,24 +1,26 @@
 import path from 'node:path';
-import { type WorktreeInfo, parsePortPool } from '@para-space/core';
+import {
+  type CodeWorkspaceConfig,
+  type CodeWorkspaceFolder,
+  type WorktreeInfo,
+  buildMultiRepoWorkspaceConfig,
+  multiRepoWorkspaceFilePath,
+  parsePortPool,
+  sharedBranches,
+  slugify,
+  validateBranchName,
+} from '@para-space/core';
+
+export {
+  sharedBranches,
+  buildMultiRepoWorkspaceConfig,
+  multiRepoWorkspaceFilePath,
+  validateBranchName,
+  type CodeWorkspaceFolder,
+  type CodeWorkspaceConfig,
+};
 
 // Pure dialog logic (validation, choices). No `vscode` import, so it is unit-testable (GUIDELINES 6.3).
-
-/**
- * Input-box validator for a git branch name; `undefined` means valid.
- *
- * @example
- * validateBranchName('feat/TK-101'); // → undefined
- * validateBranchName('my branch');   // → 'Branch names cannot contain spaces'
- */
-export function validateBranchName(value: string): string | undefined {
-  const s = value.trim();
-  if (!s) return 'Enter a branch name';
-  if (/\s/.test(s)) return 'Branch names cannot contain spaces';
-  if (s.startsWith('-') || s.endsWith('/') || s.endsWith('.lock') || s.includes('..') || /[~^:?*[\\]/.test(s)) {
-    return 'Not a valid git branch name';
-  }
-  return undefined;
-}
 
 /** Input-box validator for a TCP port (1–65535). */
 export function validatePort(value: string): string | undefined {
@@ -72,4 +74,54 @@ export function removeDialog(w: WorktreeInfo): { message: string; detail: string
     .filter(Boolean)
     .join('\n\n');
   return { message: `Remove worktree ${w.name}?`, detail, choices };
+}
+
+export interface BranchPickItem {
+  label: string;
+  description?: string;
+  branch?: string;
+  isCreate: boolean;
+  alwaysShow?: boolean;
+}
+
+/**
+ * Builds quick pick items for branch selection.
+ * Always places a "Create new branch" option at the top (customized with typed text if valid and not existing).
+ * De-duplicates and lists all existing branches.
+ */
+export function buildBranchPickItems(filterText: string, branches: string[]): BranchPickItem[] {
+  const trimmed = filterText.trim();
+  const items: BranchPickItem[] = [];
+  const uniqueBranches = Array.from(new Set(branches));
+
+  if (trimmed) {
+    const isExactMatch = uniqueBranches.includes(trimmed);
+    const isValid = validateBranchName(trimmed) === undefined;
+    if (isValid && !isExactMatch) {
+      items.push({
+        label: `$(plus) Create new branch "${trimmed}"`,
+        description: 'New branch',
+        branch: trimmed,
+        isCreate: true,
+        alwaysShow: true,
+      });
+    }
+  } else {
+    items.push({
+      label: '$(plus) Create new branch…',
+      description: 'Enter a branch name',
+      isCreate: true,
+      alwaysShow: true,
+    });
+  }
+
+  for (const b of uniqueBranches) {
+    items.push({
+      label: b,
+      branch: b,
+      isCreate: false,
+    });
+  }
+
+  return items;
 }

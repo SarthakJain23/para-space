@@ -11,6 +11,15 @@ import { slugify, worktreePathFor } from '../src/paths.js';
 import { getPortStrategy } from '../src/ports/index.js';
 import { PALETTE, colorForIndex, peacockSettings } from '../src/colors.js';
 import { formatEntry, parseLedger, type LedgerEntry } from '../src/ledger.js';
+import { validateBranchName } from '../src/git.js';
+import {
+  sharedBranches,
+  buildMultiRepoWorkspaceConfig,
+  multiRepoWorkspaceFilePath,
+  findWorkspaceConfigFile,
+  readWorkspaceConfigFile,
+  discoverWorkspaceRepoRoots,
+} from '../src/workspace.js';
 
 describe('paths', () => {
   it('slugifies branch names', () => {
@@ -214,5 +223,59 @@ describe('manifests and divergence', () => {
     expect(res2.strategies).toContain('NodeStrategy');
 
     await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe('workspace helpers', () => {
+  it('validates branch names', () => {
+    expect(validateBranchName('feat/TK-101')).toBeUndefined();
+    expect(validateBranchName('')).toBe('Enter a branch name');
+    expect(validateBranchName('feat branch')).toMatch(/spaces/);
+    expect(validateBranchName('..')).toMatch(/Not a valid/);
+  });
+
+  it('sharedBranches returns common branches preserving order', () => {
+    expect(
+      sharedBranches([
+        ['main', 'feat/a', 'feat/b'],
+        ['feat/b', 'main'],
+        ['feat/c', 'main', 'feat/b'],
+      ]),
+    ).toEqual(['main', 'feat/b']);
+    expect(sharedBranches([['main']])).toEqual(['main']);
+    expect(sharedBranches([])).toEqual([]);
+  });
+
+  it('buildMultiRepoWorkspaceConfig creates clean config', () => {
+    const config = buildMultiRepoWorkspaceConfig([
+      { mainRoot: '/code/repo-a', worktreePath: '/code/repo-a-feat' },
+      { mainRoot: '/code/repo-b', worktreePath: '/code/repo-b-feat' },
+    ]);
+    expect(config.folders).toEqual([
+      { name: 'repo-a', path: '/code/repo-a-feat' },
+      { name: 'repo-b', path: '/code/repo-b-feat' },
+    ]);
+  });
+
+  it('multiRepoWorkspaceFilePath computes clean sibling paths', () => {
+    const p1 = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', '/code/existing.code-workspace');
+    expect(p1).toBe('/code/existing-feat-1.code-workspace');
+
+    const p2 = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', undefined, 'my-project');
+    expect(p2).toBe('/code/my-project-feat-1.code-workspace');
+  });
+
+  it('reads and discovers workspace config files', async () => {
+    const tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'para-test-ws-')));
+    const wsFile = path.join(tmp, 'test.code-workspace');
+    await writeFile(wsFile, JSON.stringify({ folders: [{ path: './sub' }], settings: { 'a.b': 1 } }));
+
+    const found = await findWorkspaceConfigFile(tmp);
+    expect(found).toBe(wsFile);
+
+    const parsed = await readWorkspaceConfigFile(wsFile);
+    expect(parsed?.settings).toEqual({ 'a.b': 1 });
+
+    await rm(tmp, { recursive: true, force: true });
   });
 });
