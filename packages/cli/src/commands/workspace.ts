@@ -5,6 +5,7 @@ import {
   type CreateResult,
   branchExists,
   buildMultiRepoWorkspaceConfig,
+  colorForHex,
   createWorktree,
   discoverWorkspaceRepoRoots,
   findWorkspaceConfigFile,
@@ -277,7 +278,7 @@ export function registerWorkspace(program: Command) {
         }
 
         // 4. IDE consent
-        let ide: 'ask' | 'yes' | 'no' = 'no';
+        let ide: 'ask' | 'yes' | 'no' = 'yes';
         if (flags.ide !== undefined) {
           ide = flags.ide ? 'yes' : 'no';
         } else if (isInteractive) {
@@ -353,9 +354,12 @@ export function registerWorkspace(program: Command) {
         // 7. Generate .code-workspace file
         const existingWsFile = await findWorkspaceConfigFile(process.cwd());
         const existingConfig = existingWsFile ? await readWorkspaceConfigFile(existingWsFile) : undefined;
+        const hex = results.find((r) => r.color)?.color;
+        const colorProfile = colorForHex(hex);
         const wsConfig = buildMultiRepoWorkspaceConfig(
           results.map((r) => ({ mainRoot: r.mainRoot, worktreePath: r.path })),
           existingConfig,
+          colorProfile,
         );
         const branchLabel = Array.from(new Set(plans.map((pl) => pl.branch))).join('-');
         const workspaceFilePath = multiRepoWorkspaceFilePath(

@@ -4,6 +4,7 @@ import {
   type CodeWorkspaceFolder,
   type WorktreeInfo,
   buildMultiRepoWorkspaceConfig,
+  colorForHex,
   multiRepoWorkspaceFilePath,
   parsePortPool,
   sharedBranches,
@@ -14,6 +15,7 @@ import {
 export {
   sharedBranches,
   buildMultiRepoWorkspaceConfig,
+  colorForHex,
   multiRepoWorkspaceFilePath,
   validateBranchName,
   type CodeWorkspaceFolder,

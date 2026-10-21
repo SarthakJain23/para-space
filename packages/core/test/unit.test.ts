@@ -246,15 +246,22 @@ describe('workspace helpers', () => {
     expect(sharedBranches([])).toEqual([]);
   });
 
-  it('buildMultiRepoWorkspaceConfig creates clean config', () => {
-    const config = buildMultiRepoWorkspaceConfig([
-      { mainRoot: '/code/repo-a', worktreePath: '/code/repo-a-feat' },
-      { mainRoot: '/code/repo-b', worktreePath: '/code/repo-b-feat' },
-    ]);
+  it('buildMultiRepoWorkspaceConfig creates clean config and applies peacock color customizations', () => {
+    const config = buildMultiRepoWorkspaceConfig(
+      [
+        { mainRoot: '/code/repo-a', worktreePath: '/code/repo-a-feat' },
+        { mainRoot: '/code/repo-b', worktreePath: '/code/repo-b-feat' },
+      ],
+      undefined,
+      colorForIndex(1),
+    );
     expect(config.folders).toEqual([
       { name: 'repo-a', path: '/code/repo-a-feat' },
       { name: 'repo-b', path: '/code/repo-b-feat' },
     ]);
+    expect(config.settings?.['workbench.colorCustomizations']).toBeDefined();
+    const colors = config.settings?.['workbench.colorCustomizations'] as Record<string, string>;
+    expect(colors['titleBar.activeBackground']).toBe('#137d87');
   });
 
   it('multiRepoWorkspaceFilePath computes clean sibling paths', () => {

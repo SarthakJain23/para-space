@@ -51,6 +51,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-037 | Multi-repository workspace support and silent default port allocation on worktree create | Accepted | 2026-10-18 |
 | D-038 | Searchable branch selection and multi-repo workspace provisioning on create | Accepted | 2026-10-21 |
 | D-039 | Multi-repository workspace CLI command `para workspace create` | Accepted | 2026-10-21 |
+| D-040 | Workspace Peacock color injection, automatic window launch, and IDE agent programmatic API | Accepted | 2026-10-21 |
 
 ---
 
@@ -362,6 +363,18 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Safety & Rollback:** Reviews the plan before creating; if any repository fails during provisioning, all previously created worktrees are automatically rolled back.
   - **Output:** Writes a `.code-workspace` file grouping the new worktrees, prints formatted summaries with ports, or emits JSON when `--json` is supplied.
 - **Problem Solved:** Brings full multi-repo parallel workspace capabilities to the CLI with both interactive and non-interactive scriptable support while preserving single-repo `para create` behavior.
+
+## D-040 — Workspace Peacock color injection, automatic window launch, and IDE agent programmatic API
+- **Status:** Accepted · 2026-10-21
+- **Requirement Context:**
+  1. In multi-repo workspaces, opening the `.code-workspace` file did not color the VS Code window because VS Code ignores folder-level `.vscode/settings.json` window customizations when running inside a multi-root workspace file.
+  2. After creating a worktree or workspace, VS Code showed an information toast requiring the user to manually click "Open in New Window", interrupting the workflow.
+  3. Developers and AI coding agents (Copilot, Claude, Cursor) need to programmatically provision parallel workspaces and worktrees without interactive GUI prompts.
+- **Decision Made:**
+  - **Peacock in `.code-workspace`:** `buildMultiRepoWorkspaceConfig` now accepts a `colorProfile` and injects `workbench.colorCustomizations` into `.code-workspace` top-level `settings`. Workspaces default to having IDE colors enabled (`ide: 'yes'`), immediately giving the multi-root window its distinct OKLCH Peacock frame.
+  - **Automatic window opening:** Removed the modal confirmation prompt and toast button click. The extension automatically invokes `openInNewWindow` immediately upon successful provisioning, showing a non-blocking notification toast with port and path details.
+  - **IDE Agent Programmatic API:** `paraSpace.createWorktree` accepts structured programmatic options (`branch`, `repos`, `base`, `requirement`, `ide`). When provided by an AI agent or script, it executes non-interactively without opening QuickPick dialogs. Additionally, agents can execute `para workspace create <branch> --yes -r "<req>" --json` in terminal.
+- **Problem Solved:** Restores window coloring in multi-root workspaces, opens new windows automatically without click delays, and allows AI IDE agents to provision workspaces seamlessly.
 
 ---
 

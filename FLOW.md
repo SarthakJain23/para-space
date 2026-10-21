@@ -202,8 +202,9 @@ _Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate /
   2. Branch selection: for one target, a searchable QuickPick lists its existing local branches. For multiple targets, choose **Use a shared branch** or **Choose branches per repository (Advanced)**. Shared mode lists only existing branches found in every target; a new branch name can be shared across all targets. Advanced mode lets each repo use its own branch. A branch present in only some targets must be selected per repository.
   3. For each new branch, choose a base branch independently in its repo when branches are available; if none are available, creation uses that repo's current `HEAD`.
   4. Input: optional reason, recorded as the ledger's requirement.
-  5. Review confirmation lists every selected repo, branch and base. After confirmation, `createWorktree` runs behind a progress notification (with rollback of earlier worktrees if a later repository fails; rollback failures are surfaced). Port allocation silently defaults to `offset` on first run without prompting (D-037). In multi-repo workspaces, IDE color consent is asked once.
-  6. In single-repo mode: opens the worktree folder in a new window. In multi-repo mode: generates or updates a `.code-workspace` file pointing to the new worktree paths (preserving workspace settings) and opens the new multi-repo workspace in a new window.
+  5. `createWorktree` runs behind a progress notification (with rollback of earlier worktrees if a later repository fails; rollback failures are surfaced). Port allocation silently defaults to `offset` on first run without prompting (D-037). IDE Peacock window coloring is applied by default to both worktrees and the `.code-workspace` file (D-040).
+  6. Automatically opens the new worktree folder (single-repo) or generated `.code-workspace` multi-root workspace (multi-repo) in a new window immediately without waiting for a confirmation click (D-040).
+  - Programmatic invocation: AI IDE agents and scripts can invoke `vscode.commands.executeCommand('paraSpace.createWorktree', { branch, repos, requirement, ide })` to execute non-interactively without GUI dialogs (D-040).
   - Escape on any prompt cancels quietly; nothing has been created at that point. A failure after checkout rolls back as in §1.
 - **Configure Port Strategy…** (`paraSpace.configureRepo`, gear icon in Worktrees view title, repo context menu, and Command Palette):
   - Prompts for target repository (in multi-repo workspaces), then reason (recorded in context ledger), then prompts for strategy, base port, and pool range.
@@ -278,3 +279,4 @@ flowchart TD
 | 2026-10-18 | Multi-repository workspace support (discover, select/remove, repo tree nodes, unified switcher) and silent default port allocation on worktree create | 1, 5 | D-037 |
 | 2026-10-21 | Searchable branch QuickPick, multi-repo selection, shared or per-repo branch planning, and review before provisioning | 5 | D-038 |
 | 2026-10-21 | Multi-repository workspace CLI command `para workspace create` with discovery, shared/per-repo branches, and .code-workspace generation | 1a | D-039 |
+| 2026-10-21 | Peacock color injection into .code-workspace, automatic window opening, and IDE agent programmatic API | 1a, 5 | D-040 |

@@ -283,5 +283,9 @@ describe('multi-repo workspace', () => {
     const wsContent = JSON.parse(await readFile(parsed.workspaceFile, 'utf8'));
     expect(wsContent.folders).toHaveLength(2);
     expect(wsContent.folders.map((f: { name: string }) => f.name)).toEqual(['app', 'backend']);
+    expect(wsContent.settings?.['workbench.colorCustomizations']).toBeDefined();
+    expect(wsContent.settings?.['workbench.colorCustomizations']['titleBar.activeBackground']).toMatch(
+      /^#[0-9a-f]{6}$/i,
+    );
   });
 });

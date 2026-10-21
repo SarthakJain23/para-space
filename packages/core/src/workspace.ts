@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { type ColorProfile, peacockSettings } from './colors.js';
 import { mainRepoRoot } from './git.js';
 import { slugify } from './paths.js';
 
@@ -37,9 +38,11 @@ export function sharedBranches(branchLists: string[][]): string[] {
 /**
  * Generates or updates a .code-workspace JSON object for the selected worktrees,
  * preserving workspace settings but keeping only the specified worktree folders.
+ * Optionally applies Peacock colorCustomizations for the workspace window.
  *
  * @param newWorktrees - Array of { mainRoot, worktreePath } for each worktree.
  * @param existingConfig - Optional existing .code-workspace config to preserve settings from.
+ * @param colorProfile - Optional ColorProfile to apply to the workspace window frame.
  * @returns Updated CodeWorkspaceConfig object.
  *
  * @example
@@ -49,12 +52,24 @@ export function sharedBranches(branchLists: string[][]): string[] {
 export function buildMultiRepoWorkspaceConfig(
   newWorktrees: { mainRoot: string; worktreePath: string }[],
   existingConfig?: CodeWorkspaceConfig,
+  colorProfile?: ColorProfile,
 ): CodeWorkspaceConfig {
   const config: CodeWorkspaceConfig = existingConfig ? JSON.parse(JSON.stringify(existingConfig)) : { folders: [] };
   config.folders = newWorktrees.map((w) => ({
     name: path.basename(w.mainRoot),
     path: path.resolve(w.worktreePath),
   }));
+  if (colorProfile) {
+    const existingSettings = config.settings ?? {};
+    const existingColors = (existingSettings['workbench.colorCustomizations'] as Record<string, string>) ?? {};
+    config.settings = {
+      ...existingSettings,
+      'workbench.colorCustomizations': {
+        ...existingColors,
+        ...peacockSettings(colorProfile),
+      },
+    };
+  }
   return config;
 }
 

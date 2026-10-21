@@ -4,6 +4,7 @@ import {
   type CreateResult,
   type Logger,
   branchExists,
+  colorForHex,
   createWorktree,
   listBranches,
   removeWorktree,
@@ -34,6 +35,16 @@ interface BranchPlan {
   base?: string;
 }
 
+export interface CreateCommandArgs {
+  branch?: string;
+  base?: string;
+  requirement?: string;
+  repo?: { root: string };
+  repoRoot?: string;
+  repos?: string[];
+  ide?: 'ask' | 'yes' | 'no';
+}
+
 interface ProvisionParams {
   plans: BranchPlan[];
   requirement?: string;
@@ -45,7 +56,10 @@ interface ProvisionParams {
 async function resolveTargetRepos(target: unknown, store: WorktreeStore): Promise<TargetRepo[]> {
   let targetRepoRoot: string | undefined;
   if (target && typeof target === 'object') {
-    const t = target as { repo?: { root: string }; repoRoot?: string };
+    const t = target as CreateCommandArgs;
+    if (Array.isArray(t.repos) && t.repos.length > 0) {
+      return t.repos.map((r) => ({ root: r, name: path.basename(r) }));
+    }
     targetRepoRoot = t.repo?.root ?? t.repoRoot;
   }
 
@@ -76,6 +90,24 @@ async function resolveTargetRepos(target: unknown, store: WorktreeStore): Promis
     throw new CancelledError();
   }
   return repos;
+}
+
+/** Resolves branch plan either from command arguments or interactive prompts. */
+async function resolveBranchPlans(targetRepos: TargetRepo[], target?: unknown): Promise<BranchPlan[]> {
+  const t = target && typeof target === 'object' ? (target as CreateCommandArgs) : undefined;
+  if (t?.branch) {
+    return targetRepos.map((repo) => ({ repo, branch: t.branch!, base: t.base }));
+  }
+  return promptBranchPlans(targetRepos);
+}
+
+/** Resolves worktree requirement either from command arguments or interactive prompts. */
+async function resolveRequirement(target?: unknown): Promise<string | undefined> {
+  const t = target && typeof target === 'object' ? (target as CreateCommandArgs) : undefined;
+  if (t?.requirement !== undefined) {
+    return t.requirement;
+  }
+  return promptRequirement();
 }
 
 /** Prompts for the base branch in one repository when creating a new branch. */
@@ -253,10 +285,9 @@ async function provisionWorktrees({ plans, requirement, ide, log }: ProvisionPar
 
 /** Notifies the user and opens the single worktree folder in a new window. */
 async function openSingleWorktree(res: CreateResult): Promise<void> {
-  const open = 'Open in New Window';
   const port = res.port !== undefined ? ` on port ${res.port}` : '';
-  const answer = await vscode.window.showInformationMessage(`Worktree ready: ${path.basename(res.path)}${port}`, open);
-  if (answer === open) await openInNewWindow(res.path);
+  void vscode.window.showInformationMessage(`Worktree ready: ${path.basename(res.path)}${port}`);
+  await openInNewWindow(res.path);
 }
 
 /** Generates or updates a .code-workspace file for multi-repo worktrees and opens it in a new window. */
@@ -273,9 +304,13 @@ async function openMultiRepoWorkspace(results: CreateResult[], branch: string): 
     }
   }
 
+  const hex = results.find((r) => r.color)?.color;
+  const colorProfile = colorForHex(hex);
+
   const workspaceConfig = buildMultiRepoWorkspaceConfig(
     results.map((r) => ({ mainRoot: r.mainRoot, worktreePath: r.path })),
     existingConfig,
+    colorProfile,
   );
 
   const workspaceFilePath = multiRepoWorkspaceFilePath(
@@ -287,7 +322,6 @@ async function openMultiRepoWorkspace(results: CreateResult[], branch: string): 
 
   await fs.promises.writeFile(workspaceFilePath, JSON.stringify(workspaceConfig, null, 2), 'utf8');
 
-  const open = 'Open in New Window';
   const ports = results
     .map((r) => (r.port !== undefined ? `${path.basename(r.mainRoot)}: ${r.port}` : undefined))
     .filter(Boolean);
@@ -296,8 +330,8 @@ async function openMultiRepoWorkspace(results: CreateResult[], branch: string): 
     branch === 'multi-branch'
       ? `Workspace ready across ${results.length} repositories`
       : `Workspace ready for ${branch}`;
-  const answer = await vscode.window.showInformationMessage(`${readyMessage}${portInfo}`, open);
-  if (answer === open) await openInNewWindow(workspaceFilePath);
+  void vscode.window.showInformationMessage(`${readyMessage}${portInfo}`);
+  await openInNewWindow(workspaceFilePath);
 }
 
 /** Presents completion notifications and opens the resulting worktree or workspace. */
@@ -320,10 +354,10 @@ export function registerCreate({ rt, store }: CommandContext): vscode.Disposable
     'paraSpace.createWorktree',
     action(rt, async (target?: unknown) => {
       const targetRepos = await resolveTargetRepos(target, store);
-      const plans = await promptBranchPlans(targetRepos);
-      const requirement = await promptRequirement();
-      await confirmCreation(plans);
-      const ide = await promptIdeConsent(targetRepos.length > 1);
+      const plans = await resolveBranchPlans(targetRepos, target);
+      const requirement = await resolveRequirement(target);
+      const ide =
+        target && typeof target === 'object' && 'ide' in target ? ((target as CreateCommandArgs).ide ?? 'yes') : 'yes';
       const branchNames = Array.from(new Set(plans.map((plan) => plan.branch)));
       const workspaceLabel = branchNames.length === 1 ? branchNames[0] : 'multi-branch';
 

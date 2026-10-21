@@ -39,6 +39,21 @@ export function colorForIndex(index: number): ColorProfile {
 }
 
 /**
+ * Resolves a hex color string to its corresponding ColorProfile from the palette.
+ * Falls back to the first worktree color (Lagoon) if hex is not found.
+ *
+ * @param hex - Hex color code, e.g. '#137d87'.
+ * @returns The matching ColorProfile.
+ *
+ * @example
+ * colorForHex('#137d87'); // → PALETTE[1] (Lagoon)
+ */
+export function colorForHex(hex?: string): ColorProfile {
+  if (!hex) return PALETTE[1];
+  return PALETTE.find((p) => p.hex.toLowerCase() === hex.toLowerCase()) ?? PALETTE[1];
+}
+
+/**
  * VS Code `workbench.colorCustomizations` for a worktree window (D-006, D-034).
  *
  * Colors the two bands that identify a window, the title bar and the status bar, and leaves the
