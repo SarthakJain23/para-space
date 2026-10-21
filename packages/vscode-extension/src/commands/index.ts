@@ -4,7 +4,7 @@ import type { CommandContext } from './context.js';
 import { registerCreate } from './create.js';
 import { registerIsolate } from './isolate.js';
 import { registerLedgerCommands } from './ledger.js';
-import { registerList, registerOpen, registerRefresh } from './list.js';
+import { registerList, registerOpen, registerOpenWorkspace, registerRefresh } from './list.js';
 import { registerRemove } from './remove.js';
 import { registerSelectRepositories } from './repositories.js';
 
@@ -15,6 +15,7 @@ export function registerCommands(ctx: CommandContext): vscode.Disposable[] {
   return [
     registerList(ctx),
     registerOpen(ctx),
+    registerOpenWorkspace(ctx),
     registerRefresh(ctx),
     registerCreate(ctx),
     registerIsolate(ctx),

@@ -1,7 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
-import { readTextIfExists } from './util/fs.js';
+import { exists, readTextIfExists } from './util/fs.js';
 import { withFileLock } from './util/lock.js';
 
 export type DepsMode = 'Source' | 'Symlinked' | 'Isolated' | 'None';
@@ -22,9 +22,26 @@ export interface RepoState {
   worktrees: WorktreeRecord[];
 }
 
+export interface WorkspaceRepoEntry {
+  root: string;
+  name: string;
+  worktreePath: string;
+}
+
+export interface WorkspaceRecord {
+  id: string;
+  name: string;
+  workspaceFile: string;
+  branch: string;
+  color?: string;
+  repos: WorkspaceRepoEntry[];
+  createdAt: string;
+}
+
 export interface StateFile {
   version: 1;
   repos: Record<string, RepoState>;
+  workspaces?: Record<string, WorkspaceRecord>;
 }
 
 /** Overridable for tests via PARA_SPACE_HOME. */
@@ -41,11 +58,14 @@ export async function readState(): Promise<StateFile> {
   const text = await readTextIfExists(statePath());
   try {
     const parsed = text && (JSON.parse(text) as StateFile);
-    if (parsed && parsed.version === 1 && parsed.repos) return parsed;
+    if (parsed && parsed.version === 1 && parsed.repos) {
+      parsed.workspaces ??= {};
+      return parsed;
+    }
   } catch {
     // corrupt → start fresh
   }
-  return { version: 1, repos: {} };
+  return { version: 1, repos: {}, workspaces: {} };
 }
 
 /** Atomic write: write a temp file, then rename over the original. */
@@ -99,4 +119,120 @@ export function nextWorktreeIndex(records: WorktreeRecord[]): number {
   let i = 1;
   while (used.has(i)) i++;
   return i;
+}
+
+/**
+ * Read-modify-write multi-repo workspace entries in `state.json`, as a single transaction under `state.lock`.
+ *
+ * @param fn - Mutates `workspaces`; may be async.
+ * @returns Whatever `fn` returns.
+ *
+ * @example
+ * await updateWorkspaceState((workspaces) => {
+ *   delete workspaces['/code/my-app.code-workspace'];
+ * });
+ */
+export async function updateWorkspaceState<T>(
+  fn: (workspaces: Record<string, WorkspaceRecord>) => T | Promise<T>,
+): Promise<T> {
+  await mkdir(stateDir(), { recursive: true });
+  return withFileLock(stateLockPath(), async () => {
+    const state = await readState();
+    state.workspaces ??= {};
+    const result = await fn(state.workspaces);
+    await writeState(state);
+    return result;
+  });
+}
+
+/**
+ * Saves or updates a multi-repo workspace record in `state.json`.
+ *
+ * @param record - The workspace record to persist.
+ *
+ * @example
+ * await saveWorkspaceRecord({ id: wsFile, name: 'my-app', workspaceFile: wsFile, branch: 'feat/x', repos: [...] });
+ */
+export async function saveWorkspaceRecord(record: WorkspaceRecord): Promise<void> {
+  await updateWorkspaceState((workspaces) => {
+    const key = path.resolve(record.workspaceFile);
+    workspaces[key] = {
+      ...record,
+      id: key,
+      workspaceFile: key,
+    };
+  });
+}
+
+/**
+ * Retrieves valid multi-repo workspace records, optionally filtering by participating repository roots.
+ * Automatically prunes records whose .code-workspace file no longer exists on disk.
+ *
+ * @param forRepoRoots - Optional array of repository roots to filter by.
+ * @returns Array of active WorkspaceRecord entries.
+ *
+ * @example
+ * const workspaces = await getWorkspaceRecords(['/code/frontend', '/code/backend']);
+ */
+export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<WorkspaceRecord[]> {
+  const state = await readState();
+  const all = Object.values(state.workspaces ?? {});
+  const valid: WorkspaceRecord[] = [];
+  const missing: string[] = [];
+
+  for (const ws of all) {
+    if (await exists(ws.workspaceFile)) {
+      if (forRepoRoots && forRepoRoots.length > 0) {
+        const rootSet = new Set(forRepoRoots.map((r) => path.resolve(r)));
+        const matches = ws.repos.some((r) => rootSet.has(path.resolve(r.root)));
+        if (matches) valid.push(ws);
+      } else {
+        valid.push(ws);
+      }
+    } else {
+      missing.push(ws.workspaceFile);
+    }
+  }
+
+  if (missing.length > 0) {
+    void updateWorkspaceState((workspaces) => {
+      for (const m of missing) delete workspaces[path.resolve(m)];
+    }).catch(() => {});
+  }
+
+  return valid;
+}
+
+/**
+ * Finds a recorded multi-repo workspace that includes the given worktree path.
+ *
+ * @param worktreePath - Absolute path of a worktree.
+ * @returns The matching WorkspaceRecord or undefined.
+ *
+ * @example
+ * const ws = await findWorkspaceForWorktree('/code/frontend-feat-login');
+ */
+export async function findWorkspaceForWorktree(worktreePath: string): Promise<WorkspaceRecord | undefined> {
+  const state = await readState();
+  const target = path.resolve(worktreePath);
+  for (const ws of Object.values(state.workspaces ?? {})) {
+    if (ws.repos.some((r) => path.resolve(r.worktreePath) === target)) {
+      if (await exists(ws.workspaceFile)) return ws;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Removes a multi-repo workspace record from `state.json`.
+ *
+ * @param workspaceFile - Absolute path to the .code-workspace file.
+ *
+ * @example
+ * await removeWorkspaceRecord('/code/my-app.code-workspace');
+ */
+export async function removeWorkspaceRecord(workspaceFile: string): Promise<void> {
+  await updateWorkspaceState((workspaces) => {
+    delete workspaces[path.resolve(workspaceFile)];
+  });
 }

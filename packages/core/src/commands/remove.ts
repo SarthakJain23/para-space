@@ -4,7 +4,7 @@ import * as git from '../git.js';
 import { appendLedger } from '../ledger.js';
 import { linkTarget, unlinkIfSymlink } from '../link.js';
 import { silentLogger } from '../prompts.js';
-import { updateRepoState } from '../state.js';
+import { updateRepoState, updateWorkspaceState } from '../state.js';
 import { exists } from '../util/fs.js';
 import { code } from '../util/format.js';
 import { type ResolvedWorktree, labelOf, resolveWorktree } from './resolve.js';
@@ -58,6 +58,12 @@ export async function removeWorktree(opts: RemoveOptions): Promise<RemoveResult>
   await updateRepoState(mainRoot, (r) => {
     r.worktrees = r.worktrees.filter((w) => w.path !== wtPath);
   });
+  await updateWorkspaceState((workspaces) => {
+    for (const [key, ws] of Object.entries(workspaces)) {
+      ws.repos = ws.repos.filter((r) => r.worktreePath !== wtPath);
+      if (ws.repos.length === 0) delete workspaces[key];
+    }
+  }).catch(() => {});
   await appendLedger(mainRoot, {
     title: `Worktree Removed: ${labelOf(wt)}`,
     requirement: `Work on ${code(branch ?? wtPath)} finished or abandoned.`,

@@ -1,7 +1,25 @@
-import type { WorktreeInfo } from '@para-space/core';
+import path from 'node:path';
+import type { WorktreeInfo, WorkspaceRecord } from '@para-space/core';
 import * as vscode from 'vscode';
 import { describeWorktree, worktreeTooltip } from './items.js';
 import type { RepoWorktrees, WorktreeStore } from './store.js';
+
+/** A multi-repo workspace node in the sidebar tree. */
+export class WorkspaceNode extends vscode.TreeItem {
+  constructor(
+    readonly workspace: WorkspaceRecord,
+    isCurrent: boolean,
+  ) {
+    super(workspace.branch || workspace.name, vscode.TreeItemCollapsibleState.Collapsed);
+    const repoNames = workspace.repos.map((r) => r.name).join(', ');
+    this.description = isCurrent
+      ? `current · ${workspace.repos.length} repos`
+      : `${workspace.repos.length} repos (${repoNames})`;
+    this.tooltip = `Multi-Repository Workspace\nBranch: ${workspace.branch}\nFile: ${workspace.workspaceFile}\n\nRepositories:\n${workspace.repos.map((r) => `  • ${r.name}: ${r.worktreePath}`).join('\n')}`;
+    this.iconPath = isCurrent ? new vscode.ThemeIcon('check') : new vscode.ThemeIcon('root-folder');
+    this.contextValue = 'paraSpace.workspace';
+  }
+}
 
 /** A repository node in multi-root workspaces. */
 export class RepoNode extends vscode.TreeItem {
@@ -37,7 +55,7 @@ export class WorktreeNode extends vscode.TreeItem {
   }
 }
 
-export type WorktreeTreeNode = RepoNode | WorktreeNode;
+export type WorktreeTreeNode = WorkspaceNode | RepoNode | WorktreeNode;
 
 /** Renders the `paraSpace.worktrees` view: grouped by repo when multiple repos exist, flat when single repo. */
 export class WorktreeTreeProvider implements vscode.TreeDataProvider<WorktreeTreeNode>, vscode.Disposable {
@@ -61,10 +79,33 @@ export class WorktreeTreeProvider implements vscode.TreeDataProvider<WorktreeTre
   getChildren(node?: WorktreeTreeNode): WorktreeTreeNode[] {
     const current = this.store.current;
     if (!node) {
-      if (this.store.repos.length <= 1) {
-        return this.store.rows.map((r) => new WorktreeNode(r, r.path === current?.path, this.store.root));
+      const nodes: WorktreeTreeNode[] = [];
+      if (this.store.workspaces.length > 0) {
+        nodes.push(
+          ...this.store.workspaces.map((ws) => new WorkspaceNode(ws, ws.id === this.store.currentWorkspace?.id)),
+        );
       }
-      return this.store.repos.map((repo) => new RepoNode(repo));
+      if (this.store.repos.length <= 1) {
+        nodes.push(...this.store.rows.map((r) => new WorktreeNode(r, r.path === current?.path, this.store.root)));
+      } else {
+        nodes.push(...this.store.repos.map((repo) => new RepoNode(repo)));
+      }
+      return nodes;
+    }
+    if (node instanceof WorkspaceNode) {
+      return node.workspace.repos.map((repo) => {
+        const found = this.store.allRows.find((r) => path.resolve(r.path) === path.resolve(repo.worktreePath));
+        const info: WorktreeInfo = found ?? {
+          name: path.basename(repo.worktreePath),
+          path: repo.worktreePath,
+          branch: node.workspace.branch,
+          isMain: false,
+          dirty: 0,
+          depsMode: 'Symlinked',
+          managed: true,
+        };
+        return new WorktreeNode(info, info.path === current?.path, repo.root);
+      });
     }
     if (node instanceof RepoNode) {
       return node.repo.rows.map((r) => new WorktreeNode(r, r.path === current?.path, node.repo.root));

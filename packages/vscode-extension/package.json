@@ -97,6 +97,12 @@
         "category": "ParaSpace"
       },
       {
+        "command": "paraSpace.openWorkspace",
+        "title": "Open Workspace…",
+        "category": "ParaSpace",
+        "icon": "$(root-folder)"
+      },
+      {
         "command": "paraSpace.removeWorktree",
         "title": "Remove Worktree…",
         "category": "ParaSpace",
@@ -146,6 +152,16 @@
           "command": "paraSpace.configureRepo",
           "when": "view == paraSpace.worktrees && viewItem == paraSpace.repo",
           "group": "2_config"
+        },
+        {
+          "command": "paraSpace.openInNewWindow",
+          "when": "view == paraSpace.worktrees && viewItem == paraSpace.workspace",
+          "group": "inline"
+        },
+        {
+          "command": "paraSpace.openInNewWindow",
+          "when": "view == paraSpace.worktrees && viewItem == paraSpace.workspace",
+          "group": "1_open"
         },
         {
           "command": "paraSpace.openInNewWindow",

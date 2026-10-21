@@ -280,3 +280,4 @@ flowchart TD
 | 2026-10-21 | Searchable branch QuickPick, multi-repo selection, shared or per-repo branch planning, and review before provisioning | 5 | D-038 |
 | 2026-10-21 | Multi-repository workspace CLI command `para workspace create` with discovery, shared/per-repo branches, and .code-workspace generation | 1a | D-039 |
 | 2026-10-21 | Peacock color injection into .code-workspace, automatic window opening, and IDE agent programmatic API | 1a, 5 | D-040 |
+| 2026-10-21 | Persistent multi-repo workspace records in state.json, sidebar tree WorkspaceNode, and switcher reopening | 1a, 5 | D-041 |

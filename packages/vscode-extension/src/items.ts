@@ -1,4 +1,4 @@
-import type { LedgerEntry, WorktreeInfo } from '@para-space/core';
+import type { LedgerEntry, WorktreeInfo, WorkspaceRecord } from '@para-space/core';
 import { isInside } from './dialogs.js';
 
 // Pure row text for the tree, switcher and status bar. No `vscode` import, so it is unit-testable (GUIDELINES 6.3).
@@ -8,9 +8,9 @@ export interface WorktreeItem {
   label: string;
   description?: string;
   detail?: string;
-  /** Worktree folder; absent on the "Create Worktree…" row. */
+  /** Worktree folder or workspace file; absent on the "Create Worktree…" row. */
   path?: string;
-  /** The worktree this window has open. */
+  /** The worktree or workspace this window has open. */
   current?: boolean;
   alwaysShow?: boolean;
 }
@@ -79,13 +79,35 @@ export function toWorktreeItem(w: WorktreeInfo, current = false, repoName?: stri
   };
 }
 
-/** Switcher rows: "Create Worktree…" first, then every worktree, the current one checked. */
+/** Turns a WorkspaceRecord into a switcher item for multi-repo workspaces. */
+export function toWorkspaceItem(ws: WorkspaceRecord, current = false): WorktreeItem {
+  const icon = current ? 'check' : 'root-folder';
+  const repoNames = ws.repos.map((r) => r.name).join(', ');
+  return {
+    label: `$(${icon}) [Workspace] ${ws.branch}`,
+    description: current
+      ? `current · ${ws.repos.length} repos (${repoNames})`
+      : `${ws.repos.length} repos (${repoNames})`,
+    detail: ws.workspaceFile,
+    path: ws.workspaceFile,
+    current,
+  };
+}
+
+/** Switcher rows: "Create Worktree…" first, then any multi-repo workspaces, then every worktree, the current one checked. */
 export function switcherItems(
   rows: WorktreeInfo[],
   current: WorktreeInfo | undefined,
   repoNameForPath?: (path: string) => string | undefined,
+  workspaces?: WorkspaceRecord[],
+  currentWorkspace?: WorkspaceRecord,
 ): WorktreeItem[] {
-  return [CREATE_ITEM, ...rows.map((r) => toWorktreeItem(r, r.path === current?.path, repoNameForPath?.(r.path)))];
+  const wsItems = (workspaces ?? []).map((ws) => toWorkspaceItem(ws, ws.id === currentWorkspace?.id));
+  return [
+    CREATE_ITEM,
+    ...wsItems,
+    ...rows.map((r) => toWorktreeItem(r, r.path === current?.path, repoNameForPath?.(r.path))),
+  ];
 }
 
 /**

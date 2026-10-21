@@ -9,6 +9,7 @@ import {
   statusBarText,
   switcherItems,
   toLedgerDetails,
+  toWorkspaceItem,
   toWorktreeItem,
   worktreeTooltip,
 } from '../src/items.js';
@@ -100,6 +101,25 @@ describe('switcher and status bar', () => {
     const items = switcherItems(rows, feat, (p) => (p.includes('app-feat') ? 'frontend' : 'backend'));
     expect(items[1].label).toBe('$(repo) [backend] (main)');
     expect(items[2].label).toBe('$(check) [frontend] app-feat-x');
+  });
+
+  it('includes multi-repo workspaces in switcher items', () => {
+    const ws = {
+      id: '/code/app.code-workspace',
+      name: 'app',
+      workspaceFile: '/code/app.code-workspace',
+      branch: 'feat/cross',
+      repos: [
+        { root: '/code/app', name: 'app', worktreePath: '/code/app-feat-cross' },
+        { root: '/code/api', name: 'api', worktreePath: '/code/api-feat-cross' },
+      ],
+      createdAt: '',
+    };
+    const items = switcherItems(rows, undefined, undefined, [ws]);
+    expect(items[0]).toBe(CREATE_ITEM);
+    expect(items[1].label).toBe('$(root-folder) [Workspace] feat/cross');
+    expect(items[1].description).toContain('2 repos (app, api)');
+    expect(items[1].path).toBe('/code/app.code-workspace');
   });
 
   it('formats the status bar text', () => {

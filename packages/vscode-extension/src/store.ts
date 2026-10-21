@@ -1,5 +1,11 @@
 import path from 'node:path';
-import { type Logger, type WorktreeInfo, listWorktrees } from '@para-space/core';
+import {
+  type Logger,
+  type WorktreeInfo,
+  type WorkspaceRecord,
+  getWorkspaceRecords,
+  listWorktrees,
+} from '@para-space/core';
 import * as vscode from 'vscode';
 import { currentWorktree } from './items.js';
 import { findActiveRepoRoot, getIncludedRepoRoots } from './workspace.js';
@@ -24,6 +30,8 @@ export class WorktreeStore implements vscode.Disposable {
   repos: RepoWorktrees[] = [];
   /** Included repository root paths. */
   roots: string[] = [];
+  /** Multi-repository workspaces associated with the current roots. */
+  workspaces: WorkspaceRecord[] = [];
 
   /** Why the last load failed entirely, if it did. */
   error: string | undefined;
@@ -50,6 +58,13 @@ export class WorktreeStore implements vscode.Disposable {
   /** All worktree rows across all included repositories. */
   get allRows(): WorktreeInfo[] {
     return this.repos.flatMap((r) => r.rows);
+  }
+
+  /** The multi-repo workspace this window currently has open, if any. */
+  get currentWorkspace(): WorkspaceRecord | undefined {
+    const wsFile = vscode.workspace.workspaceFile?.fsPath;
+    if (!wsFile) return undefined;
+    return this.workspaces.find((w) => path.resolve(w.workspaceFile) === path.resolve(wsFile));
   }
 
   /** The row for the worktree this window has open. */
@@ -98,6 +113,13 @@ export class WorktreeStore implements vscode.Disposable {
     }
 
     this.repos = results;
+    try {
+      this.workspaces = await getWorkspaceRecords(this.roots);
+    } catch (err) {
+      this.workspaces = [];
+      this.log.warn(`Could not load workspaces: ${(err as Error).message}`);
+    }
+
     this.error =
       this.repos.length > 0 && this.repos.every((r) => r.error)
         ? this.repos.map((r) => `${r.name}: ${r.error}`).join('; ')

@@ -2,14 +2,14 @@ import * as vscode from 'vscode';
 import { isInside } from '../dialogs.js';
 import { CREATE_ITEM, switcherItems } from '../items.js';
 import { action, pick } from '../runtime.js';
-import type { WorktreeNode } from '../tree.js';
+import type { WorktreeNode, WorkspaceNode } from '../tree.js';
 import { requireActiveRepoRoot } from '../workspace.js';
 import { type CommandContext, openInNewWindow } from './context.js';
 
 /**
  * `paraSpace.listWorktrees`: the worktree switcher (also opened from the status bar).
- * "Create Worktree…" first, then every worktree with the current one checked; picking
- * another worktree opens it in a new window.
+ * "Create Worktree…" first, then any multi-repo workspaces, then every worktree with
+ * the current one checked; picking another worktree or workspace opens it in a new window.
  */
 export function registerList({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
@@ -23,11 +23,14 @@ export function registerList({ rt, store }: CommandContext): vscode.Disposable {
         ? (p: string) => store.repos.find((r) => isInside(p, r.root))?.name
         : undefined;
       const rows = isMultiRepo ? store.allRows : store.rows;
-      const picked = await pick(switcherItems(rows, store.current, repoNameForPath), {
-        title: 'ParaSpace Worktrees',
-        placeHolder: 'Switch to a worktree (opens in a new window)',
-        matchOnDescription: true,
-      });
+      const picked = await pick(
+        switcherItems(rows, store.current, repoNameForPath, store.workspaces, store.currentWorkspace),
+        {
+          title: 'ParaSpace Worktrees & Workspaces',
+          placeHolder: 'Switch to a worktree or workspace (opens in a new window)',
+          matchOnDescription: true,
+        },
+      );
       if (picked === CREATE_ITEM) await vscode.commands.executeCommand('paraSpace.createWorktree');
       else if (picked.path && !picked.current) await openInNewWindow(picked.path);
     }),
@@ -38,8 +41,58 @@ export function registerList({ rt, store }: CommandContext): vscode.Disposable {
 export function registerOpen({ rt }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.openInNewWindow',
-    action(rt, async (node: WorktreeNode) => {
-      await openInNewWindow(node.info.path);
+    action(rt, async (node: WorktreeNode | WorkspaceNode | string) => {
+      let targetPath: string | undefined;
+      if (typeof node === 'string') {
+        targetPath = node;
+      } else if (node && typeof node === 'object') {
+        if ('workspace' in node && typeof (node as { workspace: { workspaceFile: string } }).workspace === 'object') {
+          targetPath = (node as { workspace: { workspaceFile: string } }).workspace.workspaceFile;
+        } else if ('info' in node && typeof (node as { info: { path: string } }).info === 'object') {
+          targetPath = (node as { info: { path: string } }).info.path;
+        }
+      }
+      if (targetPath) {
+        await openInNewWindow(targetPath);
+      }
+    }),
+  );
+}
+
+/** `paraSpace.openWorkspace`: selects and opens a recorded multi-repository workspace. */
+export function registerOpenWorkspace({ rt, store }: CommandContext): vscode.Disposable {
+  return vscode.commands.registerCommand(
+    'paraSpace.openWorkspace',
+    action(rt, async (targetWorkspace?: WorkspaceNode | string) => {
+      await store.load();
+      if (typeof targetWorkspace === 'string') {
+        await openInNewWindow(targetWorkspace);
+        return;
+      }
+      if (
+        targetWorkspace &&
+        typeof targetWorkspace === 'object' &&
+        'workspace' in targetWorkspace &&
+        typeof (targetWorkspace as { workspace: { workspaceFile: string } }).workspace === 'object'
+      ) {
+        await openInNewWindow((targetWorkspace as { workspace: { workspaceFile: string } }).workspace.workspaceFile);
+        return;
+      }
+      if (store.workspaces.length === 0) {
+        void vscode.window.showInformationMessage('No multi-repository workspaces found.');
+        return;
+      }
+      const items = store.workspaces.map((ws) => ({
+        label: `$(root-folder) ${ws.branch}`,
+        description: `${ws.repos.length} repos (${ws.repos.map((r) => r.name).join(', ')})`,
+        detail: ws.workspaceFile,
+        ws,
+      }));
+      const picked = await pick(items, {
+        title: 'ParaSpace: Open Workspace',
+        placeHolder: 'Select a multi-repository workspace to open in a new window',
+      });
+      await openInNewWindow(picked.ws.workspaceFile);
     }),
   );
 }

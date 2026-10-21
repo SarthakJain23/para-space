@@ -8,7 +8,17 @@ export { getPortStrategy, type PortStrategy, type AllocateParams } from './ports
 export { FRAMEWORK_STRATEGIES, detectStrategies, manifestFiles, type FrameworkStrategy } from './frameworks/index.js';
 export { checkDivergence, checkAllDivergence, type DivergenceResult } from './divergence.js';
 export { mainRepoRoot, branchExists, validateBranchName } from './git.js';
-export { statePath, type DepsMode, type WorktreeRecord } from './state.js';
+export {
+  statePath,
+  type DepsMode,
+  type WorktreeRecord,
+  type WorkspaceRecord,
+  type WorkspaceRepoEntry,
+  saveWorkspaceRecord,
+  getWorkspaceRecords,
+  findWorkspaceForWorktree,
+  removeWorkspaceRecord,
+} from './state.js';
 export {
   sharedBranches,
   buildMultiRepoWorkspaceConfig,

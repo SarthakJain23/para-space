@@ -52,6 +52,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-038 | Searchable branch selection and multi-repo workspace provisioning on create | Accepted | 2026-10-21 |
 | D-039 | Multi-repository workspace CLI command `para workspace create` | Accepted | 2026-10-21 |
 | D-040 | Workspace Peacock color injection, automatic window launch, and IDE agent programmatic API | Accepted | 2026-10-21 |
+| D-041 | Persistent multi-repo workspace records, tree view workspace nodes, and switcher reopening | Accepted | 2026-10-21 |
 
 ---
 
@@ -375,6 +376,17 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Automatic window opening:** Removed the modal confirmation prompt and toast button click. The extension automatically invokes `openInNewWindow` immediately upon successful provisioning, showing a non-blocking notification toast with port and path details.
   - **IDE Agent Programmatic API:** `paraSpace.createWorktree` accepts structured programmatic options (`branch`, `repos`, `base`, `requirement`, `ide`). When provided by an AI agent or script, it executes non-interactively without opening QuickPick dialogs. Additionally, agents can execute `para workspace create <branch> --yes -r "<req>" --json` in terminal.
 - **Problem Solved:** Restores window coloring in multi-root workspaces, opens new windows automatically without click delays, and allows AI IDE agents to provision workspaces seamlessly.
+
+## D-041 — Persistent multi-repo workspace records, tree view workspace nodes, and switcher reopening
+- **Status:** Accepted · 2026-10-21
+- **Requirement Context:** When a developer closes a multi-repo workspace window (consisting of 2+ repositories and a `.code-workspace` file), returning to the main window or switching workspaces offered no way to reopen that parallel workspace as a unified multi-root window. Individual worktrees could be reopened, but the parallel multi-repo workspace connection was lost.
+- **Decision Made:**
+  - **Machine state tracking:** `state.json` now records multi-repository workspaces under `workspaces` (`WorkspaceRecord`: file path, branch, participating repositories, worktree paths, color). Creating a workspace via the extension or CLI registers it atomically via `saveWorkspaceRecord`.
+  - **Quick switcher inclusion:** `paraSpace.listWorktrees` (the switcher opened via Command Palette or status bar click) displays active multi-repo workspaces right below "Create Worktree…" using `$(root-folder) [Workspace] <branch>`, listing member repos. Selecting one opens the `.code-workspace` file in a new window.
+  - **Sidebar tree view integration:** Multi-repo workspaces appear at the top of the Worktrees view with dedicated `WorkspaceNode` items. Clicking the inline "Open in New Window" action launches the workspace; expanding the node reveals the member repository worktrees.
+  - **New command:** Added `paraSpace.openWorkspace` ("Open Workspace…") to the Command Palette and view menus.
+  - **CLI `para workspace list`:** Added `list` (`ls`) subcommand to `para workspace` to inspect and output registered workspaces.
+- **Problem Solved:** Developers can close and easily reopen multi-repo parallel workspaces at any time from the status bar switcher, sidebar tree view, Command Palette, or CLI.
 
 ---
 

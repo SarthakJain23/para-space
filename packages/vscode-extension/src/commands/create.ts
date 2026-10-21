@@ -8,6 +8,7 @@ import {
   createWorktree,
   listBranches,
   removeWorktree,
+  saveWorkspaceRecord,
 } from '@para-space/core';
 import * as vscode from 'vscode';
 import {
@@ -321,6 +322,20 @@ async function openMultiRepoWorkspace(results: CreateResult[], branch: string): 
   );
 
   await fs.promises.writeFile(workspaceFilePath, JSON.stringify(workspaceConfig, null, 2), 'utf8');
+
+  await saveWorkspaceRecord({
+    id: workspaceFilePath,
+    name: path.basename(workspaceFilePath, '.code-workspace'),
+    workspaceFile: workspaceFilePath,
+    branch,
+    color: hex,
+    repos: results.map((r) => ({
+      root: r.mainRoot,
+      name: path.basename(r.mainRoot),
+      worktreePath: r.path,
+    })),
+    createdAt: new Date().toISOString(),
+  });
 
   const ports = results
     .map((r) => (r.port !== undefined ? `${path.basename(r.mainRoot)}: ${r.port}` : undefined))

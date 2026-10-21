@@ -14,6 +14,8 @@ import {
   multiRepoWorkspaceFilePath,
   readWorkspaceConfigFile,
   removeWorktree,
+  saveWorkspaceRecord,
+  getWorkspaceRecords,
   sharedBranches,
   validateBranchName,
 } from '@para-space/core';
@@ -371,6 +373,20 @@ export function registerWorkspace(program: Command) {
 
         await fs.writeFile(workspaceFilePath, JSON.stringify(wsConfig, null, 2), 'utf8');
 
+        await saveWorkspaceRecord({
+          id: workspaceFilePath,
+          name: path.basename(workspaceFilePath, '.code-workspace'),
+          workspaceFile: workspaceFilePath,
+          branch: branchLabel,
+          color: hex,
+          repos: results.map((r) => ({
+            root: r.mainRoot,
+            name: path.basename(r.mainRoot),
+            worktreePath: r.path,
+          })),
+          createdAt: new Date().toISOString(),
+        });
+
         // 8. Output
         if (flags.json) {
           printJson({ workspaceFile: workspaceFilePath, worktrees: results });
@@ -384,6 +400,32 @@ export function registerWorkspace(program: Command) {
           }
           console.log(pc.dim(`\n  code ${workspaceFilePath}`));
         }
+      }),
+    );
+
+  ws.command('list')
+    .alias('ls')
+    .description('List recorded multi-repository parallel workspaces')
+    .option('--json', 'print results as JSON')
+    .action(
+      action(async (flags: { json?: boolean }) => {
+        const roots = await discoverWorkspaceRepoRoots(process.cwd());
+        const records = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+        if (flags.json) {
+          printJson(records);
+          return;
+        }
+        if (records.length === 0) {
+          console.log(pc.dim('No multi-repository workspaces found.'));
+          return;
+        }
+        ok(`Found ${records.length} workspace(s):`);
+        for (const record of records) {
+          console.log(`\n  ${pc.bold(record.name)} (${pc.cyan(record.branch)})`);
+          console.log(`    file: ${record.workspaceFile}`);
+          console.log(`    repos: ${record.repos.map((r) => `${r.name} (${r.worktreePath})`).join(', ')}`);
+        }
+        console.log('');
       }),
     );
 }
