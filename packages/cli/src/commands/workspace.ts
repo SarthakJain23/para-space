@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as p from '@clack/prompts';
@@ -8,6 +9,7 @@ import {
   colorForHex,
   createWorktree,
   discoverWorkspaceRepoRoots,
+  exists,
   findWorkspaceConfigFile,
   listBranches,
   mainRepoRoot,
@@ -357,6 +359,20 @@ async function saveAndEmitWorkspace(
   }
 }
 
+/** Spawns VS Code to open a workspace file or directory without blocking. */
+function openWithCode(targetPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn('code', [targetPath], { detached: true, stdio: 'ignore' });
+      child.on('error', () => resolve(false));
+      child.unref();
+      resolve(true);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 export function registerWorkspace(program: Command) {
   const ws = program.command('workspace').alias('ws').description('Manage multi-repository parallel workspaces');
 
@@ -422,6 +438,63 @@ export function registerWorkspace(program: Command) {
 
         const results = await provisionCliWorktrees(plans, requirement, ide, isInteractive);
         await saveAndEmitWorkspace(results, plans, flags.name, flags.json);
+      }),
+    );
+
+  ws.command('open [target]')
+    .description('Open a multi-repository workspace in VS Code (by branch, name, or file)')
+    .action(
+      action(async (target?: string) => {
+        const roots = await discoverWorkspaceRepoRoots(process.cwd());
+        const records = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+        let chosenFile: string | undefined;
+
+        if (target) {
+          const lower = target.toLowerCase();
+          const match = records.find(
+            (r) =>
+              r.branch.toLowerCase() === lower ||
+              r.name.toLowerCase() === lower ||
+              path.resolve(r.workspaceFile).toLowerCase() === path.resolve(target).toLowerCase() ||
+              r.branch.toLowerCase().includes(lower) ||
+              r.name.toLowerCase().includes(lower),
+          );
+          if (match) {
+            chosenFile = match.workspaceFile;
+          } else if (target.endsWith('.code-workspace') && (await exists(target))) {
+            chosenFile = path.resolve(target);
+          } else {
+            throw new Error(
+              `No workspace matches "${target}". Run \`para workspace list\` to see available workspaces.`,
+            );
+          }
+        } else {
+          if (records.length === 0) {
+            throw new Error('No multi-repository workspaces found. Run \`para workspace list\` to check.');
+          }
+          if (records.length === 1) {
+            chosenFile = records[0].workspaceFile;
+          } else {
+            chosenFile = await selectOption(
+              'Select workspace to open:',
+              records.map((r) => ({
+                value: r.workspaceFile,
+                label: r.branch,
+                hint: `${r.repos.length} repos (${r.repos.map((repo) => repo.name).join(', ')})`,
+              })),
+            );
+          }
+        }
+
+        if (chosenFile) {
+          const opened = await openWithCode(chosenFile);
+          if (opened) {
+            ok(`Opening workspace in VS Code: ${pc.bold(chosenFile)}`);
+          } else {
+            ok(`Workspace ready: ${pc.bold(chosenFile)}`);
+            console.log(pc.dim(`Run: code ${chosenFile}`));
+          }
+        }
       }),
     );
 

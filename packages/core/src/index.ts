@@ -31,3 +31,4 @@ export {
   type CodeWorkspaceFolder,
   type CodeWorkspaceConfig,
 } from './workspace.js';
+export { exists } from './util/fs.js';

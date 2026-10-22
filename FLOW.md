@@ -85,9 +85,10 @@ Every state write (create, isolate, remove, list's prune) goes through `updateRe
 ---
 
 ## 1a. Multi-Repository Workspace — `para workspace create [branch]` (`ws`)
-_Status: Implemented · Last updated: 2026-10-21 · Decisions: D-001, D-012, D-022, D-037, D-038, D-039_
+_Status: Implemented · Last updated: 2026-10-22 · Decisions: D-001, D-012, D-022, D-037, D-038, D-039, D-041, D-042_
 
-Flags: `--repo <paths...>`, `-b/--base <ref>`, `--per-repo`, `-r/--requirement <text>`, `--name <name>`, `--ide` / `--no-ide`, `-y/--yes`, `--json`.
+Subcommands: `create` (default), `open [target]`, `list` (`ls`).
+Flags for `create`: `--repo <paths...>`, `-b/--base <ref>`, `--per-repo`, `-r/--requirement <text>`, `--name <name>`, `--ide` / `--no-ide`, `-y/--yes`, `--json`.
 
 1. **Repository discovery & selection:**
    - If `--repo <path...>` is given, resolves each path to its git main repository root.
@@ -102,7 +103,12 @@ Flags: `--repo <paths...>`, `-b/--base <ref>`, `--per-repo`, `-r/--requirement <
    - If provisioning fails for any repository, all previously created worktrees are automatically rolled back with `removeWorktree` and rollback issues are reported (D-022, D-039).
 4. **Workspace configuration file:**
    - Emits or updates a `.code-workspace` file pointing to the new worktree paths (preserving workspace settings from any existing workspace file in cwd).
+   - Injects the assigned OKLCH Peacock window theme into `.code-workspace` settings (D-040).
+   - Saves a `WorkspaceRecord` into `state.json` under `workspaces` for 1-click reopening (D-041).
    - Prints output or returns JSON when `--json` is supplied.
+5. **Workspace Opening & Listing:**
+   - `para workspace open [target]`: opens a recorded or on-disk workspace in VS Code via `code <workspaceFile>`. Supports matching by branch, workspace name, or file path.
+   - `para workspace list [--json]`: lists all registered and discovered multi-repo workspaces with member repos.
 
 ---
 

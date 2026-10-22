@@ -49,6 +49,7 @@ The first `create` in a repo automatically uses the `offset` strategy and saves 
 | [DECISIONS.md](DECISIONS.md) | Decision log — why each design choice was made, plus open questions |
 | [FLOW.md](FLOW.md) | How each operation works step by step (current intended behavior) |
 | [GUIDELINES.md](GUIDELINES.md) | Rules every contributor follows; updated whenever a new rule is agreed |
+| [AGENT_INTEGRATION.md](AGENT_INTEGRATION.md) | Guide for AI coding agents (Claude Code, Copilot, Cursor) to automate ParaSpace |
 | [VISUAL_BRIEF.md](VISUAL_BRIEF.md) | Project context for generating images, diagrams and posts with AI tools |
 
 ## Contributing
