@@ -288,3 +288,4 @@ flowchart TD
 | 2026-10-21 | Peacock color injection into .code-workspace, automatic window opening, and IDE agent programmatic API | 1a, 5 | D-040 |
 | 2026-10-21 | Persistent multi-repo workspace records in state.json, sidebar tree WorkspaceNode, and switcher reopening | 1a, 5 | D-041 |
 | 2026-10-22 | Automatic on-disk workspace discovery, container folder scanning, and browse dialog | 1a, 5 | D-042 |
+| 2026-10-22 | Zero-config AI agent architecture: VS Code Language Model Tools API, CLI stdio MCP server (`para mcp`), and `para setup-agent` | 1a, 5 | D-043 |

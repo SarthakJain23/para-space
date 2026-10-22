@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { registerCommands } from './commands/index.js';
 import { LedgerTreeProvider } from './ledgerTree.js';
+import { registerLmTools } from './lmTools.js';
 import { watchManifests } from './manifestWatcher.js';
 import { watchForChanges } from './refresh.js';
 import { createRuntime } from './runtime.js';
@@ -22,6 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ledgerTree,
     createStatusBar(store),
     ...registerCommands({ rt, store, extensionContext: context }),
+    ...registerLmTools({ rt, store, extensionContext: context }),
     ...watchForChanges(store),
     ...watchManifests(store, rt),
   );

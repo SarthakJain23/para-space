@@ -97,11 +97,68 @@ para workspace open feat/TRI-7402
 
 ---
 
-## 3. VS Code API & Commands (For VS Code Extension Agents & Copilot Chat)
+---
 
-In VS Code extension host environments, agents can execute ParaSpace commands programmatically via `vscode.commands.executeCommand`:
+## 3. Zero-Config Native Integrations (No Repo Pollution)
 
-### Create Worktree or Multi-Repo Workspace
+ParaSpace integrates directly at the **IDE and Environment level**. You never need to commit custom instruction files into user repositories.
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        AI CODING AGENTS                                │
+│   GitHub Copilot  │  Claude Code  │  Cursor  │  Windsurf  │  Devin     │
+└─────────┬──────────────────┬─────────────────────┬─────────────────────┘
+          │                  │                     │
+          ▼                  ▼                     ▼
+┌──────────────────┐ ┌───────────────┐ ┌─────────────────────────────────┐
+│ Tier 1:          │ │ Tier 2:       │ │ Tier 3:                         │
+│ VS Code LM Tools │ │ Model Context │ │ Headless CLI Tools              │
+│ (Copilot Chat)   │ │ Protocol(MCP) │ │ (`--yes` & `--json`)            │
+└──────────────────┘ └───────────────┘ └─────────────────────────────────┘
+```
+
+### Tier 1: VS Code Language Model Tools API (For GitHub Copilot)
+
+The ParaSpace extension registers native tools via VS Code's Language Model Tools API:
+- `para_create_workspace`: Creates a parallel worktree or multi-repo workspace.
+- `para_open_workspace`: Opens an existing workspace in VS Code.
+- `para_list_worktrees`: Lists active worktrees and workspaces with ports.
+- `para_isolate_worktree`: Safely breaks away shared dependencies when manifests diverge.
+
+**User Experience:**
+When a user installs the **ParaSpace** extension from the Marketplace:
+1. GitHub Copilot Chat automatically sees ParaSpace tools in its tool registry.
+2. The user can ask Copilot: *"Copilot, set up a parallel workspace for ticket TRI-7402 across frontend and backend"*
+3. Copilot invokes `para_create_workspace` directly. No project files or prompts required.
+
+---
+
+### Tier 2: Model Context Protocol (MCP) (For Claude Code, Cursor, Windsurf)
+
+ParaSpace includes a built-in MCP server that communicates over `stdio`:
+```bash
+para mcp
+```
+
+#### One-Click Machine Setup (`para setup-agent`)
+Run once on your machine:
+```bash
+para setup-agent
+```
+This automatically configures the ParaSpace MCP server in:
+- `~/.claude.json` (Claude Code)
+- `~/.cursor/mcp.json` (Cursor)
+- `~/.codeium/windsurf/mcp_config.json` (Windsurf)
+- `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude Desktop)
+
+Once configured, Claude Code or Cursor automatically knows all ParaSpace tools in **any** repository on your machine without modifying project files.
+
+---
+
+### Tier 3: Programmatic VS Code Command API
+
+In VS Code extension host environments, agents can also execute ParaSpace commands programmatically:
+
 ```typescript
 await vscode.commands.executeCommand('paraSpace.createWorktree', {
   branch: 'feat/TRI-7402',
@@ -111,47 +168,26 @@ await vscode.commands.executeCommand('paraSpace.createWorktree', {
   ide: 'yes'                             // optional, applies Peacock window coloring
 });
 ```
-*Note: Passing `branch` causes the command to run completely non-interactively, provisions the worktrees, creates the `.code-workspace` file (if multi-repo), and opens the new window automatically.*
-
-### Open Recorded Workspace
-```typescript
-await vscode.commands.executeCommand('paraSpace.openWorkspace', '/path/to/Untitled-feat-TRI-7402.code-workspace');
-```
 
 ---
 
-## 4. Agent Instruction Templates
+## 4. Optional: Repository-Level Instructions (Project-Specific Overrides)
 
-You can add instructions to your projects so that your AI assistants automatically use ParaSpace when asked to start a task or create a workspace.
+If a team explicitly prefers documenting workflows in their repo, they can add optional instructions:
 
-### For Claude Code (`CLAUDE.md` or `~/.claude/instructions.md`)
+### For Claude Code (`CLAUDE.md`)
 ```markdown
 ## Worktree & Workspace Management
-- When asked to start a new feature, bugfix, or parallel ticket, use `para`:
-  - For single repository: `para create <branch> --base main --yes -r "<ticket-description>" --json`
-  - For multi-repository workspaces: `para workspace create <branch> --yes -r "<ticket-description>" --json`
-- After creating, you can open the workspace for the user: `para workspace open <branch>`
-- Never install packages directly into shared symlinks if package manifests diverge; run `para isolate <branch>` first.
-- When finished and verified, clean up with `para remove <branch> --delete-branch`.
+- When asked to start a new feature or ticket, use `para`:
+  - Multi-repo workspace: `para workspace create <branch> --yes -r "<ticket-description>" --json`
+  - Single-repo worktree: `para create <branch> --base main --yes -r "<ticket-description>" --json`
+- Open workspace: `para workspace open <branch>`
+- Clean up when done: `para remove <branch> --delete-branch`
 ```
 
 ### For GitHub Copilot (`.github/copilot-instructions.md`)
 ```markdown
-## Parallel Workspaces with ParaSpace
-- When the user asks to create or open a workspace or worktree for a branch or feature, use the `para` CLI:
-  - Single repo: `para create <branch> --yes -r "<description>" --json`
-  - Multi repo: `para workspace create <branch> --yes -r "<description>" --json`
-  - Open workspace: `para workspace open <branch>`
-- Do not run interactive prompts in scripts; always supply `--yes` and `--json`.
-```
-
-### For Cursor (`.cursorrules` or `.cursor/rules/paraspace.mdc`)
-```markdown
----
-description: Parallel Git worktree and multi-repo workspace management with ParaSpace
-globs: *
----
-- Use `para workspace create <branch> --yes -r "<reason>"` to provision parallel multi-repo workspaces.
-- Use `para create <branch> --yes -r "<reason>"` to provision single-repo worktrees.
-- Use `para workspace open <branch>` to open the multi-root workspace file in VS Code.
+## ParaSpace Workspaces
+- Use `para workspace create <branch> --yes -r "<task>" --json` to provision parallel workspaces.
+- Use `para workspace open <branch>` to open the workspace.
 ```

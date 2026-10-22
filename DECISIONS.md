@@ -54,6 +54,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-040 | Workspace Peacock color injection, automatic window launch, and IDE agent programmatic API | Accepted | 2026-10-21 |
 | D-041 | Persistent multi-repo workspace records, tree view workspace nodes, and switcher reopening | Accepted | 2026-10-21 |
 | D-042 | Automatic on-disk workspace discovery, container folder scanning, and browse dialog | Accepted | 2026-10-22 |
+| D-043 | Zero-config AI agent architecture: VS Code Language Model Tools and CLI MCP Server | Accepted | 2026-10-22 |
 
 ---
 
@@ -400,6 +401,15 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Container folder discovery:** `discoverRepoRoots()` falls back to scanning subdirectories and workspace files via `discoverWorkspaceRepoRoots()` when an open folder is not a Git repo itself.
   - **Browse action in Open Workspace:** `paraSpace.openWorkspace` offers a `$(file-code) Browse for workspace file…` option that opens a native file dialog, parses and registers the selected `.code-workspace`, and opens it in a new window.
 - **Problem Solved:** Existing multi-repo workspaces (such as `Untitled-feat-TRI-7402.code-workspace` for the visa feature) are immediately recognized, colored, and openable from the switcher, sidebar, Command Palette, or CLI.
+
+## D-043 — Zero-config AI agent architecture: VS Code Language Model Tools and CLI MCP Server
+- **Status:** Accepted · 2026-10-22
+- **Requirement Context:** Developers cannot be expected to commit vendor-specific AI instruction files (`.github/copilot-instructions.md`, `CLAUDE.md`, `.cursorrules`) to every project repository. AI coding agents (Copilot, Claude Code, Cursor) must have zero-config context and tool access at the IDE and environment level across all repositories on the machine.
+- **Decision Made:**
+  - **VS Code Language Model Tools API:** Extension contributes `para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, and `para_isolate_worktree` via `contributes.languageModelTools` and `vscode.lm.registerTool`. GitHub Copilot Chat discovers and invokes these tools natively with zero files added to any repository.
+  - **Model Context Protocol (MCP) Server:** Added `para mcp` stdio server using `@modelcontextprotocol/sdk`. Exposes the four canonical ParaSpace tools with Zod validation.
+  - **Global 1-Click Agent Setup:** Added `para setup-agent` (`para init-agent`) command that registers the ParaSpace MCP server in `~/.claude.json`, `~/.cursor/mcp.json`, Windsurf, and Claude Desktop.
+- **Problem Solved:** Enables AI agents across the entire ecosystem to create and switch parallel workspaces natively without repository pollution.
 
 ---
 

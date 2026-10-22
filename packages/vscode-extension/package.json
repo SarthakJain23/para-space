@@ -213,7 +213,88 @@
           "when": "false"
         }
       ]
-    }
+    },
+    "languageModelTools": [
+      {
+        "name": "para_create_workspace",
+        "displayName": "Create Parallel Workspace",
+        "modelDescription": "Creates a parallel Git worktree or multi-repository workspace for a branch with shared dependencies, dedicated dev port, and Peacock window theme using ParaSpace.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "branch": {
+              "type": "string",
+              "description": "Branch name to create or checkout (e.g. feat/TK-101)"
+            },
+            "requirement": {
+              "type": "string",
+              "description": "Why this worktree or workspace exists (ticket or task description)"
+            },
+            "base": {
+              "type": "string",
+              "description": "Base ref for a new branch (default: main or current HEAD)"
+            },
+            "repos": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional repository paths to include for a multi-repo workspace"
+            }
+          },
+          "required": [
+            "branch"
+          ]
+        }
+      },
+      {
+        "name": "para_open_workspace",
+        "displayName": "Open Parallel Workspace",
+        "modelDescription": "Opens an existing parallel multi-repository workspace or single worktree in VS Code by branch name, workspace name, or file path.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "description": "Branch name, workspace name, or .code-workspace file path"
+            }
+          },
+          "required": [
+            "target"
+          ]
+        }
+      },
+      {
+        "name": "para_list_worktrees",
+        "displayName": "List Worktrees and Workspaces",
+        "modelDescription": "Lists all active Git worktrees, assigned dev server ports, and multi-repo workspaces managed by ParaSpace.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "para_isolate_worktree",
+        "displayName": "Isolate Dependencies",
+        "modelDescription": "Breaks away shared dependency symlinks into independent copies when manifests diverge (APFS CoW clone on macOS, fresh install elsewhere).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "description": "Branch name, directory name or path of the worktree to isolate"
+            },
+            "reason": {
+              "type": "string",
+              "description": "Why the dependencies diverged (recorded in context history ledger)"
+            }
+          },
+          "required": [
+            "target"
+          ]
+        }
+      }
+    ]
   },
   "scripts": {
     "build": "tsup",

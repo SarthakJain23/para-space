@@ -7,6 +7,7 @@ import { registerIsolate } from './commands/isolate.js';
 import { registerList } from './commands/list.js';
 import { registerRemove } from './commands/remove.js';
 import { registerWorkspace } from './commands/workspace.js';
+import { registerAgentCommands } from './commands/agent.js';
 
 const program = new Command()
   .name('para')
@@ -21,6 +22,7 @@ const commands = [
   registerRemove,
   registerConfig,
   registerCheck,
+  registerAgentCommands,
 ];
 
 for (const register of commands) register(program);
