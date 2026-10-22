@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { mainRepoRoot } from '@para-space/core';
+import { discoverWorkspaceRepoRoots, mainRepoRoot } from '@para-space/core';
 import * as vscode from 'vscode';
 import { isInside } from './dialogs.js';
 
@@ -7,6 +7,7 @@ export const EXCLUDED_REPOS_KEY = 'paraSpace.excludedRepos';
 
 /**
  * Discovers all unique Git repository roots across open workspace folders.
+ * Checks each folder directly as a git repo, or scans subdirectories/workspace files if it is a container folder.
  */
 export async function discoverRepoRoots(): Promise<string[]> {
   const folders = vscode.workspace.workspaceFolders ?? [];
@@ -16,7 +17,12 @@ export async function discoverRepoRoots(): Promise<string[]> {
       const root = await mainRepoRoot(f.uri.fsPath);
       roots.add(root);
     } catch {
-      // not a git repo
+      try {
+        const subRoots = await discoverWorkspaceRepoRoots(f.uri.fsPath);
+        for (const r of subRoots) roots.add(r);
+      } catch {
+        // ignore
+      }
     }
   }
   return [...roots];

@@ -103,6 +103,16 @@ export async function worktreePrune(cwd: string): Promise<void> {
   await git(cwd, 'worktree', 'prune');
 }
 
+/** Current checked-out branch in a working tree, or undefined if detached or not a repo. */
+export async function currentBranch(cwd: string): Promise<string | undefined> {
+  try {
+    const branch = await git(cwd, 'branch', '--show-current');
+    return branch || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Local branch names, most recently committed first. */
 export async function localBranches(cwd: string): Promise<string[]> {
   const out = await git(cwd, 'for-each-ref', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads');

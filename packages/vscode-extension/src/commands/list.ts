@@ -1,3 +1,9 @@
+import {
+  type WorkspaceRecord,
+  getWorkspaceRecords,
+  parseWorkspaceFileAsRecord,
+  saveWorkspaceRecord,
+} from '@para-space/core';
 import * as vscode from 'vscode';
 import { isInside } from '../dialogs.js';
 import { CREATE_ITEM, switcherItems } from '../items.js';
@@ -78,21 +84,52 @@ export function registerOpenWorkspace({ rt, store }: CommandContext): vscode.Dis
         await openInNewWindow((targetWorkspace as { workspace: { workspaceFile: string } }).workspace.workspaceFile);
         return;
       }
-      if (store.workspaces.length === 0) {
-        void vscode.window.showInformationMessage('No multi-repository workspaces found.');
-        return;
-      }
-      const items = store.workspaces.map((ws) => ({
-        label: `$(root-folder) ${ws.branch}`,
-        description: `${ws.repos.length} repos (${ws.repos.map((r) => r.name).join(', ')})`,
-        detail: ws.workspaceFile,
-        ws,
-      }));
+
+      const workspaces = store.workspaces.length > 0 ? store.workspaces : await getWorkspaceRecords();
+
+      const BROWSE_LABEL = '$(file-code) Browse for workspace file…';
+      const items: (vscode.QuickPickItem & { ws?: WorkspaceRecord; isBrowse?: boolean })[] = [
+        ...workspaces.map((ws) => ({
+          label: `$(root-folder) ${ws.branch}`,
+          description: `${ws.repos.length} repos (${ws.repos.map((r) => r.name).join(', ')})`,
+          detail: ws.workspaceFile,
+          ws,
+        })),
+        {
+          label: BROWSE_LABEL,
+          description: 'Open a .code-workspace file from disk',
+          alwaysShow: true,
+          isBrowse: true,
+        },
+      ];
+
       const picked = await pick(items, {
         title: 'ParaSpace: Open Workspace',
-        placeHolder: 'Select a multi-repository workspace to open in a new window',
+        placeHolder: 'Select a multi-repository workspace or browse for a .code-workspace file',
       });
-      await openInNewWindow(picked.ws.workspaceFile);
+
+      if (picked.isBrowse) {
+        const uris = await vscode.window.showOpenDialog({
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: false,
+          filters: { 'VS Code Workspace': ['code-workspace'] },
+          title: 'Select a .code-workspace file to open',
+        });
+        if (uris && uris[0]) {
+          const filePath = uris[0].fsPath;
+          const parsed = await parseWorkspaceFileAsRecord(filePath);
+          if (parsed) {
+            await saveWorkspaceRecord(parsed);
+          }
+          await openInNewWindow(filePath);
+        }
+        return;
+      }
+
+      if (picked.ws) {
+        await openInNewWindow(picked.ws.workspaceFile);
+      }
     }),
   );
 }

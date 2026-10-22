@@ -1,5 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { parsePortPool, validateConfig } from '../src/config.js';
@@ -17,7 +18,9 @@ import {
   buildMultiRepoWorkspaceConfig,
   multiRepoWorkspaceFilePath,
   findWorkspaceConfigFile,
+  findAllWorkspaceConfigFiles,
   readWorkspaceConfigFile,
+  parseWorkspaceFileAsRecord,
   discoverWorkspaceRepoRoots,
 } from '../src/workspace.js';
 
@@ -280,8 +283,44 @@ describe('workspace helpers', () => {
     const found = await findWorkspaceConfigFile(tmp);
     expect(found).toBe(wsFile);
 
+    const allFound = await findAllWorkspaceConfigFiles(tmp);
+    expect(allFound).toEqual([wsFile]);
+
     const parsed = await readWorkspaceConfigFile(wsFile);
     expect(parsed?.settings).toEqual({ 'a.b': 1 });
+
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  it('parses existing workspace file into a WorkspaceRecord', async () => {
+    const tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'para-test-ws-record-')));
+    const repoA = path.join(tmp, 'repo-a');
+    const repoB = path.join(tmp, 'repo-b');
+    await mkdir(repoA, { recursive: true });
+    await mkdir(repoB, { recursive: true });
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repoA });
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repoB });
+
+    const wsFile = path.join(tmp, 'my-feat.code-workspace');
+    await writeFile(
+      wsFile,
+      JSON.stringify({
+        folders: [
+          { name: 'repo-a', path: repoA },
+          { name: 'repo-b', path: repoB },
+        ],
+      }),
+    );
+
+    const record = await parseWorkspaceFileAsRecord(wsFile, { [repoA]: '#137d87' });
+    expect(record).toBeDefined();
+    expect(record?.name).toBe('my-feat');
+    expect(record?.repos).toHaveLength(2);
+    expect(record?.color).toBe('#137d87');
+
+    // Injected Peacock color settings into the file
+    const updated = await readWorkspaceConfigFile(wsFile);
+    expect(updated?.settings?.['workbench.colorCustomizations']).toBeDefined();
 
     await rm(tmp, { recursive: true, force: true });
   });

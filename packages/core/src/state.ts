@@ -3,6 +3,7 @@ import path from 'node:path';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { exists, readTextIfExists } from './util/fs.js';
 import { withFileLock } from './util/lock.js';
+import { findAllWorkspaceConfigFiles, parseWorkspaceFileAsRecord } from './workspace.js';
 
 export type DepsMode = 'Source' | 'Symlinked' | 'Isolated' | 'None';
 
@@ -166,7 +167,8 @@ export async function saveWorkspaceRecord(record: WorkspaceRecord): Promise<void
 
 /**
  * Retrieves valid multi-repo workspace records, optionally filtering by participating repository roots.
- * Automatically prunes records whose .code-workspace file no longer exists on disk.
+ * Automatically discovers any existing .code-workspace files in candidate project directories,
+ * and prunes records whose .code-workspace file no longer exists on disk.
  *
  * @param forRepoRoots - Optional array of repository roots to filter by.
  * @returns Array of active WorkspaceRecord entries.
@@ -176,7 +178,69 @@ export async function saveWorkspaceRecord(record: WorkspaceRecord): Promise<void
  */
 export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<WorkspaceRecord[]> {
   const state = await readState();
-  const all = Object.values(state.workspaces ?? {});
+
+  // Map known worktree paths to their colors from state.repos
+  const knownWorktreeColors: Record<string, string> = {};
+  for (const repo of Object.values(state.repos)) {
+    for (const wt of repo.worktrees) {
+      if (wt.color) {
+        knownWorktreeColors[path.resolve(wt.path)] = wt.color;
+      }
+    }
+  }
+
+  // Gather candidate directories to discover any on-disk .code-workspace files
+  const candidateDirs = new Set<string>();
+  try {
+    const cwd = process.cwd();
+    if (cwd) {
+      candidateDirs.add(path.resolve(cwd));
+      candidateDirs.add(path.dirname(path.resolve(cwd)));
+    }
+  } catch {
+    // ignore
+  }
+
+  for (const [repoRoot, repo] of Object.entries(state.repos)) {
+    candidateDirs.add(path.resolve(repoRoot));
+    candidateDirs.add(path.dirname(path.resolve(repoRoot)));
+    for (const wt of repo.worktrees) {
+      candidateDirs.add(path.dirname(path.resolve(wt.path)));
+    }
+  }
+
+  if (forRepoRoots) {
+    for (const r of forRepoRoots) {
+      candidateDirs.add(path.resolve(r));
+      candidateDirs.add(path.dirname(path.resolve(r)));
+    }
+  }
+
+  // Scan candidate directories for .code-workspace files and auto-register any missing ones
+  let stateModified = false;
+  state.workspaces ??= {};
+
+  for (const dir of candidateDirs) {
+    const wsFiles = await findAllWorkspaceConfigFiles(dir);
+    for (const file of wsFiles) {
+      const key = path.resolve(file);
+      if (!state.workspaces[key]) {
+        const record = await parseWorkspaceFileAsRecord(key, knownWorktreeColors);
+        if (record) {
+          state.workspaces[key] = record;
+          stateModified = true;
+        }
+      }
+    }
+  }
+
+  if (stateModified) {
+    await updateWorkspaceState((workspaces) => {
+      Object.assign(workspaces, state.workspaces);
+    }).catch(() => {});
+  }
+
+  const all = Object.values(state.workspaces);
   const valid: WorkspaceRecord[] = [];
   const missing: string[] = [];
 
@@ -213,9 +277,9 @@ export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<Work
  * const ws = await findWorkspaceForWorktree('/code/frontend-feat-login');
  */
 export async function findWorkspaceForWorktree(worktreePath: string): Promise<WorkspaceRecord | undefined> {
-  const state = await readState();
   const target = path.resolve(worktreePath);
-  for (const ws of Object.values(state.workspaces ?? {})) {
+  const workspaces = await getWorkspaceRecords();
+  for (const ws of workspaces) {
     if (ws.repos.some((r) => path.resolve(r.worktreePath) === target)) {
       if (await exists(ws.workspaceFile)) return ws;
     }

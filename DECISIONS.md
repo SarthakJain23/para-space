@@ -53,6 +53,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-039 | Multi-repository workspace CLI command `para workspace create` | Accepted | 2026-10-21 |
 | D-040 | Workspace Peacock color injection, automatic window launch, and IDE agent programmatic API | Accepted | 2026-10-21 |
 | D-041 | Persistent multi-repo workspace records, tree view workspace nodes, and switcher reopening | Accepted | 2026-10-21 |
+| D-042 | Automatic on-disk workspace discovery, container folder scanning, and browse dialog | Accepted | 2026-10-22 |
 
 ---
 
@@ -387,6 +388,18 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **New command:** Added `paraSpace.openWorkspace` ("Open Workspace…") to the Command Palette and view menus.
   - **CLI `para workspace list`:** Added `list` (`ls`) subcommand to `para workspace` to inspect and output registered workspaces.
 - **Problem Solved:** Developers can close and easily reopen multi-repo parallel workspaces at any time from the status bar switcher, sidebar tree view, Command Palette, or CLI.
+
+## D-042 — Automatic on-disk workspace discovery, container folder scanning, and browse dialog
+- **Status:** Accepted · 2026-10-22
+- **Requirement Context:**
+  1. Workspaces created prior to D-041 or on disk without an active `state.workspaces` entry were invisible in the ParaSpace switcher and tree view.
+  2. Opening a container directory (such as `/Users/sarthak/Desktop/Tripare`) that is not a git repository itself failed to discover the repositories and worktrees inside it.
+  3. Developers had no way to browse and open a `.code-workspace` file from disk if it was not already tracked.
+- **Decision Made:**
+  - **On-disk `.code-workspace` auto-discovery:** `getWorkspaceRecords()` scans candidate directories (project directories, parent directories of known repos and worktrees, and `cwd`) for `.code-workspace` files. Any valid multi-repo workspace file is automatically parsed, enriched with worktree branch/color data, and registered in `state.json`.
+  - **Container folder discovery:** `discoverRepoRoots()` falls back to scanning subdirectories and workspace files via `discoverWorkspaceRepoRoots()` when an open folder is not a Git repo itself.
+  - **Browse action in Open Workspace:** `paraSpace.openWorkspace` offers a `$(file-code) Browse for workspace file…` option that opens a native file dialog, parses and registers the selected `.code-workspace`, and opens it in a new window.
+- **Problem Solved:** Existing multi-repo workspaces (such as `Untitled-feat-TRI-7402.code-workspace` for the visa feature) are immediately recognized, colored, and openable from the switcher, sidebar, Command Palette, or CLI.
 
 ---
 

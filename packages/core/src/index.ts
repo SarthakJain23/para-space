@@ -7,7 +7,7 @@ export { slugify, worktreePathFor } from './paths.js';
 export { getPortStrategy, type PortStrategy, type AllocateParams } from './ports/index.js';
 export { FRAMEWORK_STRATEGIES, detectStrategies, manifestFiles, type FrameworkStrategy } from './frameworks/index.js';
 export { checkDivergence, checkAllDivergence, type DivergenceResult } from './divergence.js';
-export { mainRepoRoot, branchExists, validateBranchName } from './git.js';
+export { mainRepoRoot, branchExists, currentBranch, validateBranchName } from './git.js';
 export {
   statePath,
   type DepsMode,
@@ -24,7 +24,9 @@ export {
   buildMultiRepoWorkspaceConfig,
   multiRepoWorkspaceFilePath,
   findWorkspaceConfigFile,
+  findAllWorkspaceConfigFiles,
   readWorkspaceConfigFile,
+  parseWorkspaceFileAsRecord,
   discoverWorkspaceRepoRoots,
   type CodeWorkspaceFolder,
   type CodeWorkspaceConfig,
