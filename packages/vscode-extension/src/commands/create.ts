@@ -207,38 +207,6 @@ async function promptRequirement(): Promise<string | undefined> {
   return answer.trim() || undefined;
 }
 
-/** Prompts once for IDE window coloring consent when multiple repositories are targeted. */
-async function promptIdeConsent(isMultiRepo: boolean): Promise<'ask' | 'yes' | 'no'> {
-  if (!isMultiRepo) return 'ask';
-  const write = 'Write Settings';
-  const answer = await vscode.window.showInformationMessage(
-    'Color worktree windows and set up IDE settings?',
-    {
-      modal: true,
-      detail: 'Writes window colors to .vscode/settings.json in each worktree.',
-    },
-    write,
-  );
-  return answer === write ? 'yes' : 'no';
-}
-
-/** Confirms the selected repositories and branch plan before creating worktrees. */
-async function confirmCreation(plans: BranchPlan[]): Promise<void> {
-  const isMultiRepo = plans.length > 1;
-  const create = isMultiRepo ? 'Create Workspace' : 'Create Worktree';
-  const details = plans
-    .map(({ repo, branch, base }) => `${repo.name}: ${branch}${base ? ` (based on ${base})` : ''}`)
-    .join('\n');
-  const answer = await vscode.window.showInformationMessage(
-    isMultiRepo
-      ? `Create a workspace across ${plans.length} repositories?`
-      : `Create worktree in ${plans[0].repo.name}?`,
-    { modal: true, detail: details },
-    create,
-  );
-  if (answer !== create) throw new CancelledError();
-}
-
 /** Provisions worktrees sequentially, rolling back earlier worktrees if a later repo fails. */
 async function provisionWorktrees({ plans, requirement, ide, log }: ProvisionParams): Promise<CreateResult[]> {
   const created: CreateResult[] = [];

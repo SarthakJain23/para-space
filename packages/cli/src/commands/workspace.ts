@@ -108,6 +108,255 @@ async function promptPerRepo(
   return plans;
 }
 
+/** Resolves the target repositories for workspace creation from flags or discovery. */
+async function resolveCliTargetRepos(flags: Flags, isInteractive: boolean): Promise<TargetRepo[]> {
+  let selectedRoots: string[] = [];
+  if (flags.repo && flags.repo.length > 0) {
+    const resolved = await Promise.all(flags.repo.map((r) => mainRepoRoot(path.resolve(r))));
+    selectedRoots = Array.from(new Set(resolved));
+  } else {
+    const discovered = await discoverWorkspaceRepoRoots(process.cwd());
+    if (discovered.length === 0) {
+      throw new Error('No Git repositories found. Pass --repo <path...> to specify repositories.');
+    }
+    if (discovered.length === 1 || !isInteractive) {
+      selectedRoots = discovered;
+    } else {
+      selectedRoots = bail(
+        await p.multiselect({
+          message: 'Select repositories for this workspace:',
+          options: discovered.map((r) => ({ value: r, label: path.basename(r), hint: r })),
+          initialValues: discovered,
+          required: true,
+        }),
+      );
+    }
+  }
+  return selectedRoots.map((root) => ({ root, name: path.basename(root) }));
+}
+
+/** Resolves branch plans for all target repositories either from flags, shared selection, or per-repo prompts. */
+async function planCliBranches(
+  targetRepos: TargetRepo[],
+  branchLists: string[][],
+  branchArg: string | undefined,
+  flags: Flags,
+  isInteractive: boolean,
+): Promise<BranchPlan[]> {
+  if (branchArg) {
+    const existsIn = await Promise.all(targetRepos.map((r) => branchExists(r.root, branchArg)));
+    if (existsIn.every(Boolean)) {
+      return targetRepos.map((r) => ({ repo: r, branch: branchArg }));
+    }
+    if (existsIn.every((e) => !e)) {
+      const bases: (string | undefined)[] = [];
+      for (let i = 0; i < targetRepos.length; i++) {
+        const repo = targetRepos[i];
+        if (flags.base) {
+          const hasBase = await branchExists(repo.root, flags.base);
+          bases.push(hasBase ? flags.base : undefined);
+        } else if (isInteractive && branchLists[i].length > 0) {
+          bases.push(
+            await selectOption(
+              `Base branch for ${repo.name}:`,
+              branchLists[i].map((b) => ({ value: b, label: b })),
+            ),
+          );
+        } else {
+          bases.push(undefined);
+        }
+      }
+      return targetRepos.map((r, i) => ({ repo: r, branch: branchArg, base: bases[i] }));
+    }
+
+    if (isInteractive) {
+      p.note(`Branch "${branchArg}" exists in only some repositories.`);
+      const proceed = bail(
+        await p.confirm({
+          message: 'Configure branches per repository (Advanced)?',
+          initialValue: true,
+        }),
+      );
+      if (!proceed) throw new Error('Cancelled.');
+      return promptPerRepo(targetRepos, branchLists, branchArg);
+    }
+    throw new Error(
+      `Branch "${branchArg}" exists in only some repositories. Pass --per-repo or ensure branch state matches.`,
+    );
+  }
+
+  if (!isInteractive) {
+    throw new Error('Branch name is required in non-interactive mode. Usage: para workspace create <branch>');
+  }
+
+  if (flags.perRepo) {
+    return promptPerRepo(targetRepos, branchLists);
+  }
+
+  const mode = await selectOption('How should branches be selected?', [
+    {
+      value: 'shared',
+      label: 'Use a shared branch',
+      hint: 'Available across all selected repos or created across them',
+    },
+    {
+      value: 'per-repo',
+      label: 'Choose branches per repository (Advanced)',
+      hint: 'Select a different branch for each repository',
+    },
+  ]);
+
+  if (mode === 'per-repo') {
+    return promptPerRepo(targetRepos, branchLists);
+  }
+
+  const common = sharedBranches(branchLists);
+  const branchOptions = [
+    {
+      value: '__create__',
+      label: '+ Create new branch…',
+      hint: 'Enter branch name to create in all repos',
+    },
+    ...common.map((b) => ({ value: b, label: b })),
+  ];
+  const selectedBranch = await selectOption('Select a shared branch or create a new branch:', branchOptions);
+
+  if (selectedBranch === '__create__') {
+    const newBranch = bail(
+      await p.text({
+        message: 'Branch name (new):',
+        validate: validateBranchName,
+      }),
+    ).trim();
+
+    const someExist = branchLists.some((b) => b.includes(newBranch));
+    if (someExist) {
+      p.note(`Branch "${newBranch}" already exists in some repositories.`);
+      return promptPerRepo(targetRepos, branchLists, newBranch);
+    }
+
+    const bases: (string | undefined)[] = [];
+    for (let i = 0; i < targetRepos.length; i++) {
+      const repo = targetRepos[i];
+      bases.push(
+        branchLists[i].length > 0
+          ? await selectOption(
+              `Base branch for ${repo.name}:`,
+              branchLists[i].map((b) => ({ value: b, label: b })),
+            )
+          : undefined,
+      );
+    }
+    return targetRepos.map((r, i) => ({ repo: r, branch: newBranch, base: bases[i] }));
+  }
+
+  return targetRepos.map((r) => ({ repo: r, branch: selectedBranch }));
+}
+
+/** Confirms and provisions worktrees sequentially, rolling back earlier worktrees if any fail. */
+async function provisionCliWorktrees(
+  plans: BranchPlan[],
+  requirement: string | undefined,
+  ide: 'yes' | 'no',
+  isInteractive: boolean,
+): Promise<CreateResult[]> {
+  const prompter = isInteractive ? clackPrompter : undefined;
+  const results: CreateResult[] = [];
+  const spinner = isInteractive ? p.spinner() : undefined;
+  if (spinner) spinner.start(`Creating worktrees across ${plans.length} repositories…`);
+
+  for (const plan of plans) {
+    try {
+      const hasBranch = await branchExists(plan.repo.root, plan.branch);
+      const repoBase =
+        !hasBranch && plan.base && (await branchExists(plan.repo.root, plan.base)) ? plan.base : undefined;
+      const res = await createWorktree({
+        cwd: plan.repo.root,
+        branch: plan.branch,
+        base: repoBase,
+        requirement,
+        prompter,
+        ide,
+        log,
+      });
+      results.push(res);
+    } catch (err) {
+      if (spinner) spinner.stop(pc.red('Failed'));
+      for (const prev of results) {
+        try {
+          await removeWorktree({
+            cwd: prev.mainRoot,
+            target: prev.path,
+            force: true,
+            deleteBranch: prev.createdBranch,
+            log,
+          });
+        } catch (rollbackErr) {
+          log.warn(`Rollback failed for ${prev.path}: ${(rollbackErr as Error).message}`);
+        }
+      }
+      throw err;
+    }
+  }
+
+  if (spinner) spinner.stop(pc.green('Worktrees created.'));
+  return results;
+}
+
+/** Generates the .code-workspace file, saves the workspace record to state, and prints output. */
+async function saveAndEmitWorkspace(
+  results: CreateResult[],
+  plans: BranchPlan[],
+  nameFlag?: string,
+  jsonFlag?: boolean,
+): Promise<void> {
+  const existingWsFile = await findWorkspaceConfigFile(process.cwd());
+  const existingConfig = existingWsFile ? await readWorkspaceConfigFile(existingWsFile) : undefined;
+  const hex = results.find((r) => r.color)?.color;
+  const colorProfile = colorForHex(hex);
+  const wsConfig = buildMultiRepoWorkspaceConfig(
+    results.map((r) => ({ mainRoot: r.mainRoot, worktreePath: r.path })),
+    existingConfig,
+    colorProfile,
+  );
+  const branchLabel = Array.from(new Set(plans.map((pl) => pl.branch))).join('-');
+  const workspaceFilePath = multiRepoWorkspaceFilePath(
+    results.map((r) => r.path),
+    branchLabel,
+    existingWsFile,
+    nameFlag,
+  );
+
+  await fs.writeFile(workspaceFilePath, JSON.stringify(wsConfig, null, 2), 'utf8');
+
+  await saveWorkspaceRecord({
+    id: workspaceFilePath,
+    name: path.basename(workspaceFilePath, '.code-workspace'),
+    workspaceFile: workspaceFilePath,
+    branch: branchLabel,
+    color: hex,
+    repos: results.map((r) => ({
+      root: r.mainRoot,
+      name: path.basename(r.mainRoot),
+      worktreePath: r.path,
+    })),
+    createdAt: new Date().toISOString(),
+  });
+
+  if (jsonFlag) {
+    printJson({ workspaceFile: workspaceFilePath, worktrees: results });
+  } else {
+    ok(`Workspace ready: ${pc.bold(workspaceFilePath)}`);
+    for (const res of results) {
+      const port = res.port !== undefined ? ` :${res.port}` : '';
+      console.log(
+        `  ${pc.cyan(path.basename(res.mainRoot))} → ${res.branch}${res.createdBranch ? pc.dim(' (new)') : ''}${port} (${pc.dim(res.path)})`,
+      );
+    }
+    console.log(pc.dim(`\n  code ${workspaceFilePath}`));
+  }
+}
+
 export function registerWorkspace(program: Command) {
   const ws = program.command('workspace').alias('ws').description('Manage multi-repository parallel workspaces');
 
@@ -126,148 +375,10 @@ export function registerWorkspace(program: Command) {
       action(async (branchArg: string | undefined, flags: Flags) => {
         const isInteractive = !flags.yes && Boolean(process.stdin.isTTY && process.stdout.isTTY);
 
-        // 1. Resolve Target Repositories
-        let selectedRoots: string[] = [];
-        if (flags.repo && flags.repo.length > 0) {
-          const resolved = await Promise.all(flags.repo.map((r) => mainRepoRoot(path.resolve(r))));
-          selectedRoots = Array.from(new Set(resolved));
-        } else {
-          const discovered = await discoverWorkspaceRepoRoots(process.cwd());
-          if (discovered.length === 0) {
-            throw new Error('No Git repositories found. Pass --repo <path...> to specify repositories.');
-          }
-          if (discovered.length === 1 || !isInteractive) {
-            selectedRoots = discovered;
-          } else {
-            selectedRoots = bail(
-              await p.multiselect({
-                message: 'Select repositories for this workspace:',
-                options: discovered.map((r) => ({ value: r, label: path.basename(r), hint: r })),
-                initialValues: discovered,
-                required: true,
-              }),
-            );
-          }
-        }
-
-        const targetRepos: TargetRepo[] = selectedRoots.map((root) => ({ root, name: path.basename(root) }));
+        const targetRepos = await resolveCliTargetRepos(flags, isInteractive);
         const branchLists = await Promise.all(targetRepos.map((r) => listBranches({ cwd: r.root })));
+        const plans = await planCliBranches(targetRepos, branchLists, branchArg, flags, isInteractive);
 
-        // 2. Branch Planning
-        let plans: BranchPlan[] = [];
-
-        if (branchArg) {
-          const existsIn = await Promise.all(targetRepos.map((r) => branchExists(r.root, branchArg)));
-          if (existsIn.every(Boolean)) {
-            plans = targetRepos.map((r) => ({ repo: r, branch: branchArg }));
-          } else if (existsIn.every((e) => !e)) {
-            const bases: (string | undefined)[] = [];
-            for (let i = 0; i < targetRepos.length; i++) {
-              const repo = targetRepos[i];
-              if (flags.base) {
-                const hasBase = await branchExists(repo.root, flags.base);
-                bases.push(hasBase ? flags.base : undefined);
-              } else if (isInteractive && branchLists[i].length > 0) {
-                bases.push(
-                  await selectOption(
-                    `Base branch for ${repo.name}:`,
-                    branchLists[i].map((b) => ({ value: b, label: b })),
-                  ),
-                );
-              } else {
-                bases.push(undefined);
-              }
-            }
-            plans = targetRepos.map((r, i) => ({ repo: r, branch: branchArg, base: bases[i] }));
-          } else {
-            if (isInteractive) {
-              p.note(`Branch "${branchArg}" exists in only some repositories.`);
-              const proceed = bail(
-                await p.confirm({
-                  message: 'Configure branches per repository (Advanced)?',
-                  initialValue: true,
-                }),
-              );
-              if (!proceed) throw new Error('Cancelled.');
-              plans = await promptPerRepo(targetRepos, branchLists, branchArg);
-            } else {
-              throw new Error(
-                `Branch "${branchArg}" exists in only some repositories. Pass --per-repo or ensure branch state matches.`,
-              );
-            }
-          }
-        } else {
-          if (!isInteractive) {
-            throw new Error('Branch name is required in non-interactive mode. Usage: para workspace create <branch>');
-          }
-          if (flags.perRepo) {
-            plans = await promptPerRepo(targetRepos, branchLists);
-          } else {
-            const mode = await selectOption('How should branches be selected?', [
-              {
-                value: 'shared',
-                label: 'Use a shared branch',
-                hint: 'Available across all selected repos or created across them',
-              },
-              {
-                value: 'per-repo',
-                label: 'Choose branches per repository (Advanced)',
-                hint: 'Select a different branch for each repository',
-              },
-            ]);
-
-            if (mode === 'per-repo') {
-              plans = await promptPerRepo(targetRepos, branchLists);
-            } else {
-              const common = sharedBranches(branchLists);
-              const branchOptions = [
-                {
-                  value: '__create__',
-                  label: '+ Create new branch…',
-                  hint: 'Enter branch name to create in all repos',
-                },
-                ...common.map((b) => ({ value: b, label: b })),
-              ];
-              const selectedBranch = await selectOption(
-                'Select a shared branch or create a new branch:',
-                branchOptions,
-              );
-
-              if (selectedBranch === '__create__') {
-                const newBranch = bail(
-                  await p.text({
-                    message: 'Branch name (new):',
-                    validate: validateBranchName,
-                  }),
-                ).trim();
-
-                const someExist = branchLists.some((b) => b.includes(newBranch));
-                if (someExist) {
-                  p.note(`Branch "${newBranch}" already exists in some repositories.`);
-                  plans = await promptPerRepo(targetRepos, branchLists, newBranch);
-                } else {
-                  const bases: (string | undefined)[] = [];
-                  for (let i = 0; i < targetRepos.length; i++) {
-                    const repo = targetRepos[i];
-                    bases.push(
-                      branchLists[i].length > 0
-                        ? await selectOption(
-                            `Base branch for ${repo.name}:`,
-                            branchLists[i].map((b) => ({ value: b, label: b })),
-                          )
-                        : undefined,
-                    );
-                  }
-                  plans = targetRepos.map((r, i) => ({ repo: r, branch: newBranch, base: bases[i] }));
-                }
-              } else {
-                plans = targetRepos.map((r) => ({ repo: r, branch: selectedBranch }));
-              }
-            }
-          }
-        }
-
-        // 3. Requirement
         let requirement = flags.requirement?.trim();
         if (requirement === undefined && isInteractive) {
           const answer = bail(
@@ -279,8 +390,7 @@ export function registerWorkspace(program: Command) {
           requirement = answer.trim() || undefined;
         }
 
-        // 4. IDE consent
-        let ide: 'ask' | 'yes' | 'no' = 'yes';
+        let ide: 'yes' | 'no' = 'yes';
         if (flags.ide !== undefined) {
           ide = flags.ide ? 'yes' : 'no';
         } else if (isInteractive) {
@@ -293,7 +403,6 @@ export function registerWorkspace(program: Command) {
           ide = confirm ? 'yes' : 'no';
         }
 
-        // 5. Review & Confirm
         if (isInteractive) {
           p.note(
             plans.map((pl) => `${pl.repo.name}: ${pl.branch}${pl.base ? ` (based on ${pl.base})` : ''}`).join('\n'),
@@ -311,95 +420,8 @@ export function registerWorkspace(program: Command) {
           }
         }
 
-        // 6. Provision worktrees with automatic rollback
-        const prompter = isInteractive ? clackPrompter : undefined;
-        const results: CreateResult[] = [];
-        const spinner = isInteractive ? p.spinner() : undefined;
-        if (spinner) spinner.start(`Creating worktrees across ${plans.length} repositories…`);
-
-        for (const plan of plans) {
-          try {
-            const hasBranch = await branchExists(plan.repo.root, plan.branch);
-            const repoBase =
-              !hasBranch && plan.base && (await branchExists(plan.repo.root, plan.base)) ? plan.base : undefined;
-            const res = await createWorktree({
-              cwd: plan.repo.root,
-              branch: plan.branch,
-              base: repoBase,
-              requirement,
-              prompter,
-              ide,
-              log,
-            });
-            results.push(res);
-          } catch (err) {
-            if (spinner) spinner.stop(pc.red('Failed'));
-            for (const prev of results) {
-              try {
-                await removeWorktree({
-                  cwd: prev.mainRoot,
-                  target: prev.path,
-                  force: true,
-                  deleteBranch: prev.createdBranch,
-                  log,
-                });
-              } catch (rollbackErr) {
-                log.warn(`Rollback failed for ${prev.path}: ${(rollbackErr as Error).message}`);
-              }
-            }
-            throw err;
-          }
-        }
-
-        if (spinner) spinner.stop(pc.green('Worktrees created.'));
-
-        // 7. Generate .code-workspace file
-        const existingWsFile = await findWorkspaceConfigFile(process.cwd());
-        const existingConfig = existingWsFile ? await readWorkspaceConfigFile(existingWsFile) : undefined;
-        const hex = results.find((r) => r.color)?.color;
-        const colorProfile = colorForHex(hex);
-        const wsConfig = buildMultiRepoWorkspaceConfig(
-          results.map((r) => ({ mainRoot: r.mainRoot, worktreePath: r.path })),
-          existingConfig,
-          colorProfile,
-        );
-        const branchLabel = Array.from(new Set(plans.map((pl) => pl.branch))).join('-');
-        const workspaceFilePath = multiRepoWorkspaceFilePath(
-          results.map((r) => r.path),
-          branchLabel,
-          existingWsFile,
-          flags.name,
-        );
-
-        await fs.writeFile(workspaceFilePath, JSON.stringify(wsConfig, null, 2), 'utf8');
-
-        await saveWorkspaceRecord({
-          id: workspaceFilePath,
-          name: path.basename(workspaceFilePath, '.code-workspace'),
-          workspaceFile: workspaceFilePath,
-          branch: branchLabel,
-          color: hex,
-          repos: results.map((r) => ({
-            root: r.mainRoot,
-            name: path.basename(r.mainRoot),
-            worktreePath: r.path,
-          })),
-          createdAt: new Date().toISOString(),
-        });
-
-        // 8. Output
-        if (flags.json) {
-          printJson({ workspaceFile: workspaceFilePath, worktrees: results });
-        } else {
-          ok(`Workspace ready: ${pc.bold(workspaceFilePath)}`);
-          for (const res of results) {
-            const port = res.port !== undefined ? ` :${res.port}` : '';
-            console.log(
-              `  ${pc.cyan(path.basename(res.mainRoot))} → ${res.branch}${res.createdBranch ? pc.dim(' (new)') : ''}${port} (${pc.dim(res.path)})`,
-            );
-          }
-          console.log(pc.dim(`\n  code ${workspaceFilePath}`));
-        }
+        const results = await provisionCliWorktrees(plans, requirement, ide, isInteractive);
+        await saveAndEmitWorkspace(results, plans, flags.name, flags.json);
       }),
     );
 

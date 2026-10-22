@@ -14,7 +14,15 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   return (await run('git', args, cwd)).stdout.trim();
 }
 
-/** Absolute root of the *main* working tree, even when called from inside a linked worktree. */
+/**
+ * Absolute root of the *main* working tree, even when called from inside a linked worktree.
+ *
+ * @param cwd - Any directory inside the repository or any of its worktrees.
+ * @returns Absolute path to the main repository root.
+ *
+ * @example
+ * const root = await mainRepoRoot('/code/app-feat-x'); // → '/code/app'
+ */
 export async function mainRepoRoot(cwd: string): Promise<string> {
   const commonDir = await gitCommonDir(cwd);
   return realpath(path.dirname(commonDir));
@@ -45,6 +53,16 @@ export function validateBranchName(value: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Checks whether a local branch exists in the repository.
+ *
+ * @param cwd - Any directory inside the repository or worktree.
+ * @param branch - Short branch name to verify.
+ * @returns True if the branch exists, false otherwise.
+ *
+ * @example
+ * const exists = await branchExists('/code/app', 'main'); // → true
+ */
 export async function branchExists(cwd: string, branch: string): Promise<boolean> {
   try {
     await git(cwd, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`);
@@ -103,7 +121,15 @@ export async function worktreePrune(cwd: string): Promise<void> {
   await git(cwd, 'worktree', 'prune');
 }
 
-/** Current checked-out branch in a working tree, or undefined if detached or not a repo. */
+/**
+ * Current checked-out branch name in a working tree, or undefined if detached or not in a repo.
+ *
+ * @param cwd - Working tree or repository directory.
+ * @returns Short branch name e.g. `'feat/TK-101'`, or undefined.
+ *
+ * @example
+ * const branch = await currentBranch('/code/app'); // → 'main'
+ */
 export async function currentBranch(cwd: string): Promise<string | undefined> {
   try {
     const branch = await git(cwd, 'branch', '--show-current');
