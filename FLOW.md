@@ -31,7 +31,8 @@ Files ParaSpace reads/writes:
 | :--- | :--- | :--- |
 | `.para-space.json` | Repo (committed) | Port strategy, base port, env keys, optional `portPool` (D-004, D-014, D-015) |
 | `.para-space/context-history.md` | Repo | Living decision ledger (D-007) |
-| `~/.para-space/state.json` | Machine | Worktrees, index, ports, links, colors; atomic writes; `PARA_SPACE_HOME` overrides (D-010, D-022) |
+| `~/.para-space/state.json` | Machine | Worktrees, index, ports, links, colors, multi-repo `workspaces`; atomic writes; `PARA_SPACE_HOME` overrides (D-010, D-022, D-041) |
+| `<dir>/<name>-<slug>.code-workspace` | Workspace | Multi-repo VS Code workspace file with member worktree folders and top-level OKLCH Peacock `settings` (D-038, D-039, D-040) |
 | `<worktree>/.env` | Worktree | Symlink to main's `.env` (D-013) |
 | `<worktree>/.env.local` | Worktree | Own copy of main's `.env.local` + assigned port(s) (D-013) |
 | `$GIT_COMMON_DIR/info/exclude` | Repo (local) | Patterns that hide ParaSpace's links from git (D-019) |
@@ -177,11 +178,12 @@ _Status: Implemented (Phase 2): sidebar tree view with Create / Open / Isolate /
 **Implemented:**
 - **Activation:** `onStartupFinished`, so the status bar appears without opening the view. `activate()` creates the `ParaSpace` output channel (core's `Logger`), the `WorktreeStore` (backed by `context.workspaceState`), the worktree tree view, the context history (ledger) tree view, the status bar, the commands and the change watchers, then loads the store once.
 - **WorktreeStore** (D-033, D-037): the only caller of `listWorktrees` in the extension. Discovers all git repositories across workspace folders and includes all of them by default. Loads worktrees per included repository and tracks active repository (active editor or first).
-- **Multi-Repo Workspace Support (D-037):**
+- **Multi-Repo Workspace Support (D-037, D-041, D-042):**
+  - **Container Folder & On-Disk Auto-Discovery:** Opening a parent directory that is not a Git repo itself automatically scans subdirectories and `.code-workspace` files via `discoverWorkspaceRepoRoots()`. In addition, `getWorkspaceRecords()` scans candidate directories on disk for `.code-workspace` files, enriches them with branch/color metadata, and registers them in `state.json` (D-042).
   - **Select Repositories to Include… (`paraSpace.selectRepositories`):** View title action allowing developers to include or uncheck/remove specific repositories in multi-root workspaces.
-  - **Tree View Grouping:** When >1 repository is included, worktrees and context history are grouped under collapsible repository nodes. When 1 repository is open, trees remain flat.
-  - **Repository-Targeted Commands:** Right-clicking a repository node in the tree allows creating a worktree or configuring port strategy directly for that repository. Invoking from the view title prompts to select the target repository.
-  - **Unified Switcher:** `paraSpace.listWorktrees` displays worktrees across all included repositories, prefixing items with `[<repo>]`.
+  - **Tree View Grouping & Workspace Nodes:** Active multi-repo workspaces appear at the top of the Worktrees view as expandable `WorkspaceNode` items with an inline **Open in New Window** button and member repository worktrees nested underneath (D-041). Below workspaces, when >1 repository is included, worktrees and context history are grouped under collapsible repository nodes; when 1 repository is open, trees remain flat.
+  - **Repository-Targeted Commands:** Right-clicking a repository node in the tree allows creating a worktree or configuring port strategy directly for that repository. Invoking from the view title prompts to select the target repositories.
+  - **Unified Switcher & Open Workspace Command:** `paraSpace.listWorktrees` displays active multi-repo workspaces (`$(root-folder) [Workspace] <branch>`) right below **Create Worktree…**, followed by worktrees across all included repositories (`[<repo>]`). `paraSpace.openWorkspace` (**Open Workspace…**) lists all tracked/discovered workspaces and offers **Browse for workspace file…** to pick and register any `.code-workspace` file from disk (D-041, D-042).
 - **Sidebar** (activity bar container `paraSpace`):
   - **Worktrees view (`paraSpace.worktrees`):** flat rows or repository groups. Icon `repo` for main, `git-branch` for others. Description: branch · clean/dirty · port · deps mode (· unmanaged). Tooltip: path, branch, status, port, deps. Title actions: **Create Worktree…** (+), **Select Repositories…** (filter), **Configure Port Strategy…** (gear), **Refresh** (↻).
   - **Context History view (`paraSpace.ledger`):** renders entries from `.para-space/context-history.md` (newest first), grouped by repo when multiple repos exist. Each entry node shows title and timestamp, with expandable child nodes for **Requirement Context** (info), **Decisions** (check), and **Problem Solved** (pass). Title actions: **Open Context History in Editor**, **Refresh**.

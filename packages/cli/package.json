@@ -1,6 +1,36 @@
 {
   "name": "@para-space/cli",
   "version": "0.1.0",
+  "description": "Parallel git worktree and multi-repo workspace orchestrator CLI with shared dependencies, per-worktree ports, and MCP server",
+  "license": "MIT",
+  "author": "Sarthak Jain",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SarthakJain23/para-space.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/SarthakJain23/para-space#readme",
+  "bugs": {
+    "url": "https://github.com/SarthakJain23/para-space/issues"
+  },
+  "keywords": [
+    "git",
+    "worktree",
+    "parallel",
+    "workspace",
+    "monorepo",
+    "mcp",
+    "ai-agent",
+    "copilot",
+    "claude",
+    "cursor"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "para": "./dist/index.js"
@@ -9,19 +39,20 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --clean",
+    "build": "tsup",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@para-space/core": "workspace:*",
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
+    "get-port": "^7.1.0",
     "picocolors": "^1.1.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@para-space/core": "workspace:*",
     "@types/node": "^22.20.5"
   }
 }

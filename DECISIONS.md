@@ -55,6 +55,8 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-041 | Persistent multi-repo workspace records, tree view workspace nodes, and switcher reopening | Accepted | 2026-10-21 |
 | D-042 | Automatic on-disk workspace discovery, container folder scanning, and browse dialog | Accepted | 2026-10-22 |
 | D-043 | Zero-config AI agent architecture: VS Code Language Model Tools and CLI MCP Server | Accepted | 2026-10-22 |
+| D-044 | Adopt MIT License for open-source distribution | Accepted | 2026-10-23 |
+| D-045 | Self-contained CLI bundle and public registry metadata | Accepted | 2026-10-23 |
 
 ---
 
@@ -410,6 +412,20 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Model Context Protocol (MCP) Server:** Added `para mcp` stdio server using `@modelcontextprotocol/sdk`. Exposes the four canonical ParaSpace tools with Zod validation.
   - **Global 1-Click Agent Setup:** Added `para setup-agent` (`para init-agent`) command that registers the ParaSpace MCP server in `~/.claude.json`, `~/.cursor/mcp.json`, Windsurf, and Claude Desktop.
 - **Problem Solved:** Enables AI agents across the entire ecosystem to create and switch parallel workspaces natively without repository pollution.
+
+## D-044 — Adopt MIT License for open-source distribution
+- **Status:** Accepted · 2026-10-23
+- **Requirement Context:** Preparing ParaSpace (`@para-space/core`, `@para-space/cli`, and `para-space-vscode`) for public open-source distribution on GitHub, npm, and the VS Code Marketplace required replacing the `"UNLICENSED"` placeholder with a standard open-source license.
+- **Decision Made:** License the repository and all packages under the permissive `MIT` license (`Copyright (c) 2026 Sarthak Jain`), placing `LICENSE` at the repository root and inside `packages/vscode-extension/` for `.vsix` bundling, and setting `"license": "MIT"` across all `package.json` manifests.
+- **Problem Solved:** Provides clear open-source usage terms for developers and satisfies npm and VS Code Marketplace licensing requirements.
+
+## D-045 — Self-contained CLI bundle and public registry metadata
+- **Status:** Accepted · 2026-10-23
+- **Requirement Context:** Publishing `@para-space/cli` and `para-space-vscode` publicly required resolving the internal `"@para-space/core": "workspace:*"` dependency, adding a Marketplace PNG icon, and configuring publisher and registry metadata.
+- **Decision Made:**
+  - **Self-contained CLI bundle:** Added `packages/cli/tsup.config.ts` with `noExternal: ['@para-space/core']`, moved `@para-space/core` to `devDependencies` in `packages/cli/package.json`, declared `get-port` as a direct runtime dependency of `@para-space/cli`, and marked `@para-space/core` `"private": true`. Both `@para-space/cli` and `para-space-vscode` now inline `@para-space/core` at build time.
+  - **Marketplace & npm metadata:** Kept `"publisher": "para-space"`, removed `"private": true`, added a 256×256 `media/icon.png` store icon, and added `repository`, `homepage`, `bugs`, `keywords`, and `engines` across package manifests.
+- **Problem Solved:** Allows `@para-space/cli` to be installed cleanly from npm as a single package (`npm install -g @para-space/cli`) without publishing internal workspace packages, and makes `para-space-vscode` ready for Visual Studio Marketplace and Open VSX publishing.
 
 ---
 

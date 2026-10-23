@@ -3,13 +3,34 @@
   "displayName": "ParaSpace",
   "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
   "version": "0.1.0",
-  "private": true,
   "publisher": "para-space",
-  "license": "UNLICENSED",
+  "author": "Sarthak Jain",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SarthakJain23/para-space.git",
+    "directory": "packages/vscode-extension"
+  },
+  "homepage": "https://github.com/SarthakJain23/para-space#readme",
+  "bugs": {
+    "url": "https://github.com/SarthakJain23/para-space/issues"
+  },
+  "keywords": [
+    "git",
+    "worktree",
+    "parallel",
+    "workspace",
+    "multi-root",
+    "copilot",
+    "ai-agent",
+    "peacock"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
+    "SCM Providers",
     "Other"
   ],
   "activationEvents": [

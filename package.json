@@ -1,6 +1,20 @@
 {
   "name": "para-space",
   "private": true,
+  "description": "Parallel workspace orchestrator for multi-agent and multi-task IDE workflows",
+  "license": "MIT",
+  "author": "Sarthak Jain",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SarthakJain23/para-space.git"
+  },
+  "homepage": "https://github.com/SarthakJain23/para-space#readme",
+  "bugs": {
+    "url": "https://github.com/SarthakJain23/para-space/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "type": "module",
   "packageManager": "pnpm@12.5.1",
   "scripts": {

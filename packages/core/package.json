@@ -1,6 +1,15 @@
 {
   "name": "@para-space/core",
   "version": "0.1.0",
+  "private": true,
+  "description": "Core orchestration engine for ParaSpace parallel git worktrees",
+  "license": "MIT",
+  "author": "Sarthak Jain",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SarthakJain23/para-space.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

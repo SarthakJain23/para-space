@@ -28,7 +28,8 @@ Modern software engineering with AI coding agents (such as GitHub Copilot, Claud
 - **Breakaway Dependency Isolation:** Detects dependency manifest modifications (`package.json`, `requirements.txt`) and safely de-symlinks the worktree to prevent polluting the main environment.
 - **Ephemeral Port Offset:** Allocates distinct development server ports via `.env.local` to prevent port collisions.
 - **Permission-Gated IDE Customization:** With explicit user consent, applies distinct window accent colors (the Peacock Pattern) and configures language server interpreter paths.
-- **Dual Interface:** Provides both a robust Terminal CLI for scripting/agent workflows and a VS Code Extension UI for visual tracking.
+- **Multi-Repository Workspace Orchestration:** Discovers multiple repositories across a parent container folder or `.code-workspace`, provisions synchronized worktrees across all selected repositories with atomic rollback, injects Peacock window colors into the `.code-workspace` file, and persists workspace records for 1-click reopening.
+- **Dual Interface & Zero-Config AI Agent Integration:** Provides a Terminal CLI (`para`), a VS Code Extension UI, native VS Code Language Model Tools for GitHub Copilot, and a Model Context Protocol (MCP) server (`para mcp` / `para setup-agent`) for Claude Code, Cursor, and Windsurf.
 
 ---
 
@@ -164,8 +165,18 @@ Every command, configuration shift, or automated agent change logs to a structur
 # Create a new worktree for a ticket
 para create feat/TK-101 --base main
 
+# Create a multi-repository workspace across multiple repos (e.g. frontend + backend)
+para workspace create feat/TK-101 -r "Full-stack auth redesign"
+
+# List and reopen multi-repository workspaces
+para workspace list
+para workspace open feat/TK-101
+
 # List all active worktrees and statuses
 para list
+
+# Check for manifest divergence across worktrees
+para check
 
 # Break the symlink if dependencies diverged
 para isolate feat/TK-101
@@ -220,10 +231,12 @@ para remove feat/TK-101 --delete-branch
 - [x] Interactive UI for selecting port strategies and viewing the decision history (D-035).
 - [x] One-click "Launch in New Window".
 
-### Phase 3: Safety, Watchers & Isolation
+### Phase 3: Safety, Watchers, Multi-Repo Workspaces & AI Agent Integration
 - [x] Manifest watcher: alert developer when `package.json` / dependency manifests change in a symlinked worktree (D-036).
 - [x] Prompt / one-click automated isolation workflow when dependencies diverge (D-003, D-036).
 - [x] macOS APFS Copy-on-Write (CoW) fast cloning support in `core/src/link.ts`.
+- [x] Multi-repository workspace support (`para workspace create|list|open`, `.code-workspace` generation with Peacock window coloring, container folder & on-disk workspace auto-discovery, sidebar `WorkspaceNode`, and switcher reopening, D-037–D-042).
+- [x] Zero-config AI agent integration (VS Code Language Model Tools API + `para mcp` stdio server + `para setup-agent`, D-043).
 
 ### Phase 4: Monorepo & Ecosystem Expansion
 - [ ] Monorepo support (pnpm workspaces, Turborepo, Nx).
