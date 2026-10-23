@@ -19,7 +19,7 @@
   "packageManager": "pnpm@12.5.1",
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @para-space/core build && pnpm -r typecheck",
     "test": "vitest run",
     "package:extension": "pnpm --filter para-space-vscode package",
     "format": "prettier --write .",
