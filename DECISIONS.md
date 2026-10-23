@@ -57,6 +57,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-043 | Zero-config AI agent architecture: VS Code Language Model Tools and CLI MCP Server | Accepted | 2026-10-22 |
 | D-044 | Adopt MIT License for open-source distribution | Accepted | 2026-10-23 |
 | D-045 | Self-contained CLI bundle and public registry metadata | Accepted | 2026-10-23 |
+| D-046 | Automated GitHub Actions CI and tag-driven release pipeline | Accepted | 2026-10-23 |
 
 ---
 
@@ -426,6 +427,14 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Self-contained CLI bundle:** Added `packages/cli/tsup.config.ts` with `noExternal: ['@para-space/core']`, moved `@para-space/core` to `devDependencies` in `packages/cli/package.json`, declared `get-port` as a direct runtime dependency of `@para-space/cli`, and marked `@para-space/core` `"private": true`. Both `@para-space/cli` and `para-space-vscode` now inline `@para-space/core` at build time.
   - **Marketplace & npm metadata:** Kept `"publisher": "para-space"`, removed `"private": true`, added a 256×256 `media/icon.png` store icon, and added `repository`, `homepage`, `bugs`, `keywords`, and `engines` across package manifests.
 - **Problem Solved:** Allows `@para-space/cli` to be installed cleanly from npm as a single package (`npm install -g @para-space/cli`) without publishing internal workspace packages, and makes `para-space-vscode` ready for Visual Studio Marketplace and Open VSX publishing.
+
+## D-046 — Automated GitHub Actions CI and tag-driven release pipeline
+- **Status:** Accepted · 2026-10-23
+- **Requirement Context:** Public open-source contributors and users need automated verification on every push/PR across operating systems and Node.js versions, as well as repeatable release packaging for GitHub Releases, npm, the VS Code Marketplace, and Open VSX.
+- **Decision Made:**
+  - **CI Workflow (`.github/workflows/ci.yml`):** Runs on pushes to `main` and pull requests. Executes `pnpm format:check` and `pnpm typecheck`, followed by a matrix build and test job across `ubuntu-latest` and `macos-latest` on Node 20 and Node 22, plus `.vsix` packaging validation.
+  - **Release Workflow (`.github/workflows/release.yml`):** Triggers on `v*.*.*` tags and `workflow_dispatch`. Runs full verification, packages the `.vsix` and `@para-space/cli` tarball, publishes a GitHub Release with both artifacts attached using `GITHUB_TOKEN`, and conditionally publishes to npm (`NPM_TOKEN`), Visual Studio Marketplace (`VSCE_PAT`), and Open VSX (`OVSX_PAT`) when secrets are configured.
+- **Problem Solved:** Guarantees cross-platform quality on every commit and automates `v*.*.*` releases even before external registry secrets are configured.
 
 ---
 
