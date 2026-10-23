@@ -1,5 +1,8 @@
 # ParaSpace
 
+[![CI](https://github.com/SarthakJain23/para-space/actions/workflows/ci.yml/badge.svg)](https://github.com/SarthakJain23/para-space/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Parallel workspace orchestrator for multi-agent and multi-task IDE workflows: Git worktrees with zero-duplication dependency sharing, per-worktree ports, and opt-in IDE window coloring. Ships as a CLI (`para`) and a VS Code extension.
 
 > Status: Phase 1 (core engine + `para` CLI), Phase 2 (VS Code extension UI: worktrees sidebar, status bar indicator, quick switcher, context history ledger view, and port strategy configuration), Phase 3 (Safety, Watchers & Dependency Divergence Detection: manifest watchers, `para check`, divergence warning indicators, and 1-click breakaway isolation), Multi-Repository Workspaces (`para workspace`, `.code-workspace` provisioning, auto-discovery, and switcher reopening), and Zero-Config AI Agent Integration (VS Code Language Model Tools + `para mcp` Server) are implemented. Phase 4 (Monorepo Nested Packages & Ecosystem Expansion) is next.
