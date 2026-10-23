@@ -1,4 +1,4 @@
-# `@para-space/cli`
+# `@para-space-dev/cli`
 
 **Parallel workspace orchestrator CLI (`para`) and MCP server for multi-agent and multi-task workflows.**
 
@@ -12,16 +12,16 @@ Requires **Node.js ≥ 18** and **Git ≥ 2.31**.
 
 ```bash
 # npm
-npm install -g @para-space/cli
+npm install -g @para-space-dev/cli
 
 # pnpm
-pnpm add -g @para-space/cli
+pnpm add -g @para-space-dev/cli
 
 # yarn
-yarn global add @para-space/cli
+yarn global add @para-space-dev/cli
 
 # bun
-bun add -g @para-space/cli
+bun add -g @para-space-dev/cli
 ```
 
 ---

@@ -71,7 +71,7 @@ jobs:
               --generate-notes
           fi
 
-      - name: Publish @para-space/cli to npm
+      - name: Publish @para-space-dev/cli to npm
         if: env.NPM_TOKEN != ''
         working-directory: packages/cli
         env:

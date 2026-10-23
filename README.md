@@ -17,16 +17,16 @@ Install globally with your preferred package manager:
 
 ```bash
 # npm
-npm install -g @para-space/cli
+npm install -g @para-space-dev/cli
 
 # pnpm
-pnpm add -g @para-space/cli
+pnpm add -g @para-space-dev/cli
 
 # yarn
-yarn global add @para-space/cli
+yarn global add @para-space-dev/cli
 
 # bun
-bun add -g @para-space/cli
+bun add -g @para-space-dev/cli
 ```
 
 ```bash

@@ -422,11 +422,11 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 
 ## D-045 — Self-contained CLI bundle and public registry metadata
 - **Status:** Accepted · 2026-10-23
-- **Requirement Context:** Publishing `@para-space/cli` and `para-space-vscode` publicly required resolving the internal `"@para-space/core": "workspace:*"` dependency, adding a Marketplace PNG icon, and configuring publisher and registry metadata.
+- **Requirement Context:** Publishing `@para-space-dev/cli` and `para-space-vscode` publicly required resolving the internal `"@para-space/core": "workspace:*"` dependency, choosing an available npm organization scope (`@para-space-dev`, since `paraspace` already existed on npm), adding a Marketplace PNG icon, and configuring publisher and registry metadata.
 - **Decision Made:**
-  - **Self-contained CLI bundle:** Added `packages/cli/tsup.config.ts` with `noExternal: ['@para-space/core']`, moved `@para-space/core` to `devDependencies` in `packages/cli/package.json`, declared `get-port` as a direct runtime dependency of `@para-space/cli`, and marked `@para-space/core` `"private": true`. Both `@para-space/cli` and `para-space-vscode` now inline `@para-space/core` at build time.
+  - **Self-contained CLI bundle:** Renamed the CLI package to `@para-space-dev/cli`, added `packages/cli/tsup.config.ts` with `noExternal: ['@para-space/core']`, moved `@para-space/core` to `devDependencies` in `packages/cli/package.json`, declared `get-port` as a direct runtime dependency of `@para-space-dev/cli`, and marked `@para-space/core` `"private": true`. Both `@para-space-dev/cli` and `para-space-vscode` now inline `@para-space/core` at build time.
   - **Marketplace & npm metadata:** Kept `"publisher": "para-space"`, removed `"private": true`, added a 256×256 `media/icon.png` store icon, and added `repository`, `homepage`, `bugs`, `keywords`, and `engines` across package manifests.
-- **Problem Solved:** Allows `@para-space/cli` to be installed cleanly from npm as a single package (`npm install -g @para-space/cli`) without publishing internal workspace packages, and makes `para-space-vscode` ready for Visual Studio Marketplace and Open VSX publishing.
+- **Problem Solved:** Allows `@para-space-dev/cli` to be installed cleanly from npm as a single package (`npm install -g @para-space-dev/cli`) without publishing internal workspace packages, and makes `para-space-vscode` ready for Visual Studio Marketplace and Open VSX publishing.
 
 ## D-046 — Automated GitHub Actions CI and tag-driven release pipeline
 - **Status:** Accepted · 2026-10-23

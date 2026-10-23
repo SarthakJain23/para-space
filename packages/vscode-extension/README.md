@@ -71,22 +71,22 @@ Copilot automatically invokes ParaSpace's built-in Language Model Tools (`para_c
 
 ---
 
-## Companion CLI (`@para-space/cli`)
+## Companion CLI (`@para-space-dev/cli`)
 
 Prefer the terminal or want MCP integration for Claude Code, Cursor, or Windsurf? Install the companion CLI using your preferred package manager:
 
 ```bash
 # npm
-npm install -g @para-space/cli
+npm install -g @para-space-dev/cli
 
 # pnpm
-pnpm add -g @para-space/cli
+pnpm add -g @para-space-dev/cli
 
 # yarn
-yarn global add @para-space/cli
+yarn global add @para-space-dev/cli
 
 # bun
-bun add -g @para-space/cli
+bun add -g @para-space-dev/cli
 
 # Register MCP server with Claude Code, Cursor, Windsurf & Claude Desktop
 para setup-agent
