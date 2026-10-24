@@ -59,6 +59,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-045 | Self-contained CLI bundle and public registry metadata | Accepted | 2026-10-23 |
 | D-046 | Automated GitHub Actions CI and tag-driven release pipeline | Accepted | 2026-10-23 |
 | D-047 | Review new APIs and block deprecated TypeScript APIs in CI | Accepted | 2026-10-24 |
+| D-048 | Workspace removal, search filtering, and cross-repo worktree resolution | Accepted | 2026-10-24 |
 
 ---
 
@@ -445,6 +446,16 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - Add type-aware ESLint enforcement with `@typescript-eslint/no-deprecated`, expose it as `pnpm lint`, and run it in the required CI verification job.
   - Permit a deprecated API only through a narrow, reasoned suppression with a tracked follow-up issue.
 - **Problem Solved:** Makes API lifecycle review a contributor protocol and catches accidental references to deprecated TypeScript APIs before merge.
+
+## D-048 — Workspace removal, search filtering, and cross-repo worktree resolution
+- **Status:** Accepted · 2026-10-24
+- **Requirement Context:** Users needed a way to remove multi-repository workspaces (either unregistering them from ParaSpace while keeping the `.code-workspace` file, or deleting the file), search/filter workspaces and worktrees across VS Code, CLI, and MCP/LM tools, and reliably remove/isolate worktrees belonging to any repository in a multi-repository workspace.
+- **Decision Made:**
+  - **Workspace removal & `ignoredWorkspaces`:** Added `paraSpace.removeWorkspace` in VS Code and `para workspace remove` in the CLI. When the user chooses to keep the `.code-workspace` file on disk, its path is recorded in `state.ignoredWorkspaces` so `getWorkspaceRecords()` does not auto-register it again unless explicitly saved via `saveWorkspaceRecord()`.
+  - **Stale member pruning:** `getWorkspaceRecords()` checks that each member `worktreePath` still exists on disk, pruning deleted worktrees and removing workspace records with no remaining live worktrees.
+  - **Search & container directory support:** Added case-insensitive `query` filtering to `para_list_worktrees` (MCP and VS Code LM tools), `para workspace list`, and `para list`, and enabled multi-repo container directory discovery in `para list` and `para check`.
+  - **Cross-repository resolution & multi-repo watching:** Updated `resolveWorktree()` to resolve the owning repository from the target path, active directory, discovered workspace repositories, and `state.json`, and updated VS Code's `removeWorktree`, `isolateWorktree`, `watchManifests`, and `WorktreeStore` to operate per repository across multi-root workspaces.
+- **Problem Solved:** Completes the multi-repository workspace lifecycle across IDE, CLI, and AI agent tools and eliminates cross-repository resolution and refresh bugs.
 
 ---
 

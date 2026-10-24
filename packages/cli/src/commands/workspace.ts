@@ -15,6 +15,7 @@ import {
   mainRepoRoot,
   multiRepoWorkspaceFilePath,
   readWorkspaceConfigFile,
+  removeWorkspaceRecord,
   removeWorktree,
   saveWorkspaceRecord,
   getWorkspaceRecords,
@@ -498,14 +499,26 @@ export function registerWorkspace(program: Command) {
       }),
     );
 
-  ws.command('list')
+  ws.command('list [query]')
     .alias('ls')
     .description('List recorded multi-repository parallel workspaces')
+    .option('-q, --query <query>', 'filter workspaces by name, branch, repository, or path')
     .option('--json', 'print results as JSON')
     .action(
-      action(async (flags: { json?: boolean }) => {
+      action(async (queryArg: string | undefined, flags: { query?: string; json?: boolean }) => {
         const roots = await discoverWorkspaceRepoRoots(process.cwd());
-        const records = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+        const allRecords = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+        const search = (flags.query ?? queryArg)?.trim().toLowerCase();
+        const records = search
+          ? allRecords.filter((record) =>
+              [
+                record.name,
+                record.branch,
+                record.workspaceFile,
+                ...record.repos.flatMap((r) => [r.name, r.root, r.worktreePath]),
+              ].some((v) => v?.toLowerCase().includes(search)),
+            )
+          : allRecords;
         if (flags.json) {
           printJson(records);
           return;
@@ -521,6 +534,49 @@ export function registerWorkspace(program: Command) {
           console.log(`    repos: ${record.repos.map((r) => `${r.name} (${r.worktreePath})`).join(', ')}`);
         }
         console.log('');
+      }),
+    );
+
+  ws.command('remove <target>')
+    .alias('rm')
+    .description('Remove a recorded multi-repository workspace (by branch, name, or file)')
+    .option('--delete-file', 'also delete the .code-workspace file from disk')
+    .option('-y, --yes', 'non-interactive: no prompts')
+    .action(
+      action(async (target: string, flags: { deleteFile?: boolean; yes?: boolean }) => {
+        const roots = await discoverWorkspaceRepoRoots(process.cwd());
+        const records = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+        const lower = target.toLowerCase();
+        const findMatch = (list: typeof records) =>
+          list.find(
+            (r) =>
+              r.branch.toLowerCase() === lower ||
+              r.name.toLowerCase() === lower ||
+              path.resolve(r.workspaceFile).toLowerCase() === path.resolve(target).toLowerCase() ||
+              r.branch.toLowerCase().includes(lower) ||
+              r.name.toLowerCase().includes(lower),
+          );
+        const match = findMatch(records) ?? (roots.length > 0 ? findMatch(await getWorkspaceRecords()) : undefined);
+        if (!match) {
+          throw new Error(`No workspace matches "${target}". Run \`para workspace list\` to see available workspaces.`);
+        }
+
+        const isInteractive = !flags.yes && Boolean(process.stdin.isTTY && process.stdout.isTTY);
+        let deleteFile = Boolean(flags.deleteFile);
+        if (flags.deleteFile === undefined && isInteractive) {
+          deleteFile = bail(
+            await p.confirm({
+              message: `Also delete workspace file ${match.workspaceFile} from disk?`,
+              initialValue: false,
+            }),
+          );
+        }
+
+        await removeWorkspaceRecord(match.workspaceFile, !deleteFile);
+        if (deleteFile) {
+          await fs.rm(match.workspaceFile, { force: true });
+        }
+        ok(`Removed workspace ${pc.bold(match.name)}${deleteFile ? ` and deleted ${match.workspaceFile}` : ''}`);
       }),
     );
 }

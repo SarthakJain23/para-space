@@ -1,4 +1,4 @@
-import { checkDivergence, listWorktrees } from '@para-space/core';
+import { type WorktreeInfo, checkDivergence, discoverWorkspaceRepoRoots, listWorktrees } from '@para-space/core';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { action, log, ok, printJson } from '../runtime.js';
@@ -11,16 +11,26 @@ export function registerCheck(program: Command) {
     .action(
       action(async (flags: { json?: boolean }) => {
         const cwd = process.cwd();
-        const rows = await listWorktrees({ cwd, log });
-        const main = rows.find((r) => r.isMain);
-        if (!main) throw new Error('No main repository found');
+        let repoRowSets: WorktreeInfo[][];
+        try {
+          repoRowSets = [await listWorktrees({ cwd, log })];
+        } catch (err) {
+          const roots = await discoverWorkspaceRepoRoots(cwd);
+          if (roots.length === 0) throw err;
+          repoRowSets = await Promise.all(roots.map((root) => listWorktrees({ cwd: root, log })));
+        }
 
         const divergedList = [];
-        for (const r of rows) {
-          if (r.isMain || r.depsMode !== 'Symlinked') continue;
-          const d = await checkDivergence(main.path, r.path);
-          if (d.diverged) {
-            divergedList.push({ ...r, divergedFiles: d.divergedFiles, strategies: d.strategies });
+        for (const rows of repoRowSets) {
+          const main = rows.find((r) => r.isMain);
+          if (!main) throw new Error('No main repository found');
+
+          for (const r of rows) {
+            if (r.isMain || r.depsMode !== 'Symlinked') continue;
+            const d = await checkDivergence(main.path, r.path);
+            if (d.diverged) {
+              divergedList.push({ ...r, divergedFiles: d.divergedFiles, strategies: d.strategies });
+            }
           }
         }
 

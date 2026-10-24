@@ -43,7 +43,7 @@ function openWithCode(targetPath: string): Promise<boolean> {
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: 'paraspace',
-    version: '0.1.0',
+    version: '0.1.1',
   });
 
   // 1. para_create_workspace

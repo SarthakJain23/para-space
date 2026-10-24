@@ -9,7 +9,7 @@ import type { CommandContext } from './context.js';
 export function registerIsolate({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.isolateWorktree',
-    action(rt, async ({ info }: WorktreeNode) => {
+    action(rt, async ({ info, repoRoot }: WorktreeNode) => {
       const go = 'Isolate';
       const answer = await vscode.window.showWarningMessage(
         `Isolate dependencies of ${info.name}?`,
@@ -30,8 +30,9 @@ export function registerIsolate({ rt, store }: CommandContext): vscode.Disposabl
           })
         ).trim() || undefined;
 
+      const cwd = repoRoot ?? store.root ?? requireWorkspaceRoot();
       const res = await withProgress(`Isolating dependencies of ${info.name}…`, () =>
-        isolateWorktree({ cwd: requireWorkspaceRoot(), target: info.path, reason, log: rt.log }),
+        isolateWorktree({ cwd, target: info.path, reason, log: rt.log }),
       );
       void store.load();
       vscode.window.showInformationMessage(

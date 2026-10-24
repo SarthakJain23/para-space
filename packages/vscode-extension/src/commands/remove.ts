@@ -10,11 +10,12 @@ import type { CommandContext } from './context.js';
 export function registerRemove({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.removeWorktree',
-    action(rt, async ({ info }: WorktreeNode) => {
-      const cwd = requireWorkspaceRoot();
-      if (isInside(cwd, info.path)) {
+    action(rt, async ({ info, repoRoot }: WorktreeNode) => {
+      const openFolders = vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath) ?? [];
+      if (openFolders.some((f) => isInside(f, info.path))) {
         throw new Error(`This window has ${info.name} open. Remove it from another window.`);
       }
+      const cwd = repoRoot ?? store.root ?? requireWorkspaceRoot();
       const { message, detail, choices } = removeDialog(info);
       const picked = await vscode.window.showWarningMessage(
         message,

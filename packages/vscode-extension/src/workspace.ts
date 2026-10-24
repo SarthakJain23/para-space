@@ -70,12 +70,16 @@ export async function selectRepositoriesPrompt(context: vscode.ExtensionContext,
   onChanged();
 }
 
-/** The repo of the active editor, or the first included repo. */
+/** The repo of the active editor, workspace folders, or the first included repo. */
 export function findActiveRepoRoot(includedRoots: string[]): string | undefined {
   const editor = vscode.window.activeTextEditor;
   if (editor) {
     const fsPath = editor.document.uri.fsPath;
     const match = includedRoots.find((r) => isInside(fsPath, r));
+    if (match) return match;
+  }
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    const match = includedRoots.find((r) => isInside(folder.uri.fsPath, r));
     if (match) return match;
   }
   return includedRoots[0];

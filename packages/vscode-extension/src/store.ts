@@ -7,6 +7,7 @@ import {
   listWorktrees,
 } from '@para-space/core';
 import * as vscode from 'vscode';
+import { isInside } from './dialogs.js';
 import { currentWorktree } from './items.js';
 import { findActiveRepoRoot, getIncludedRepoRoots } from './workspace.js';
 
@@ -44,8 +45,20 @@ export class WorktreeStore implements vscode.Disposable {
     private readonly memento?: vscode.Memento,
   ) {}
 
-  /** Active repository root (from active editor, or the first repo). */
+  /** Active repository root (from active editor, workspace folders, or the first repo). */
   get root(): string | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+      const activePath = editor.document.uri.fsPath;
+      const repo = this.repos.find((r) => r.rows.some((row) => isInside(activePath, row.path)));
+      if (repo) return repo.root;
+      const rootMatch = this.roots.find((r) => isInside(activePath, r));
+      if (rootMatch) return rootMatch;
+    }
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const repo = this.repos.find((r) => r.rows.some((row) => isInside(folder.uri.fsPath, row.path)));
+      if (repo) return repo.root;
+    }
     return findActiveRepoRoot(this.roots);
   }
 
@@ -73,6 +86,10 @@ export class WorktreeStore implements vscode.Disposable {
     const activePath = editor ? editor.document.uri.fsPath : undefined;
     if (activePath) {
       const match = currentWorktree(this.allRows, activePath);
+      if (match) return match;
+    }
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const match = currentWorktree(this.allRows, folder.uri.fsPath);
       if (match) return match;
     }
     return this.root ? currentWorktree(this.rows, this.root) : undefined;

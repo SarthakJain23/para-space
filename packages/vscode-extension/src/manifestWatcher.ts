@@ -18,57 +18,61 @@ export function watchManifests(store: WorktreeStore, rt: Runtime): vscode.Dispos
   const alerted = new Set<string>();
 
   const check = async (changedUri?: vscode.Uri) => {
-    if (!store.root) return;
+    for (const repo of store.repos) {
+      // Find the affected worktree, or check all symlinked worktrees if uri is not specific
+      const targetRows = changedUri
+        ? repo.rows.filter(
+            (r) => !r.isMain && (isInside(changedUri.fsPath, r.path) || isInside(changedUri.fsPath, repo.root)),
+          )
+        : repo.rows.filter((r) => !r.isMain);
 
-    // Find the affected worktree, or check all symlinked worktrees if uri is not specific
-    const targetRows = changedUri
-      ? store.rows.filter((r) => !r.isMain && isInside(changedUri.fsPath, r.path))
-      : store.rows.filter((r) => !r.isMain);
+      for (const row of targetRows) {
+        if (row.depsMode !== 'Symlinked') continue;
 
-    for (const row of targetRows) {
-      if (row.depsMode !== 'Symlinked') continue;
+        const result = await checkDivergence(repo.root, row.path);
+        const alertKey = `${row.path}:${result.divergedFiles.sort().join(',')}`;
 
-      const result = await checkDivergence(store.root, row.path);
-      const alertKey = `${row.path}:${result.divergedFiles.sort().join(',')}`;
+        if (result.diverged) {
+          // Trigger a store reload so sidebar tree item reflects divergence
+          if (!row.diverged) void store.load();
 
-      if (result.diverged) {
-        // Trigger a store reload so sidebar tree item reflects divergence
-        if (!row.diverged) void store.load();
+          if (alerted.has(alertKey)) continue;
+          alerted.add(alertKey);
 
-        if (alerted.has(alertKey)) continue;
-        alerted.add(alertKey);
+          const isolateAction = 'Isolate Dependencies';
+          const ignoreAction = 'Ignore';
+          const fileList = result.divergedFiles.join(', ');
+          const choice = await vscode.window.showWarningMessage(
+            `Dependencies in worktree "${row.branch ?? row.name}" have diverged from main (${fileList}). Installing packages here may alter the shared environment.`,
+            isolateAction,
+            ignoreAction,
+          );
 
-        const isolateAction = 'Isolate Dependencies';
-        const ignoreAction = 'Ignore';
-        const fileList = result.divergedFiles.join(', ');
-        const choice = await vscode.window.showWarningMessage(
-          `Dependencies in worktree "${row.branch ?? row.name}" have diverged from main (${fileList}). Installing packages here may alter the shared environment.`,
-          isolateAction,
-          ignoreAction,
-        );
-
-        if (choice === isolateAction) {
-          try {
-            await withProgress(`Isolating dependencies for ${row.branch ?? row.name}…`, () =>
-              isolateWorktree({
-                cwd: store.root!,
-                target: row.branch ?? row.name,
-                reason: `Manifest divergence detected: ${fileList}`,
-                log: rt.log,
-              }),
-            );
-            alerted.delete(alertKey);
-            await store.load();
-            void vscode.window.showInformationMessage(
-              `Dependencies isolated for "${row.branch ?? row.name}". Packages are now independent.`,
-            );
-          } catch (err) {
-            void vscode.window.showErrorMessage(`Failed to isolate worktree: ${(err as Error).message}`);
+          if (choice === isolateAction) {
+            try {
+              await withProgress(`Isolating dependencies for ${row.branch ?? row.name}…`, () =>
+                isolateWorktree({
+                  cwd: repo.root,
+                  target: row.path,
+                  reason: `Manifest divergence detected: ${fileList}`,
+                  log: rt.log,
+                }),
+              );
+              alerted.delete(alertKey);
+              await store.load();
+              void vscode.window.showInformationMessage(
+                `Dependencies isolated for "${row.branch ?? row.name}". Packages are now independent.`,
+              );
+            } catch (err) {
+              void vscode.window.showErrorMessage(`Failed to isolate worktree: ${(err as Error).message}`);
+            }
           }
+        } else {
+          for (const key of alerted) {
+            if (key.startsWith(`${row.path}:`)) alerted.delete(key);
+          }
+          if (row.diverged) void store.load();
         }
-      } else {
-        alerted.delete(alertKey);
-        if (row.diverged) void store.load();
       }
     }
   };

@@ -2,7 +2,7 @@
   "name": "para-space-vscode",
   "displayName": "ParaSpace",
   "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "para-space",
   "author": "Sarthak Jain",
   "license": "MIT",
@@ -306,7 +306,12 @@
         "modelDescription": "Lists all active Git worktrees, assigned dev server ports, and multi-repo workspaces managed by ParaSpace.",
         "inputSchema": {
           "type": "object",
-          "properties": {}
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Optional case-insensitive search query to filter worktrees and workspaces by name, branch, repository, or path"
+            }
+          }
         }
       },
       {

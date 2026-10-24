@@ -250,9 +250,24 @@ export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<Work
   const all = Object.values(state.workspaces);
   const valid: WorkspaceRecord[] = [];
   const missing: string[] = [];
+  const updated: WorkspaceRecord[] = [];
 
   for (const ws of all) {
     if (await exists(ws.workspaceFile)) {
+      const liveRepos: WorkspaceRepoEntry[] = [];
+      for (const r of ws.repos) {
+        if (await exists(r.worktreePath)) {
+          liveRepos.push(r);
+        }
+      }
+      if (liveRepos.length === 0) {
+        missing.push(ws.workspaceFile);
+        continue;
+      }
+      if (liveRepos.length !== ws.repos.length) {
+        ws.repos = liveRepos;
+        updated.push(ws);
+      }
       if (forRepoRoots && forRepoRoots.length > 0) {
         const rootSet = new Set(forRepoRoots.map((r) => path.resolve(r)));
         const matches = ws.repos.some((r) => rootSet.has(path.resolve(r.root)));
@@ -265,8 +280,11 @@ export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<Work
     }
   }
 
-  if (missing.length > 0) {
-    void updateWorkspaceState((workspaces) => {
+  if (missing.length > 0 || updated.length > 0) {
+    await updateWorkspaceState((workspaces) => {
+      for (const u of updated) {
+        workspaces[path.resolve(u.workspaceFile)] = u;
+      }
       for (const m of missing) delete workspaces[path.resolve(m)];
     }).catch(() => {});
   }

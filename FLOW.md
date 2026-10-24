@@ -291,3 +291,4 @@ flowchart TD
 | 2026-10-21 | Persistent multi-repo workspace records in state.json, sidebar tree WorkspaceNode, and switcher reopening | 1a, 5 | D-041 |
 | 2026-10-22 | Automatic on-disk workspace discovery, container folder scanning, and browse dialog | 1a, 5 | D-042 |
 | 2026-10-22 | Zero-config AI agent architecture: VS Code Language Model Tools API, CLI stdio MCP server (`para mcp`), and `para setup-agent` | 1a, 5 | D-043 |
+| 2026-10-24 | Workspace removal (`paraSpace.removeWorkspace`, `para workspace rm`), search query filtering across CLI/MCP/LM tools, stale workspace member pruning, and cross-repo worktree resolution & manifest watching | 1a, 2, 3, 4, 5, 6 | D-048 |

@@ -318,5 +318,55 @@ describe('multi-repo workspace', () => {
     expect(wsContent.settings?.['workbench.colorCustomizations']['titleBar.activeBackground']).toMatch(
       /^#[0-9a-f]{6}$/i,
     );
+
+    const backendWtPath = parsed.worktrees.find((w: { mainRoot: string }) => w.mainRoot === repo2).path;
+    const removed = await removeWorktree({ cwd: repo, target: backendWtPath, force: true, deleteBranch: true });
+    expect(removed.path).toBe(backendWtPath);
+    expect(removed.branchDeleted).toBe(true);
+  });
+
+  it('prunes stale member worktree entries and removes workspace when none remain', async () => {
+    const wt1 = path.join(sandbox, 'wt-one');
+    const wt2 = path.join(sandbox, 'wt-two');
+    await mkdir(wt1, { recursive: true });
+    await mkdir(wt2, { recursive: true });
+
+    const workspaceFile = path.join(sandbox, 'stale-check.code-workspace');
+    await writeFile(
+      workspaceFile,
+      JSON.stringify({
+        folders: [
+          { name: 'app', path: wt1 },
+          { name: 'backend', path: wt2 },
+        ],
+      }),
+    );
+
+    await saveWorkspaceRecord({
+      id: workspaceFile,
+      name: 'stale-check',
+      workspaceFile,
+      branch: 'feat/stale',
+      repos: [
+        { root: repo, name: 'app', worktreePath: wt1 },
+        { root: path.join(sandbox, 'backend'), name: 'backend', worktreePath: wt2 },
+      ],
+      createdAt: '',
+    });
+
+    await rm(wt2, { recursive: true, force: true });
+
+    const afterOneRemoved = await getWorkspaceRecords([repo]);
+    expect(afterOneRemoved).toHaveLength(1);
+    expect(afterOneRemoved[0].repos).toEqual([{ root: repo, name: 'app', worktreePath: wt1 }]);
+    expect((await readState()).workspaces?.[path.resolve(workspaceFile)]?.repos).toEqual([
+      { root: repo, name: 'app', worktreePath: wt1 },
+    ]);
+
+    await rm(wt1, { recursive: true, force: true });
+
+    const afterAllRemoved = await getWorkspaceRecords([repo]);
+    expect(afterAllRemoved).toEqual([]);
+    expect((await readState()).workspaces?.[path.resolve(workspaceFile)]).toBeUndefined();
   });
 });

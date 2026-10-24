@@ -39,5 +39,10 @@ export function createStatusBar(store: WorktreeStore): vscode.Disposable {
   };
 
   update();
-  return vscode.Disposable.from(dot, label, store.onDidChange(update));
+  return vscode.Disposable.from(
+    dot,
+    label,
+    store.onDidChange(update),
+    vscode.window.onDidChangeActiveTextEditor(update),
+  );
 }

@@ -60,7 +60,7 @@ export async function removeWorktree(opts: RemoveOptions): Promise<RemoveResult>
   });
   await updateWorkspaceState((workspaces) => {
     for (const [key, ws] of Object.entries(workspaces)) {
-      ws.repos = ws.repos.filter((r) => r.worktreePath !== wtPath);
+      ws.repos = ws.repos.filter((r) => path.resolve(r.worktreePath) !== wtPath);
       if (ws.repos.length === 0) delete workspaces[key];
     }
   }).catch(() => {});

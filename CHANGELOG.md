@@ -4,6 +4,27 @@ All notable changes to **ParaSpace** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-10-24
+
+### Added
+- **Workspace Removal (`ParaSpace: Remove Workspace…` & `para workspace remove`):**
+  - Remove tracked multi-repository workspaces from the VS Code sidebar context menu or CLI (`para workspace rm <target>`), with the choice to keep the `.code-workspace` file on disk (suppressed from auto-discovery via `ignoredWorkspaces`) or move/delete the file.
+- **Search & Filtering Across Workspaces and Worktrees:**
+  - Added `query` filtering to `para_list_worktrees` in both the MCP server (`para mcp`) and VS Code Language Model Tools (Copilot Chat).
+  - Added `[query]` and `-q, --query <query>` filtering to `para list` and `para workspace list`, and enabled detail/description matching in VS Code workspace pickers.
+  - Added multi-repo parent container directory fallback to `para list` and `para check`.
+- **Deprecated API Enforcement (`pnpm lint`):**
+  - Added type-aware ESLint rule `@typescript-eslint/no-deprecated` in CI and migrated MCP tool registrations to `McpServer.registerTool()`.
+
+### Fixed
+- **Cross-Repository Worktree Resolution & Removal:**
+  - Fixed `resolveWorktree`, `paraSpace.removeWorktree`, and `paraSpace.isolateWorktree` in multi-repository workspaces so removing or isolating a worktree in a secondary repository resolves against its owning repository root instead of failing with `No worktree matches ...`.
+- **Multi-Repo Manifest Watcher & Active Repository Tracking:**
+  - Fixed `watchManifests` to monitor and isolate diverged worktrees across all repositories in a multi-root workspace.
+  - Fixed `WorktreeStore.root` to resolve the active repository from linked worktrees and updated the status bar on editor tab switches without triggering redundant Git reloads.
+- **Stale Workspace Member Pruning:**
+  - `getWorkspaceRecords` now prunes deleted member worktree paths from recorded workspaces and removes workspace records when no live member worktrees remain.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added
