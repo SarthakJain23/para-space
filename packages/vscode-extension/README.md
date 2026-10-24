@@ -57,7 +57,8 @@ ParaSpace supports full multi-repository workflows (for example, `frontend` + `b
 3. **Reopen & Switch Multi-Repo Workspaces Anytime:**
    - **Sidebar (`Worktrees` view):** Active multi-repo workspaces appear at the top as expandable `Workspace` nodes—click the inline **Open in New Window** icon to launch, or expand to inspect member repository worktrees.
    - **Quick Switcher (`ParaSpace: List Worktrees` / Status Bar):** Multi-repo workspaces appear right below *Create Worktree…* as `$(root-folder) [Workspace] <branch>`.
-   - **Open or Browse (`ParaSpace: Open Workspace…`):** Select any tracked or auto-discovered workspace, or pick **Browse for workspace file…** to import and open any `.code-workspace` file from disk.
+   - **Open or Browse (`ParaSpace: Open Workspace…`):** Type to search tracked or auto-discovered workspaces by their displayed details, or pick **Browse for workspace file…** to import and open any `.code-workspace` file from disk.
+   - **Remove:** Right-click a workspace node and choose **Remove Workspace…** to remove its ParaSpace record while keeping the file, or explicitly move the file to Trash.
    - **Filter Repositories (`ParaSpace: Select Repositories to Include…`):** Choose which repositories are shown in the sidebar views.
 
 ---

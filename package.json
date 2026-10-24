@@ -21,6 +21,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter @para-space/core build && pnpm -r typecheck",
     "test": "vitest run",
+    "lint": "eslint \"packages/**/*.ts\" --max-warnings=0",
     "package:extension": "pnpm --filter para-space-vscode package",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -28,11 +29,13 @@
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
+    "eslint": "^10.13.0",
     "lint-staged": "^15.5.2",
     "prettier": "^3.9.10",
     "simple-git-hooks": "^2.14.0",
     "tsup": "^8.3.0",
     "typescript": "^5.6.0",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^2.1.0"
   },
   "simple-git-hooks": {

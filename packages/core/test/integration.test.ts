@@ -13,7 +13,15 @@ import {
 } from '../src/commands/index.js';
 import { readLedger } from '../src/ledger.js';
 import type { Prompter } from '../src/prompts.js';
-import { readState, stateLockPath, statePath, updateRepoState } from '../src/state.js';
+import {
+  getWorkspaceRecords,
+  readState,
+  removeWorkspaceRecord,
+  saveWorkspaceRecord,
+  stateLockPath,
+  statePath,
+  updateRepoState,
+} from '../src/state.js';
 import { withFileLock } from '../src/util/lock.js';
 import { discoverWorkspaceRepoRoots } from '../src/workspace.js';
 
@@ -253,6 +261,29 @@ describe('concurrency (D-027)', () => {
 });
 
 describe('multi-repo workspace', () => {
+  it('keeps a removed workspace hidden until it is explicitly saved again', async () => {
+    const workspaceFile = path.join(repo, 'kept.code-workspace');
+    await writeFile(workspaceFile, JSON.stringify({ folders: [{ name: 'app', path: repo }] }));
+    const record = {
+      id: workspaceFile,
+      name: 'kept',
+      workspaceFile,
+      branch: 'main',
+      repos: [{ root: repo, name: 'app', worktreePath: repo }],
+      createdAt: '',
+    };
+
+    await saveWorkspaceRecord(record);
+    expect(await getWorkspaceRecords([repo])).toHaveLength(1);
+
+    await removeWorkspaceRecord(workspaceFile);
+    expect(await getWorkspaceRecords([repo])).toEqual([]);
+    expect((await readState()).ignoredWorkspaces).toContain(path.resolve(workspaceFile));
+
+    await saveWorkspaceRecord(record);
+    expect(await getWorkspaceRecords([repo])).toHaveLength(1);
+  });
+
   it('discovers repositories and creates parallel workspace via cli', async () => {
     const repo2 = path.join(sandbox, 'backend');
     await mkdir(repo2, { recursive: true });

@@ -72,14 +72,25 @@ export function registerLmTools({ rt, store }: CommandContext): vscode.Disposabl
   // 3. para_list_worktrees
   disposables.push(
     lm.registerTool('para_list_worktrees', {
-      async invoke() {
+      async invoke(options?: { input?: { query?: string } }) {
         try {
           await store.load();
+          const query = options?.input?.query?.trim().toLowerCase();
+          const matches = (...values: (string | undefined)[]) =>
+            !query || values.some((value) => value?.toLowerCase().includes(query));
           const lines: string[] = ['# ParaSpace Worktrees & Workspaces', ''];
+          const workspaces = store.workspaces.filter((ws) =>
+            matches(
+              ws.name,
+              ws.branch,
+              ws.workspaceFile,
+              ...ws.repos.flatMap((repo) => [repo.name, repo.root, repo.worktreePath]),
+            ),
+          );
 
-          if (store.workspaces.length > 0) {
+          if (workspaces.length > 0) {
             lines.push('## Multi-Repository Workspaces:');
-            for (const ws of store.workspaces) {
+            for (const ws of workspaces) {
               const repos = ws.repos.map((r) => r.name).join(', ');
               lines.push(`- **${ws.branch}** (${ws.repos.length} repos: ${repos}) → \`${ws.workspaceFile}\``);
             }
@@ -88,11 +99,13 @@ export function registerLmTools({ rt, store }: CommandContext): vscode.Disposabl
 
           lines.push('## Active Repositories & Worktrees:');
           for (const repo of store.repos) {
+            const rows = repo.rows.filter((r) => matches(repo.name, repo.root, r.name, r.branch, r.path));
+            if (query && rows.length === 0) continue;
             lines.push(`### ${repo.name} (\`${repo.root}\`)`);
-            if (repo.rows.length === 0) {
+            if (rows.length === 0) {
               lines.push('  *(no worktrees)*');
             } else {
-              for (const r of repo.rows) {
+              for (const r of rows) {
                 const port = r.port !== undefined ? `:${r.port}` : 'no port';
                 const status = r.dirty ? `${r.dirty} uncommitted` : 'clean';
                 const mainTag = r.isMain ? ' (main)' : '';

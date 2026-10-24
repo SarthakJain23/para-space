@@ -35,6 +35,7 @@ export function registerList({ rt, store }: CommandContext): vscode.Disposable {
           title: 'ParaSpace Worktrees & Workspaces',
           placeHolder: 'Switch to a worktree or workspace (opens in a new window)',
           matchOnDescription: true,
+          matchOnDetail: true,
         },
       );
       if (picked === CREATE_ITEM) await vscode.commands.executeCommand('paraSpace.createWorktree');
@@ -106,6 +107,8 @@ export function registerOpenWorkspace({ rt, store }: CommandContext): vscode.Dis
       const picked = await pick(items, {
         title: 'ParaSpace: Open Workspace',
         placeHolder: 'Select a multi-repository workspace or browse for a .code-workspace file',
+        matchOnDescription: true,
+        matchOnDetail: true,
       });
 
       if (picked.isBrowse) {

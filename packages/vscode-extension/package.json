@@ -128,6 +128,12 @@
         "title": "Remove Worktree…",
         "category": "ParaSpace",
         "icon": "$(trash)"
+      },
+      {
+        "command": "paraSpace.removeWorkspace",
+        "title": "Remove Workspace…",
+        "category": "ParaSpace",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -185,6 +191,11 @@
           "group": "1_open"
         },
         {
+          "command": "paraSpace.removeWorkspace",
+          "when": "view == paraSpace.worktrees && viewItem == paraSpace.workspace",
+          "group": "3_remove"
+        },
+        {
           "command": "paraSpace.openInNewWindow",
           "when": "view == paraSpace.worktrees && viewItem =~ /^worktree\\./",
           "group": "inline"
@@ -231,6 +242,10 @@
         },
         {
           "command": "paraSpace.removeWorktree",
+          "when": "false"
+        },
+        {
+          "command": "paraSpace.removeWorkspace",
           "when": "false"
         }
       ]
@@ -319,7 +334,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "package": "npx @vscode/vsce package --no-dependencies",
+    "package": "pnpm build && npx @vscode/vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {

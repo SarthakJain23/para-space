@@ -36,6 +36,22 @@ describe('MCP server', () => {
     expect(parsed.repositories).toBeDefined();
   });
 
+  it('para_list_worktrees filters results with a search query', async () => {
+    const server = createMcpServer();
+    const tools = (
+      server as unknown as {
+        _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ content: { text: string }[] }> }>;
+      }
+    )._registeredTools;
+    const res = await tools['para_list_worktrees'].handler({
+      cwd: process.cwd(),
+      query: 'para-space-search-no-match',
+    });
+    const parsed = JSON.parse(res.content[0].text);
+    expect(parsed.workspaces).toEqual([]);
+    expect(Object.values(parsed.repositories).every((rows) => Array.isArray(rows) && rows.length === 0)).toBe(true);
+  });
+
   it('setup-agent writes valid MCP configuration', async () => {
     const tmp = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'para-test-agent-')));
     const configFile = path.join(tmp, 'claude.json');

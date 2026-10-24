@@ -13,7 +13,7 @@ Before making changes, please review our living project docs:
 ## Development Setup
 
 ### Prerequisites
-- **Node.js** ≥ 18
+- **Node.js** ≥ 20.19 for repository development tools (the published CLI runtime remains ≥ 18)
 - **Git** ≥ 2.31
 - **pnpm** (managed via Corepack or installed globally)
 
@@ -29,6 +29,9 @@ pnpm build
 # Run TypeScript typechecking across all packages
 pnpm typecheck
 
+# Check for deprecated TypeScript APIs (requires Node.js >= 20.19)
+pnpm lint
+
 # Run unit and integration tests (uses sandboxed temporary git repos)
 pnpm test
 
@@ -38,7 +41,7 @@ pnpm format:check
 
 ## Pull Request Checklist
 
-- [ ] `pnpm typecheck`, `pnpm test`, and `pnpm format:check` all pass.
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm format:check` all pass.
 - [ ] New behavior includes unit and/or integration tests.
 - [ ] Exported functions in `@para-space/core` include TSDoc comments.
 - [ ] [DECISIONS.md](./DECISIONS.md) and [FLOW.md](./FLOW.md) are updated if any architectural choice or operational flow changed.

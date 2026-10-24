@@ -1,8 +1,8 @@
-import { removeWorktree } from '@para-space/core';
+import { removeWorkspaceRecord, removeWorktree } from '@para-space/core';
 import * as vscode from 'vscode';
 import { isInside, removeDialog } from '../dialogs.js';
 import { action, withProgress } from '../runtime.js';
-import type { WorktreeNode } from '../tree.js';
+import type { WorkspaceNode, WorktreeNode } from '../tree.js';
 import { requireWorkspaceRoot } from '../workspace.js';
 import type { CommandContext } from './context.js';
 
@@ -37,6 +37,34 @@ export function registerRemove({ rt, store }: CommandContext): vscode.Disposable
           `Removed ${info.name}${res.branchDeleted ? ` and branch ${res.branch}` : ''}.`,
         );
       }
+    }),
+  );
+}
+
+/** `paraSpace.removeWorkspace`: removes a workspace record, optionally moving its file to Trash. */
+export function registerRemoveWorkspace({ rt, store }: CommandContext): vscode.Disposable {
+  return vscode.commands.registerCommand(
+    'paraSpace.removeWorkspace',
+    action(rt, async ({ workspace }: WorkspaceNode) => {
+      const deleteChoice = 'Move File to Trash & Remove';
+      const picked = await vscode.window.showWarningMessage(
+        `Remove workspace ${workspace.name} from ParaSpace?`,
+        { modal: true, detail: 'You can keep the .code-workspace file or move it to Trash as well.' },
+        'Remove from ParaSpace',
+        deleteChoice,
+      );
+      if (!picked) return;
+
+      if (picked === deleteChoice) {
+        await vscode.workspace.fs.delete(vscode.Uri.file(workspace.workspaceFile), { useTrash: true });
+      }
+      await removeWorkspaceRecord(workspace.workspaceFile, picked !== deleteChoice);
+      await store.load();
+      vscode.window.showInformationMessage(
+        picked === deleteChoice
+          ? `Removed workspace ${workspace.name} and moved its file to Trash.`
+          : `Removed workspace ${workspace.name} from ParaSpace.`,
+      );
     }),
   );
 }

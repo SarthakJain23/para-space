@@ -122,7 +122,7 @@ ParaSpace integrates directly at the **IDE and Environment level**. You never ne
 The ParaSpace extension registers native tools via VS Code's Language Model Tools API:
 - `para_create_workspace`: Creates a parallel worktree or multi-repo workspace.
 - `para_open_workspace`: Opens an existing workspace in VS Code.
-- `para_list_worktrees`: Lists active worktrees and workspaces with ports.
+- `para_list_worktrees`: Lists active worktrees and workspaces with ports; accepts an optional `query` to filter by name, branch, repository, or path.
 - `para_isolate_worktree`: Safely breaks away shared dependencies when manifests diverge.
 
 **User Experience:**

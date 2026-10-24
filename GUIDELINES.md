@@ -22,6 +22,7 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 2.4. Match the surrounding code's naming, idioms and comment density.
 2.5. **Core never does terminal I/O.** It takes a `Prompter` and `Logger` from the caller; with no prompter it runs non-interactively (D-020). The CLI and the VS Code extension are thin front ends over core.
 2.6. New ecosystems or port behaviors are added as **strategies** (`FrameworkStrategy`, `PortStrategy`), not as conditionals in commands (D-004, D-005).
+2.7. **API adoption protocol ([D-047](DECISIONS.md)):** Before using an unfamiliar third-party API, inspect its installed type declaration and official documentation. Do not adopt APIs marked `@deprecated`; use the documented replacement. If a deprecated API is temporarily unavoidable, add a narrow lint suppression with a reason and a follow-up issue. Run `pnpm lint`; CI enforces this with `@typescript-eslint/no-deprecated`.
 
 ## 3. Comments
 
@@ -44,7 +45,7 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 ## 6. Testing
 
 6.1. Every behavior change gets a test. Pure logic goes in `test/unit.test.ts`; flows go in `test/integration.test.ts`, which runs against real temporary git repos with `PARA_SPACE_HOME` sandboxed.
-6.2. Before finishing a change, all of these pass: `pnpm typecheck`, `pnpm test`, `pnpm format:check`.
+6.2. Before finishing a change, all of these pass: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format:check`.
 6.3. In the VS Code extension, keep logic that doesn't need the VS Code API in modules that never import `vscode` (e.g. `items.ts`), and unit-test those with vitest. `extension.ts` only wires commands and UI to core (D-030).
 
 ## 7. Formatting and commits
@@ -61,3 +62,4 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 | :--- | :--- | :--- |
 | 2026-10-16 | Initial guidelines, collected from README, DECISIONS.md and agreed working rules | All |
 | 2026-10-17 | Added rule for testable, vscode-free extension modules | 6.3 |
+| 2026-10-24 | Added API review protocol and CI enforcement for deprecated TypeScript APIs | 2.7 |

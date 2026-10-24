@@ -1,6 +1,3 @@
-import { spawn } from 'node:child_process';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -14,7 +11,6 @@ import {
   findWorkspaceConfigFile,
   getWorkspaceRecords,
   isolateWorktree,
-  listBranches,
   listWorktrees,
   mainRepoRoot,
   multiRepoWorkspaceFilePath,
@@ -22,6 +18,9 @@ import {
   removeWorktree,
   saveWorkspaceRecord,
 } from '@para-space/core';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
 import { log } from './runtime.js';
 
@@ -48,21 +47,24 @@ export function createMcpServer(): McpServer {
   });
 
   // 1. para_create_workspace
-  server.tool(
+  server.registerTool(
     'para_create_workspace',
-    'Creates an isolated Git worktree or parallel multi-repository workspace for a branch with shared dependencies, dedicated dev port, and Peacock window theme.',
     {
-      branch: z.string().describe('Branch name to create or checkout (e.g. feat/TK-101)'),
-      base: z.string().optional().describe('Base ref for a new branch (default: main or current HEAD)'),
-      requirement: z
-        .string()
-        .optional()
-        .describe('Why this worktree/workspace exists (recorded in the context history ledger)'),
-      repos: z
-        .array(z.string())
-        .optional()
-        .describe('Optional list of repository paths. If omitted, discovers repositories in cwd.'),
-      cwd: z.string().optional().describe('Directory to execute in (default: process.cwd())'),
+      description:
+        'Creates an isolated Git worktree or parallel multi-repository workspace for a branch with shared dependencies, dedicated dev port, and Peacock window theme.',
+      inputSchema: {
+        branch: z.string().describe('Branch name to create or checkout (e.g. feat/TK-101)'),
+        base: z.string().optional().describe('Base ref for a new branch (default: main or current HEAD)'),
+        requirement: z
+          .string()
+          .optional()
+          .describe('Why this worktree/workspace exists (recorded in the context history ledger)'),
+        repos: z
+          .array(z.string())
+          .optional()
+          .describe('Optional list of repository paths. If omitted, discovers repositories in cwd.'),
+        cwd: z.string().optional().describe('Directory to execute in (default: process.cwd())'),
+      },
     },
     async ({ branch, base, requirement, repos, cwd }) => {
       const baseDir = cwd ? path.resolve(cwd) : process.cwd();
@@ -215,12 +217,15 @@ export function createMcpServer(): McpServer {
   );
 
   // 2. para_open_workspace
-  server.tool(
+  server.registerTool(
     'para_open_workspace',
-    'Opens an existing parallel multi-repository workspace or single worktree in VS Code by branch name, workspace name, or file path.',
     {
-      target: z.string().describe('Branch name, workspace name, or .code-workspace file path'),
-      cwd: z.string().optional().describe('Directory to search from (default: process.cwd())'),
+      description:
+        'Opens an existing parallel multi-repository workspace or single worktree in VS Code by branch name, workspace name, or file path.',
+      inputSchema: {
+        target: z.string().describe('Branch name, workspace name, or .code-workspace file path'),
+        cwd: z.string().optional().describe('Directory to search from (default: process.cwd())'),
+      },
     },
     async ({ target, cwd }) => {
       const baseDir = cwd ? path.resolve(cwd) : process.cwd();
@@ -282,21 +287,42 @@ export function createMcpServer(): McpServer {
   );
 
   // 3. para_list_worktrees
-  server.tool(
+  server.registerTool(
     'para_list_worktrees',
-    'Lists all active Git worktrees, assigned dev server ports, and multi-repo workspaces.',
     {
-      cwd: z.string().optional().describe('Directory to check from (default: process.cwd())'),
+      description:
+        'Lists active Git worktrees, assigned dev server ports, and multi-repo workspaces. Optionally filter results by name, branch, repository, or path.',
+      inputSchema: {
+        cwd: z.string().optional().describe('Directory to check from (default: process.cwd())'),
+        query: z
+          .string()
+          .optional()
+          .describe(
+            'Optional case-insensitive search across workspace and worktree names, branches, repositories, and paths',
+          ),
+      },
     },
-    async ({ cwd }) => {
+    async ({ cwd, query }) => {
       const baseDir = cwd ? path.resolve(cwd) : process.cwd();
       const roots = await discoverWorkspaceRepoRoots(baseDir);
-      const workspaces = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+      const search = query?.trim().toLowerCase();
+      const matches = (...values: (string | undefined)[]) =>
+        !search || values.some((value) => value?.toLowerCase().includes(search));
+      const workspaces = (await getWorkspaceRecords(roots.length > 0 ? roots : undefined)).filter((w) =>
+        matches(
+          w.name,
+          w.branch,
+          w.workspaceFile,
+          ...w.repos.flatMap((repo) => [repo.name, repo.root, repo.worktreePath]),
+        ),
+      );
 
       const repoWorktrees: Record<string, unknown> = {};
       for (const root of roots) {
         try {
-          const rows = await listWorktrees({ cwd: root });
+          const rows = (await listWorktrees({ cwd: root })).filter((r) =>
+            matches(path.basename(root), r.name, r.branch, r.path),
+          );
           repoWorktrees[path.basename(root)] = rows.map((r) => ({
             name: r.name,
             branch: r.branch,
@@ -335,13 +361,16 @@ export function createMcpServer(): McpServer {
   );
 
   // 4. para_isolate_worktree
-  server.tool(
+  server.registerTool(
     'para_isolate_worktree',
-    'Replaces shared dependency symlinks in a worktree with an independent copy (APFS CoW clone on macOS, fresh install elsewhere).',
     {
-      target: z.string().describe('Branch name, directory name or path of the worktree to isolate'),
-      reason: z.string().optional().describe('Why the worktree diverged from main (recorded in context history)'),
-      cwd: z.string().optional().describe('Repository directory (default: process.cwd())'),
+      description:
+        'Replaces shared dependency symlinks in a worktree with an independent copy (APFS CoW clone on macOS, fresh install elsewhere).',
+      inputSchema: {
+        target: z.string().describe('Branch name, directory name or path of the worktree to isolate'),
+        reason: z.string().optional().describe('Why the worktree diverged from main (recorded in context history)'),
+        cwd: z.string().optional().describe('Repository directory (default: process.cwd())'),
+      },
     },
     async ({ target, reason, cwd }) => {
       const baseDir = cwd ? path.resolve(cwd) : process.cwd();

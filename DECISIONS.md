@@ -58,6 +58,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-044 | Adopt MIT License for open-source distribution | Accepted | 2026-10-23 |
 | D-045 | Self-contained CLI bundle and public registry metadata | Accepted | 2026-10-23 |
 | D-046 | Automated GitHub Actions CI and tag-driven release pipeline | Accepted | 2026-10-23 |
+| D-047 | Review new APIs and block deprecated TypeScript APIs in CI | Accepted | 2026-10-24 |
 
 ---
 
@@ -435,6 +436,15 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **CI Workflow (`.github/workflows/ci.yml`):** Runs on pushes to `main` and pull requests. Executes `pnpm format:check` and `pnpm typecheck`, followed by a matrix build and test job across `ubuntu-latest` and `macos-latest` on Node 20 and Node 22, plus `.vsix` packaging validation.
   - **Release Workflow (`.github/workflows/release.yml`):** Triggers on `v*.*.*` tags and `workflow_dispatch`. Runs full verification, packages the `.vsix` and `@para-space/cli` tarball, publishes a GitHub Release with both artifacts attached using `GITHUB_TOKEN`, and conditionally publishes to npm (`NPM_TOKEN`), Visual Studio Marketplace (`VSCE_PAT`), and Open VSX (`OVSX_PAT`) when secrets are configured.
 - **Problem Solved:** Guarantees cross-platform quality on every commit and automates `v*.*.*` releases even before external registry secrets are configured.
+
+## D-047 — Review new APIs and block deprecated TypeScript APIs in CI
+- **Status:** Accepted · 2026-10-24
+- **Requirement Context:** Contributors need a consistent way to avoid adopting deprecated third-party APIs, and the use of `McpServer.tool()` showed that TypeScript typechecking alone does not reject APIs marked `@deprecated`.
+- **Decision Made:**
+  - Before adopting an unfamiliar third-party API, inspect its installed type declarations and official documentation; prefer documented, non-deprecated replacements.
+  - Add type-aware ESLint enforcement with `@typescript-eslint/no-deprecated`, expose it as `pnpm lint`, and run it in the required CI verification job.
+  - Permit a deprecated API only through a narrow, reasoned suppression with a tracked follow-up issue.
+- **Problem Solved:** Makes API lifecycle review a contributor protocol and catches accidental references to deprecated TypeScript APIs before merge.
 
 ---
 

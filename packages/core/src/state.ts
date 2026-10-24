@@ -43,6 +43,7 @@ export interface StateFile {
   version: 1;
   repos: Record<string, RepoState>;
   workspaces?: Record<string, WorkspaceRecord>;
+  ignoredWorkspaces?: string[];
 }
 
 /** Overridable for tests via PARA_SPACE_HOME. */
@@ -61,12 +62,13 @@ export async function readState(): Promise<StateFile> {
     const parsed = text && (JSON.parse(text) as StateFile);
     if (parsed && parsed.version === 1 && parsed.repos) {
       parsed.workspaces ??= {};
+      parsed.ignoredWorkspaces ??= [];
       return parsed;
     }
   } catch {
     // corrupt → start fresh
   }
-  return { version: 1, repos: {}, workspaces: {} };
+  return { version: 1, repos: {}, workspaces: {}, ignoredWorkspaces: [] };
 }
 
 /** Atomic write: write a temp file, then rename over the original. */
@@ -134,13 +136,14 @@ export function nextWorktreeIndex(records: WorktreeRecord[]): number {
  * });
  */
 export async function updateWorkspaceState<T>(
-  fn: (workspaces: Record<string, WorkspaceRecord>) => T | Promise<T>,
+  fn: (workspaces: Record<string, WorkspaceRecord>, ignoredWorkspaces: string[]) => T | Promise<T>,
 ): Promise<T> {
   await mkdir(stateDir(), { recursive: true });
   return withFileLock(stateLockPath(), async () => {
     const state = await readState();
     state.workspaces ??= {};
-    const result = await fn(state.workspaces);
+    state.ignoredWorkspaces ??= [];
+    const result = await fn(state.workspaces, state.ignoredWorkspaces);
     await writeState(state);
     return result;
   });
@@ -155,8 +158,10 @@ export async function updateWorkspaceState<T>(
  * await saveWorkspaceRecord({ id: wsFile, name: 'my-app', workspaceFile: wsFile, branch: 'feat/x', repos: [...] });
  */
 export async function saveWorkspaceRecord(record: WorkspaceRecord): Promise<void> {
-  await updateWorkspaceState((workspaces) => {
+  await updateWorkspaceState((workspaces, ignoredWorkspaces) => {
     const key = path.resolve(record.workspaceFile);
+    const ignoredIndex = ignoredWorkspaces.indexOf(key);
+    if (ignoredIndex >= 0) ignoredWorkspaces.splice(ignoredIndex, 1);
     workspaces[key] = {
       ...record,
       id: key,
@@ -178,6 +183,7 @@ export async function saveWorkspaceRecord(record: WorkspaceRecord): Promise<void
  */
 export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<WorkspaceRecord[]> {
   const state = await readState();
+  const ignoredWorkspaces = new Set((state.ignoredWorkspaces ?? []).map((file) => path.resolve(file)));
 
   // Map known worktree paths to their colors from state.repos
   const knownWorktreeColors: Record<string, string> = {};
@@ -224,6 +230,7 @@ export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<Work
     const wsFiles = await findAllWorkspaceConfigFiles(dir);
     for (const file of wsFiles) {
       const key = path.resolve(file);
+      if (ignoredWorkspaces.has(key)) continue;
       if (!state.workspaces[key]) {
         const record = await parseWorkspaceFileAsRecord(key, knownWorktreeColors);
         if (record) {
@@ -291,12 +298,17 @@ export async function findWorkspaceForWorktree(worktreePath: string): Promise<Wo
  * Removes a multi-repo workspace record from `state.json`.
  *
  * @param workspaceFile - Absolute path to the .code-workspace file.
+ * @param keepFile - Whether to suppress automatic discovery while leaving the file on disk.
  *
  * @example
  * await removeWorkspaceRecord('/code/my-app.code-workspace');
  */
-export async function removeWorkspaceRecord(workspaceFile: string): Promise<void> {
-  await updateWorkspaceState((workspaces) => {
-    delete workspaces[path.resolve(workspaceFile)];
+export async function removeWorkspaceRecord(workspaceFile: string, keepFile = true): Promise<void> {
+  await updateWorkspaceState((workspaces, ignoredWorkspaces) => {
+    const key = path.resolve(workspaceFile);
+    delete workspaces[key];
+    const ignoredIndex = ignoredWorkspaces.indexOf(key);
+    if (keepFile && ignoredIndex < 0) ignoredWorkspaces.push(key);
+    if (!keepFile && ignoredIndex >= 0) ignoredWorkspaces.splice(ignoredIndex, 1);
   });
 }
