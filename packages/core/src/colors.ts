@@ -28,6 +28,9 @@ export const PALETTE: ColorProfile[] = [
 /**
  * Window color for a worktree index. 0 is the main repo; worktrees cycle through the rest.
  *
+ * @param index - Worktree index (0 for main repo, ≥ 1 for linked worktrees).
+ * @returns The `ColorProfile` assigned to that index.
+ *
  * @example
  * colorForIndex(0); // → Graphite #414853
  * colorForIndex(1); // → Lagoon #137d87
@@ -60,6 +63,9 @@ export function colorForHex(hex?: string): ColorProfile {
  * activity bar in the user's theme with only a colored active-item marker, so the window stays
  * calm. The inactive title bar uses the solid deeper shade: semi-transparent colors blend with
  * whatever is behind them and turn muddy.
+ *
+ * @param profile - `ColorProfile` containing `hex`, `dark`, and `light` shades.
+ * @returns Map of VS Code workbench color customization keys to hex color strings.
  *
  * @example
  * settings['workbench.colorCustomizations'] = peacockSettings(colorForIndex(1));

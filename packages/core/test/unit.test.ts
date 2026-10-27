@@ -8,7 +8,7 @@ import { checkDivergence } from '../src/divergence.js';
 import { upsertEnv } from '../src/envfile.js';
 import { manifestFiles } from '../src/frameworks/index.js';
 import { mergeSettings, parseJsonc } from '../src/ide.js';
-import { slugify, worktreePathFor } from '../src/paths.js';
+import { slugify, worktreePathFor, worktreesDir, workspacesDir } from '../src/paths.js';
 import { getPortStrategy } from '../src/ports/index.js';
 import { PALETTE, colorForIndex, peacockSettings } from '../src/colors.js';
 import { formatEntry, parseLedger, type LedgerEntry } from '../src/ledger.js';
@@ -22,6 +22,9 @@ import {
   readWorkspaceConfigFile,
   parseWorkspaceFileAsRecord,
   discoverWorkspaceRepoRoots,
+  findMatchingWorkspace,
+  filterWorkspaces,
+  filterWorktreeRows,
 } from '../src/workspace.js';
 
 describe('paths', () => {
@@ -30,7 +33,7 @@ describe('paths', () => {
     expect(slugify('fix//weird name!')).toBe('fix-weird-name');
   });
   it('puts worktrees in a sibling directory', () => {
-    expect(worktreePathFor('/code/myapp', 'feat/TK-101')).toBe('/code/myapp-feat-TK-101');
+    expect(worktreePathFor('/code/myapp', 'feat/TK-101')).toBe(path.join(worktreesDir(), 'code', 'myapp-feat-TK-101'));
   });
 });
 
@@ -269,16 +272,16 @@ describe('workspace helpers', () => {
 
   it('multiRepoWorkspaceFilePath computes clean sibling paths', () => {
     const p1 = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', '/code/existing.code-workspace');
-    expect(p1).toBe('/code/existing-feat-1.code-workspace');
+    expect(p1).toBe(path.join(workspacesDir(), 'existing-feat-1.code-workspace'));
 
     const p2 = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', undefined, 'my-project');
-    expect(p2).toBe('/code/my-project-feat-1.code-workspace');
+    expect(p2).toBe(path.join(workspacesDir(), 'my-project-feat-1.code-workspace'));
   });
 
-  it('reads and discovers workspace config files', async () => {
+  it('reads and discovers workspace config files (including JSONC comments and trailing commas)', async () => {
     const tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'para-test-ws-')));
     const wsFile = path.join(tmp, 'test.code-workspace');
-    await writeFile(wsFile, JSON.stringify({ folders: [{ path: './sub' }], settings: { 'a.b': 1 } }));
+    await writeFile(wsFile, '{\n  // comment\n  "folders": [{ "path": "./sub", }],\n  "settings": { "a.b": 1, },\n}\n');
 
     const found = await findWorkspaceConfigFile(tmp);
     expect(found).toBe(wsFile);
@@ -290,6 +293,24 @@ describe('workspace helpers', () => {
     expect(parsed?.settings).toEqual({ 'a.b': 1 });
 
     await rm(tmp, { recursive: true, force: true });
+  });
+
+  it('findMatchingWorkspace and filter helpers match by branch, name, and .code-workspace filename', () => {
+    const records = [
+      {
+        id: '/home/.para-space/workspaces/app-feat-login.code-workspace',
+        name: 'app-feat-login',
+        workspaceFile: '/home/.para-space/workspaces/app-feat-login.code-workspace',
+        branch: 'feat/login',
+        repos: [{ root: '/code/web', name: 'web', worktreePath: '/home/.para-space/worktrees/code/web-feat-login' }],
+        createdAt: '',
+      },
+    ];
+    expect(findMatchingWorkspace(records, 'feat/login')?.name).toBe('app-feat-login');
+    expect(findMatchingWorkspace(records, 'app-feat-login.code-workspace')?.name).toBe('app-feat-login');
+    expect(filterWorkspaces(records, 'web')).toHaveLength(1);
+    expect(filterWorkspaces(records, 'missing')).toHaveLength(0);
+    expect(filterWorktreeRows([{ name: '(main)', branch: 'main', path: '/code/web' }], 'web', 'web')).toHaveLength(1);
   });
 
   it('parses existing workspace file into a WorkspaceRecord', async () => {

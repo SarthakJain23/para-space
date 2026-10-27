@@ -1,4 +1,5 @@
-import type { WorktreeInfo } from '@para-space/core';
+import path from 'node:path';
+import { type WorktreeInfo, workspacesDir } from '@para-space/core';
 import { describe, expect, it } from 'vitest';
 import {
   buildBranchPickItems,
@@ -180,7 +181,7 @@ describe('multi-repo workspace config helpers', () => {
       'feat/x',
       '/code/my-app.code-workspace',
     );
-    expect(p).toBe('/code/my-app-feat-x.code-workspace');
+    expect(p).toBe(path.join(workspacesDir(), 'my-app-feat-x.code-workspace'));
   });
 
   it('multiRepoWorkspaceFilePath derives path from parent directory and workspace name when no existing file', () => {
@@ -190,6 +191,6 @@ describe('multi-repo workspace config helpers', () => {
       undefined,
       'My Project (Workspace)',
     );
-    expect(p).toBe('/code/My-Project-feat-x.code-workspace');
+    expect(p).toBe(path.join(workspacesDir(), 'My-Project-feat-x.code-workspace'));
   });
 });

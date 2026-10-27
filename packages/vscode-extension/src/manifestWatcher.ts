@@ -1,4 +1,4 @@
-import { checkDivergence, isolateWorktree, manifestFiles } from '@para-space/core';
+import { checkDivergence, isolateWorktree, manifestFiles, worktreesDir } from '@para-space/core';
 import * as vscode from 'vscode';
 import { isInside } from './dialogs.js';
 import type { Runtime } from './runtime.js';
@@ -84,12 +84,19 @@ export function watchManifests(store: WorktreeStore, rt: Runtime): vscode.Dispos
 
   const pattern = `**/{${manifestFiles().join(',')}}`;
   const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+  const centralWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(vscode.Uri.file(worktreesDir()), pattern),
+  );
 
   return [
     watcher,
     watcher.onDidCreate((uri) => schedule(uri)),
     watcher.onDidChange((uri) => schedule(uri)),
     watcher.onDidDelete((uri) => schedule(uri)),
+    centralWatcher,
+    centralWatcher.onDidCreate((uri) => schedule(uri)),
+    centralWatcher.onDidChange((uri) => schedule(uri)),
+    centralWatcher.onDidDelete((uri) => schedule(uri)),
     { dispose: () => clearTimeout(timer) },
   ];
 }

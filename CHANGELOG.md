@@ -4,6 +4,26 @@ All notable changes to **ParaSpace** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-10-27
+
+### Added
+- **Centralized `~/.para-space` Storage (`D-049`):**
+  - New worktrees are created in `~/.para-space/worktrees/<project>/<repo>-<branch>` and `.code-workspace` files in `~/.para-space/workspaces/`, keeping the parent project directory clean while maintaining backward compatibility with existing sibling worktrees.
+- **Automatic Base-Branch Sync (`D-049`):**
+  - Creating a new branch automatically fetches the latest commits for the chosen base branch from `origin` and fast-forwards the local base branch before branching, while preserving unpushed local commits when local is ahead of `origin`.
+- **Agent Workspace & Worktree Removal (`para_remove_workspace` & `para workspace remove`):**
+  - Added `para_remove_workspace` to both the MCP server (`para mcp`) and VS Code Language Model Tools, and added `--remove-worktrees`, `-d, --delete-branch`, and `-f, --force` to `para workspace remove`.
+- **Enhanced GitHub Copilot & VS Code MCP Integration (`D-049`):**
+  - Added `onLanguageModelTool:*` activation events, `toolReferenceName`, `canBeReferencedInPrompt: true`, `tags`, and `prepareInvocation` handlers for all 5 VS Code Language Model Tools, and added VS Code `User/mcp.json` configuration to `para setup-agent`.
+- **Shared Core Workspace Orchestration & Reusable Components Registry (`D-050`):**
+  - Extracted shared multi-repo batch provisioning (`provisionWorkspaceBatch`), workspace persistence (`writeAndSaveWorkspace`), cascade removal (`removeWorkspaceCascade`), and search/matching helpers into `@para-space/core`, decomposed CLI and VS Code modules under 250 lines, and added `REUSABLE_COMPONENTS.md`.
+
+### Fixed
+- **Tree-Focus-Safe Repository Selection (`D-049`):**
+  - Fixed `resolveTargetRepos()` in VS Code so clicking `+` (`Create Worktree…`) in the Worktrees view title while a tree item is focused still opens the multi-repository picker.
+- **Centralized Manifest Watcher & JSONC Workspace Parsing:**
+  - Extended `watchManifests` to watch `~/.para-space/worktrees` directly and updated `readWorkspaceConfigFile` to parse JSONC comments and trailing commas.
+
 ## [0.1.1] - 2026-10-24
 
 ### Added

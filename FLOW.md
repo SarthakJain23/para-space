@@ -23,7 +23,6 @@ VS Code ext ┘   resolve.ts  (find worktree)        ├── Git ignore helper
 ```
 
 Front-ends inject a Prompter; with none (agents, --yes, no TTY) core never prompts (D-020).
-```
 
 Files ParaSpace reads/writes:
 
@@ -31,8 +30,9 @@ Files ParaSpace reads/writes:
 | :--- | :--- | :--- |
 | `.para-space.json` | Repo (committed) | Port strategy, base port, env keys, optional `portPool` (D-004, D-014, D-015) |
 | `.para-space/context-history.md` | Repo | Living decision ledger (D-007) |
-| `~/.para-space/state.json` | Machine | Worktrees, index, ports, links, colors, multi-repo `workspaces`; atomic writes; `PARA_SPACE_HOME` overrides (D-010, D-022, D-041) |
-| `<dir>/<name>-<slug>.code-workspace` | Workspace | Multi-repo VS Code workspace file with member worktree folders and top-level OKLCH Peacock `settings` (D-038, D-039, D-040) |
+| `~/.para-space/state.json` | Machine | Worktrees, index, ports, links, colors, multi-repo `workspaces`, and `ignoredWorkspaces`; atomic writes; `PARA_SPACE_HOME` overrides (D-010, D-022, D-041, D-048) |
+| `~/.para-space/worktrees/<project>/<repo>-<slug>` | Machine | Centralized directory where ParaSpace provisions linked Git worktrees (D-049) |
+| `~/.para-space/workspaces/<name>-<slug>.code-workspace` | Machine | Centralized multi-repo VS Code workspace file with member worktree folders and top-level OKLCH Peacock `settings` (D-038, D-039, D-040, D-049) |
 | `<worktree>/.env` | Worktree | Symlink to main's `.env` (D-013) |
 | `<worktree>/.env.local` | Worktree | Own copy of main's `.env.local` + assigned port(s) (D-013) |
 | `$GIT_COMMON_DIR/info/exclude` | Repo (local) | Patterns that hide ParaSpace's links from git (D-019) |
@@ -42,7 +42,7 @@ Files ParaSpace reads/writes:
 ---
 
 ## 1. Create Worktree — `para create <branch> [--base <ref>]`
-_Status: Implemented · Last updated: 2026-10-18 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-012–D-020, D-022, D-027, D-037_
+_Status: Implemented · Last updated: 2026-10-27 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-013–D-020, D-022, D-027, D-037, D-049_
 
 Flags: `--port-strategy`, `--base-port`, `--port-pool` (first run only), `--ide` / `--no-ide`, `-r/--requirement <text>`, `-y/--yes`, `--json`.
 
@@ -53,7 +53,7 @@ flowchart TD
     C --> D[Write .para-space.json<br/>append .para-space/ to .gitignore<br/>ledger entry]
     B -- Yes --> E[Load config]
     D --> E
-    E --> F[git worktree add -b branch ../repo-slug base<br/>or reuse existing branch]
+    E --> F[Sync base branch with origin<br/>git worktree add in ~/.para-space/worktrees/...]
     F --> S[Under state.lock: pick index, allocate port,<br/>write placeholder record]
     S --> G[Detect strategies in main repo]
     G --> H[Symlink node_modules / .venv / .env<br/>copy .env.local]
@@ -68,9 +68,9 @@ flowchart TD
     F -. any later step fails .-> R[Rollback: unlink, worktree remove --force,<br/>delete branch if created, drop reservation]
 ```
 
-1. Resolve the **main** repo root via `git rev-parse --git-common-dir` (works from inside any worktree). The target is `../<repo>-<slug>`, and it fails if that path already exists.
+1. Resolve the **main** repo root via `git rev-parse --git-common-dir` (works from inside any worktree). The target is `~/.para-space/worktrees/<project-slug>/<repo>-<slug>` (D-049), and it fails if that path already exists.
 2. **First run:** if `.para-space.json` is missing, use `--port-strategy` or default to `offset` silently without interrupting the user (D-037). `envKeys` = `PORT` plus strategy defaults (`VITE_PORT` for Vite). Append `.para-space/` to `.gitignore` and write a ledger entry. (Interactive port strategy configuration is available on-demand via `para config` / `paraSpace.configureRepo`).
-3. `git worktree add -b <branch> <path> <base>`. If the branch already exists, it is checked out instead.
+3. **Sync base branch & checkout (D-049):** if `<branch>` already exists locally, `git worktree add <path> <branch>` checks it out. Otherwise, `syncBaseBranch()` fetches `<base>` (or the current branch if `--base` was omitted) from `origin`, fast-forwards the local base branch (`git pull --ff-only` in its checked-out worktree or `git fetch origin <base>:<base>`), and runs `git worktree add --no-track -b <branch> <path> origin/<base>`.
 3a. **Reserve a slot (D-027):** while holding `~/.para-space/state.lock`, take `worktreeIndex` = lowest unused index ≥ 1, allocate a port (`assignedPorts` = ports in state + `basePort`), and write a placeholder record. Concurrent creates therefore never share an index or port. This happens after `git worktree add` so a concurrent `list` doesn't prune the placeholder.
 4. For each detected `FrameworkStrategy`, call `linkDependencies()`. Node links `node_modules` (skipped for Yarn PnP). Python links `.venv`. Env links `.env` and copies `.env.local`. Existing paths in the worktree (e.g. a tracked `.env`) are left alone.
 5. Write root-anchored patterns for the links and `.env.local` to `$GIT_COMMON_DIR/info/exclude`.
@@ -86,9 +86,9 @@ Every state write (create, isolate, remove, list's prune) goes through `updateRe
 ---
 
 ## 1a. Multi-Repository Workspace — `para workspace create [branch]` (`ws`)
-_Status: Implemented · Last updated: 2026-10-22 · Decisions: D-001, D-012, D-022, D-037, D-038, D-039, D-041, D-042_
+_Status: Implemented · Last updated: 2026-10-27 · Decisions: D-001, D-022, D-037, D-038, D-039, D-041, D-042, D-048, D-049_
 
-Subcommands: `create` (default), `open [target]`, `list` (`ls`).
+Subcommands: `create` (default), `open [target]`, `list [query]` (`ls`), `remove <target>` (`rm`).
 Flags for `create`: `--repo <paths...>`, `-b/--base <ref>`, `--per-repo`, `-r/--requirement <text>`, `--name <name>`, `--ide` / `--no-ide`, `-y/--yes`, `--json`.
 
 1. **Repository discovery & selection:**
@@ -103,13 +103,14 @@ Flags for `create`: `--repo <paths...>`, `-b/--base <ref>`, `--per-repo`, `-r/--
    - Provisions each repository sequentially via `createWorktree`.
    - If provisioning fails for any repository, all previously created worktrees are automatically rolled back with `removeWorktree` and rollback issues are reported (D-022, D-039).
 4. **Workspace configuration file:**
-   - Emits or updates a `.code-workspace` file pointing to the new worktree paths (preserving workspace settings from any existing workspace file in cwd).
+   - Emits or updates a `.code-workspace` file inside `~/.para-space/workspaces/` pointing to the new worktree paths (preserving workspace settings from any existing workspace file in cwd) (D-049).
    - Injects the assigned OKLCH Peacock window theme into `.code-workspace` settings (D-040).
    - Saves a `WorkspaceRecord` into `state.json` under `workspaces` for 1-click reopening (D-041).
    - Prints output or returns JSON when `--json` is supplied.
-5. **Workspace Opening & Listing:**
+5. **Workspace Opening, Listing & Removal:**
    - `para workspace open [target]`: opens a recorded or on-disk workspace in VS Code via `code <workspaceFile>`. Supports matching by branch, workspace name, or file path.
-   - `para workspace list [--json]`: lists all registered and discovered multi-repo workspaces with member repos.
+   - `para workspace list [query] [-q/--query <query>] [--json]`: lists all registered and discovered multi-repo workspaces with member repos, optionally filtered by query (D-048).
+   - `para workspace remove <target> [--delete-file] [-y/--yes]`: removes a workspace record from ParaSpace, optionally deleting the `.code-workspace` file from disk or suppressing future auto-discovery via `ignoredWorkspaces` (D-048).
 
 ---
 
@@ -292,3 +293,5 @@ flowchart TD
 | 2026-10-22 | Automatic on-disk workspace discovery, container folder scanning, and browse dialog | 1a, 5 | D-042 |
 | 2026-10-22 | Zero-config AI agent architecture: VS Code Language Model Tools API, CLI stdio MCP server (`para mcp`), and `para setup-agent` | 1a, 5 | D-043 |
 | 2026-10-24 | Workspace removal (`paraSpace.removeWorkspace`, `para workspace rm`), search query filtering across CLI/MCP/LM tools, stale workspace member pruning, and cross-repo worktree resolution & manifest watching | 1a, 2, 3, 4, 5, 6 | D-048 |
+| 2026-10-27 | Centralized `~/.para-space/worktrees` and `~/.para-space/workspaces` storage, automatic `origin` base-branch fetch/pull on new branch creation, `para_remove_workspace` MCP/LM tool, Copilot tool metadata & `mcp.json` setup, and tree-focus-safe repository picker | 0, 1, 1a, 5 | D-049 |
+| 2026-10-27 | Extracted shared multi-repo workspace orchestration (`provisionWorkspaceBatch`, `writeAndSaveWorkspace`, `removeWorkspaceCascade`) and search matchers (`findMatchingWorkspace`, `filterWorkspaces`, `filterWorktreeRows`) into `@para-space/core`; split CLI/VS Code workspace, create, MCP, and LM tool modules into `*Prompts.ts`, `*Actions.ts`, and `*Handlers.ts`; added `REUSABLE_COMPONENTS.md` registry | 0, 1a, 5 | D-050 |

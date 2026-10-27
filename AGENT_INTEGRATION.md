@@ -7,7 +7,7 @@ How AI coding agents (such as **Claude Code**, **GitHub Copilot**, **Cursor**, *
 ## 1. Why Agents Use ParaSpace
 
 When coding agents work on tickets or features:
-1. **No checkout collisions:** The agent works on its own branch in an isolated Git worktree (`../<repo>-<branch>`) without interrupting the developer or stashing working tree edits.
+1. **No checkout collisions:** The agent works on its own branch in an isolated Git worktree (`~/.para-space/worktrees/<project>/<repo>-<branch>`) without interrupting the developer or stashing working tree edits.
 2. **Instant dependency availability:** Dependencies (`node_modules`, `.venv`) and environment variables (`.env`, `.env.local`) are symlinked from the main repository in milliseconds without running slow `npm install` or `pip install`.
 3. **Dedicated dev server ports:** ParaSpace allocates non-colliding ports via `.env.local` so parallel dev servers can run simultaneously.
 4. **Distinct window coloring:** Each worktree or workspace receives an OKLCH window theme (Peacock pattern) in `.vscode/settings.json` or `.code-workspace` so developers can visually identify which agent is working in which window.
@@ -38,15 +38,15 @@ para create feat/TRI-7402 --base main --yes -r "Implement Visa Request Form" --j
 ```json
 {
   "mainRoot": "/Users/sarthak/Desktop/Tripare/Business-Travel-Booking-Dashboard",
-  "path": "/Users/sarthak/Desktop/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402",
+  "path": "/Users/sarthak/.para-space/worktrees/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402",
   "branch": "feat/TRI-7402",
   "createdBranch": true,
   "port": 3003,
   "color": "#7855c3",
   "strategies": ["NodeStrategy", "EnvStrategy"],
   "links": [
-    "/Users/sarthak/Desktop/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402/node_modules",
-    "/Users/sarthak/Desktop/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402/.env"
+    "/Users/sarthak/.para-space/worktrees/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402/node_modules",
+    "/Users/sarthak/.para-space/worktrees/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402/.env"
   ]
 }
 ```
@@ -63,6 +63,7 @@ When a project spans multiple repositories in a workspace or parent directory:
 | **Create with explicit repos** | `para workspace create <branch> --repo ./frontend --repo ./backend --yes -r "<task-description>" --json` |
 | **List workspaces** | `para workspace list --json` |
 | **Open workspace in VS Code** | `para workspace open <branch>` *(or `code <workspaceFile>`)* |
+| **Remove workspace** | `para workspace remove <branch> --remove-worktrees --delete-file --yes` |
 
 **Example agent call:**
 ```bash
@@ -72,17 +73,17 @@ para workspace create feat/TRI-7402 --yes -r "Visa request API & frontend implem
 **JSON response:**
 ```json
 {
-  "workspaceFile": "/Users/sarthak/Desktop/Tripare/Untitled-feat-TRI-7402.code-workspace",
+  "workspaceFile": "/Users/sarthak/.para-space/workspaces/Tripare-feat-TRI-7402.code-workspace",
   "worktrees": [
     {
       "mainRoot": "/Users/sarthak/Desktop/Tripare/Business-Travel-Booking-Dashboard",
-      "path": "/Users/sarthak/Desktop/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402",
+      "path": "/Users/sarthak/.para-space/worktrees/Tripare/Business-Travel-Booking-Dashboard-feat-TRI-7402",
       "branch": "feat/TRI-7402",
       "port": 3003
     },
     {
       "mainRoot": "/Users/sarthak/Desktop/Tripare/tp-api",
-      "path": "/Users/sarthak/Desktop/Tripare/tp-api-feat-TRI-7402",
+      "path": "/Users/sarthak/.para-space/worktrees/Tripare/tp-api-feat-TRI-7402",
       "branch": "feat/TRI-7402",
       "port": 3003
     }
@@ -124,6 +125,7 @@ The ParaSpace extension registers native tools via VS Code's Language Model Tool
 - `para_open_workspace`: Opens an existing workspace in VS Code.
 - `para_list_worktrees`: Lists active worktrees and workspaces with ports; accepts an optional `query` to filter by name, branch, repository, or path.
 - `para_isolate_worktree`: Safely breaks away shared dependencies when manifests diverge.
+- `para_remove_workspace`: Removes a parallel multi-repo workspace and/or Git worktree, freeing its port and optionally deleting the branch and `.code-workspace` file.
 
 **User Experience:**
 When a user installs the **ParaSpace** extension from the Marketplace:
@@ -146,6 +148,7 @@ Run once on your machine:
 para setup-agent
 ```
 This automatically configures the ParaSpace MCP server in:
+- `~/Library/Application Support/Code/User/mcp.json` (VS Code / GitHub Copilot)
 - `~/.claude.json` (Claude Code)
 - `~/.cursor/mcp.json` (Cursor)
 - `~/.codeium/windsurf/mcp_config.json` (Windsurf)

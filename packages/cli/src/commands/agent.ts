@@ -8,12 +8,14 @@ import { action, ok } from '../runtime.js';
 
 interface McpConfigFile {
   mcpServers?: Record<string, { command: string; args: string[] }>;
+  servers?: Record<string, { type?: string; command: string; args: string[] }>;
   [key: string]: unknown;
 }
 
 interface TargetConfig {
   name: string;
   filePath: string;
+  format?: 'mcpServers' | 'vscode';
 }
 
 /** Returns the list of standard user-level MCP configuration file locations across agents. */
@@ -35,15 +37,35 @@ function getAgentConfigPaths(): TargetConfig[] {
   ];
 
   if (process.platform === 'darwin') {
-    configs.push({
-      name: 'Claude Desktop (macOS)',
-      filePath: path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
-    });
+    configs.push(
+      {
+        name: 'Claude Desktop (macOS)',
+        filePath: path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'),
+      },
+      {
+        name: 'VS Code (macOS)',
+        filePath: path.join(home, 'Library', 'Application Support', 'Code', 'User', 'mcp.json'),
+        format: 'vscode',
+      },
+    );
   } else if (process.platform === 'win32') {
     const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+    configs.push(
+      {
+        name: 'Claude Desktop (Windows)',
+        filePath: path.join(appData, 'Claude', 'claude_desktop_config.json'),
+      },
+      {
+        name: 'VS Code (Windows)',
+        filePath: path.join(appData, 'Code', 'User', 'mcp.json'),
+        format: 'vscode',
+      },
+    );
+  } else {
     configs.push({
-      name: 'Claude Desktop (Windows)',
-      filePath: path.join(appData, 'Claude', 'claude_desktop_config.json'),
+      name: 'VS Code (Linux)',
+      filePath: path.join(home, '.config', 'Code', 'User', 'mcp.json'),
+      format: 'vscode',
     });
   }
 
@@ -51,7 +73,10 @@ function getAgentConfigPaths(): TargetConfig[] {
 }
 
 /** Updates an MCP configuration file to include the ParaSpace MCP server. */
-async function addMcpServerToConfig(filePath: string): Promise<boolean> {
+async function addMcpServerToConfig(
+  filePath: string,
+  format: 'mcpServers' | 'vscode' = 'mcpServers',
+): Promise<boolean> {
   try {
     let config: McpConfigFile = {};
     try {
@@ -61,11 +86,20 @@ async function addMcpServerToConfig(filePath: string): Promise<boolean> {
       // file doesn't exist or empty, start fresh
     }
 
-    config.mcpServers ??= {};
-    config.mcpServers.paraspace = {
-      command: 'para',
-      args: ['mcp'],
-    };
+    if (format === 'vscode') {
+      config.servers ??= {};
+      config.servers.paraspace = {
+        type: 'stdio',
+        command: 'para',
+        args: ['mcp'],
+      };
+    } else {
+      config.mcpServers ??= {};
+      config.mcpServers.paraspace = {
+        command: 'para',
+        args: ['mcp'],
+      };
+    }
 
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(config, null, 2) + '\n', 'utf8');
@@ -96,7 +130,7 @@ export function registerAgentCommands(program: Command) {
         let configuredCount = 0;
 
         for (const target of configs) {
-          const success = await addMcpServerToConfig(target.filePath);
+          const success = await addMcpServerToConfig(target.filePath, target.format);
           if (success) {
             configuredCount++;
             console.log(`  ${pc.green('✔')} ${pc.bold(target.name)}: configured in ${pc.dim(target.filePath)}`);

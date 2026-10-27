@@ -2,7 +2,7 @@
   "name": "para-space-vscode",
   "displayName": "ParaSpace",
   "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "para-space",
   "author": "Sarthak Jain",
   "license": "MIT",
@@ -34,7 +34,12 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onLanguageModelTool:para_create_workspace",
+    "onLanguageModelTool:para_open_workspace",
+    "onLanguageModelTool:para_list_worktrees",
+    "onLanguageModelTool:para_isolate_worktree",
+    "onLanguageModelTool:para_remove_workspace"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -253,8 +258,16 @@
     "languageModelTools": [
       {
         "name": "para_create_workspace",
+        "toolReferenceName": "paraCreateWorkspace",
         "displayName": "Create Parallel Workspace",
         "modelDescription": "Creates a parallel Git worktree or multi-repository workspace for a branch with shared dependencies, dedicated dev port, and Peacock window theme using ParaSpace.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace"
+        ],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -285,8 +298,16 @@
       },
       {
         "name": "para_open_workspace",
+        "toolReferenceName": "paraOpenWorkspace",
         "displayName": "Open Parallel Workspace",
         "modelDescription": "Opens an existing parallel multi-repository workspace or single worktree in VS Code by branch name, workspace name, or file path.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace"
+        ],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -302,8 +323,16 @@
       },
       {
         "name": "para_list_worktrees",
+        "toolReferenceName": "paraListWorktrees",
         "displayName": "List Worktrees and Workspaces",
         "modelDescription": "Lists all active Git worktrees, assigned dev server ports, and multi-repo workspaces managed by ParaSpace.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace"
+        ],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -316,8 +345,16 @@
       },
       {
         "name": "para_isolate_worktree",
+        "toolReferenceName": "paraIsolateWorktree",
         "displayName": "Isolate Dependencies",
         "modelDescription": "Breaks away shared dependency symlinks into independent copies when manifests diverge (APFS CoW clone on macOS, fresh install elsewhere).",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace"
+        ],
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -328,6 +365,47 @@
             "reason": {
               "type": "string",
               "description": "Why the dependencies diverged (recorded in context history ledger)"
+            }
+          },
+          "required": [
+            "target"
+          ]
+        }
+      },
+      {
+        "name": "para_remove_workspace",
+        "toolReferenceName": "paraRemoveWorkspace",
+        "displayName": "Remove Parallel Workspace or Worktree",
+        "modelDescription": "Removes a parallel multi-repository workspace and/or Git worktree managed by ParaSpace, freeing its assigned port and optionally deleting the Git branch and .code-workspace file.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "description": "Branch name, workspace name, worktree directory name, or file/directory path to remove"
+            },
+            "deleteBranch": {
+              "type": "boolean",
+              "description": "Whether to also delete the associated Git branch (default: false)"
+            },
+            "deleteWorkspaceFile": {
+              "type": "boolean",
+              "description": "Whether to also delete the .code-workspace file from disk when removing a multi-repo workspace (default: true)"
+            },
+            "removeWorktrees": {
+              "type": "boolean",
+              "description": "When removing a multi-repo workspace, whether to also remove all member worktrees (default: true)"
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Force removal even if worktrees have uncommitted changes or unmerged branches (default: false)"
             }
           },
           "required": [

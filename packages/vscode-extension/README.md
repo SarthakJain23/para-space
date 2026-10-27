@@ -8,14 +8,14 @@ Spin up isolated Git worktrees and multi-repository workspaces in milliseconds�
 
 ## Key Features
 
-- **Instant Parallel Worktrees:** Create a branch worktree (`../<repo>-<branch>`) in 1 click without stashing or waiting for `npm install` / `pip install`.
+- **Instant Parallel Worktrees:** Create a branch worktree (`~/.para-space/worktrees/<project>/<repo>-<branch>`) in 1 click without stashing or waiting for `npm install` / `pip install`.
 - **Multi-Repository Workspaces:** Select multiple repositories (e.g., `frontend` + `backend`), provision matching branch worktrees across all of them, and launch a pre-configured, color-themed `.code-workspace` window automatically.
 - **Zero-Copy Dependency Sharing:** Symlinks `node_modules`, `.venv`, and `.env` from your main checkout (using directory junctions on Windows).
 - **Per-Worktree Dev Ports:** Allocates dedicated ports (`PORT`, `VITE_PORT`, etc.) into `.env.local` using pluggable strategies (`offset`, `scan`, `pool`, `passthrough`) so parallel dev servers never collide.
 - **Manifest Watcher & 1-Click Breakaway Isolation:** Automatically detects when `package.json`, lockfiles, or Python manifests diverge from the main checkout and offers 1-click **Isolate Dependencies** (using instant APFS Copy-on-Write clones on macOS).
 - **OKLCH Window Coloring:** Opt-in, equal-lightness title bar and status bar themes so you can immediately tell parallel windows apart.
 - **Living Context History Ledger:** Records why each worktree was created, configured, or isolated in `.para-space/context-history.md` and surfaces it in the **Context History** sidebar view.
-- **Native GitHub Copilot Tools:** Exposes `para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, and `para_isolate_worktree` to GitHub Copilot Chat out of the box—no repo configuration files needed.
+- **Native GitHub Copilot Tools:** Exposes `para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, and `para_remove_workspace` to GitHub Copilot Chat out of the box—no repo configuration files needed.
 
 ---
 
@@ -68,7 +68,7 @@ ParaSpace supports full multi-repository workflows (for example, `frontend` + `b
 With the extension installed, ask GitHub Copilot in Agent mode:
 > *"Create a parallel workspace for branch `feat/TK-101` with requirement 'Auth redesign' and open it."*
 
-Copilot automatically invokes ParaSpace's built-in Language Model Tools (`para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`).
+Copilot automatically invokes ParaSpace's built-in Language Model Tools (`para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, `para_remove_workspace`).
 
 ---
 

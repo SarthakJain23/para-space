@@ -7,8 +7,9 @@ Thank you for your interest in contributing to **ParaSpace**!
 Before making changes, please review our living project docs:
 
 1. **[GUIDELINES.md](./GUIDELINES.md)** — The single source of truth for contributor rules: code structure, TSDoc comments, concurrency/locking rules, environment safety, testing, formatting, and living documentation requirements.
-2. **[DECISIONS.md](./DECISIONS.md)** — Architectural and behavioral decision log (`D-001` through `D-045`). Any change that introduces a new design, scope, or behavioral choice must add a `D-NNN` entry in the same commit.
-3. **[FLOW.md](./FLOW.md)** — Step-by-step system flows for every ParaSpace operation.
+2. **[REUSABLE_COMPONENTS.md](./REUSABLE_COMPONENTS.md)** — The living registry of reusable orchestrators, handlers, prompts, UI builders, and utilities across `core`, `cli`, and `vscode-extension`. Check it before writing new helpers and update it whenever reusable components change (`D-050`).
+3. **[DECISIONS.md](./DECISIONS.md)** — Architectural and behavioral decision log (`D-001` through `D-050`). Any change that introduces a new design, scope, or behavioral choice must add a `D-NNN` entry in the same commit.
+4. **[FLOW.md](./FLOW.md)** — Step-by-step system flows for every ParaSpace operation.
 
 ## Development Setup
 
@@ -44,5 +45,7 @@ pnpm format:check
 - [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm format:check` all pass.
 - [ ] New behavior includes unit and/or integration tests.
 - [ ] Exported functions in `@para-space/core` include TSDoc comments.
+- [ ] Existing building blocks in [REUSABLE_COMPONENTS.md](./REUSABLE_COMPONENTS.md) were reused where applicable, and any new or updated reusable components are documented in [REUSABLE_COMPONENTS.md](./REUSABLE_COMPONENTS.md).
+- [ ] Source files stay under 250 lines with a single clear responsibility per function and module.
 - [ ] [DECISIONS.md](./DECISIONS.md) and [FLOW.md](./FLOW.md) are updated if any architectural choice or operational flow changed.
 - [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat(core): ...`, `fix(cli): ...`, `docs: ...`).

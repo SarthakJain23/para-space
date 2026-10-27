@@ -1,9 +1,18 @@
-import os from 'node:os';
-import path from 'node:path';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
-import { exists, readTextIfExists } from './util/fs.js';
+import path from 'node:path';
+import { paraSpaceHome, workspacesDir } from './paths.js';
+import { readTextIfExists } from './util/fs.js';
 import { withFileLock } from './util/lock.js';
-import { findAllWorkspaceConfigFiles, parseWorkspaceFileAsRecord } from './workspace.js';
+import type { WorkspaceRecord } from './workspaceState.js';
+
+export {
+  type WorkspaceRepoEntry,
+  type WorkspaceRecord,
+  saveWorkspaceRecord,
+  getWorkspaceRecords,
+  findWorkspaceForWorktree,
+  removeWorkspaceRecord,
+} from './workspaceState.js';
 
 export type DepsMode = 'Source' | 'Symlinked' | 'Isolated' | 'None';
 
@@ -23,22 +32,6 @@ export interface RepoState {
   worktrees: WorktreeRecord[];
 }
 
-export interface WorkspaceRepoEntry {
-  root: string;
-  name: string;
-  worktreePath: string;
-}
-
-export interface WorkspaceRecord {
-  id: string;
-  name: string;
-  workspaceFile: string;
-  branch: string;
-  color?: string;
-  repos: WorkspaceRepoEntry[];
-  createdAt: string;
-}
-
 export interface StateFile {
   version: 1;
   repos: Record<string, RepoState>;
@@ -46,16 +39,38 @@ export interface StateFile {
   ignoredWorkspaces?: string[];
 }
 
-/** Overridable for tests via PARA_SPACE_HOME. */
+/**
+ * Returns the directory where ParaSpace stores its machine-wide state file (overridable via `PARA_SPACE_HOME`).
+ *
+ * @returns Absolute path to the state directory.
+ *
+ * @example
+ * const dir = stateDir(); // → '/Users/you/.para-space'
+ */
 export function stateDir(): string {
-  return path.resolve(process.env.PARA_SPACE_HOME ?? path.join(os.homedir(), '.para-space'));
+  return paraSpaceHome();
 }
 
-/** Machine-wide state file: `~/.para-space/state.json`, or under `PARA_SPACE_HOME` (D-010). */
+/**
+ * Returns the machine-wide state file path (`~/.para-space/state.json`, or under `PARA_SPACE_HOME`) (D-010).
+ *
+ * @returns Absolute path to `state.json`.
+ *
+ * @example
+ * const file = statePath(); // → '/Users/you/.para-space/state.json'
+ */
 export function statePath(): string {
   return path.join(stateDir(), 'state.json');
 }
 
+/**
+ * Reads and parses the ParaSpace state file, returning an initialized default state if missing or corrupt.
+ *
+ * @returns Parsed `StateFile` object.
+ *
+ * @example
+ * const state = await readState();
+ */
 export async function readState(): Promise<StateFile> {
   const text = await readTextIfExists(statePath());
   try {
@@ -71,14 +86,31 @@ export async function readState(): Promise<StateFile> {
   return { version: 1, repos: {}, workspaces: {}, ignoredWorkspaces: [] };
 }
 
-/** Atomic write: write a temp file, then rename over the original. */
+/**
+ * Atomically writes the state file via a temporary file and rename.
+ *
+ * @param state - Complete `StateFile` object to write.
+ * @returns Promise that resolves once `state.json` is updated.
+ *
+ * @example
+ * await writeState(state);
+ */
 export async function writeState(state: StateFile): Promise<void> {
   await mkdir(stateDir(), { recursive: true });
-  const tmp = `${statePath()}.${process.pid}.${Date.now()}.tmp`;
+  await mkdir(workspacesDir(), { recursive: true });
+  const tmp = `${statePath()}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
   await writeFile(tmp, JSON.stringify(state, null, 2) + '\n');
   await rename(tmp, statePath());
 }
 
+/**
+ * Returns the path to the lock file guarding `state.json` transactions.
+ *
+ * @returns Absolute path to `state.lock`.
+ *
+ * @example
+ * const lock = stateLockPath();
+ */
 export function stateLockPath(): string {
   return path.join(stateDir(), 'state.lock');
 }
@@ -111,12 +143,29 @@ export async function updateRepoState<T>(mainRoot: string, fn: (repo: RepoState)
   });
 }
 
+/**
+ * Reads the persisted worktree state for a repository root.
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @returns `RepoState` containing recorded worktrees for that repository.
+ *
+ * @example
+ * const { worktrees } = await getRepoState('/code/app');
+ */
 export async function getRepoState(mainRoot: string): Promise<RepoState> {
   const state = await readState();
   return state.repos[path.resolve(mainRoot)] ?? { worktrees: [] };
 }
 
-/** Lowest worktree index ≥ 1 not used by any record (0 is the main repo). */
+/**
+ * Computes the lowest worktree index ≥ 1 not used by any existing record (0 is reserved for the main repo).
+ *
+ * @param records - Existing worktree records for a repository.
+ * @returns Lowest available positive integer index.
+ *
+ * @example
+ * const idx = nextWorktreeIndex(records); // → 1
+ */
 export function nextWorktreeIndex(records: WorktreeRecord[]): number {
   const used = new Set(records.map((r) => r.index));
   let i = 1;
@@ -146,187 +195,5 @@ export async function updateWorkspaceState<T>(
     const result = await fn(state.workspaces, state.ignoredWorkspaces);
     await writeState(state);
     return result;
-  });
-}
-
-/**
- * Saves or updates a multi-repo workspace record in `state.json`.
- *
- * @param record - The workspace record to persist.
- *
- * @example
- * await saveWorkspaceRecord({ id: wsFile, name: 'my-app', workspaceFile: wsFile, branch: 'feat/x', repos: [...] });
- */
-export async function saveWorkspaceRecord(record: WorkspaceRecord): Promise<void> {
-  await updateWorkspaceState((workspaces, ignoredWorkspaces) => {
-    const key = path.resolve(record.workspaceFile);
-    const ignoredIndex = ignoredWorkspaces.indexOf(key);
-    if (ignoredIndex >= 0) ignoredWorkspaces.splice(ignoredIndex, 1);
-    workspaces[key] = {
-      ...record,
-      id: key,
-      workspaceFile: key,
-    };
-  });
-}
-
-/**
- * Retrieves valid multi-repo workspace records, optionally filtering by participating repository roots.
- * Automatically discovers any existing .code-workspace files in candidate project directories,
- * and prunes records whose .code-workspace file no longer exists on disk.
- *
- * @param forRepoRoots - Optional array of repository roots to filter by.
- * @returns Array of active WorkspaceRecord entries.
- *
- * @example
- * const workspaces = await getWorkspaceRecords(['/code/frontend', '/code/backend']);
- */
-export async function getWorkspaceRecords(forRepoRoots?: string[]): Promise<WorkspaceRecord[]> {
-  const state = await readState();
-  const ignoredWorkspaces = new Set((state.ignoredWorkspaces ?? []).map((file) => path.resolve(file)));
-
-  // Map known worktree paths to their colors from state.repos
-  const knownWorktreeColors: Record<string, string> = {};
-  for (const repo of Object.values(state.repos)) {
-    for (const wt of repo.worktrees) {
-      if (wt.color) {
-        knownWorktreeColors[path.resolve(wt.path)] = wt.color;
-      }
-    }
-  }
-
-  // Gather candidate directories to discover any on-disk .code-workspace files
-  const candidateDirs = new Set<string>();
-  try {
-    const cwd = process.cwd();
-    if (cwd) {
-      candidateDirs.add(path.resolve(cwd));
-      candidateDirs.add(path.dirname(path.resolve(cwd)));
-    }
-  } catch {
-    // ignore
-  }
-
-  for (const [repoRoot, repo] of Object.entries(state.repos)) {
-    candidateDirs.add(path.resolve(repoRoot));
-    candidateDirs.add(path.dirname(path.resolve(repoRoot)));
-    for (const wt of repo.worktrees) {
-      candidateDirs.add(path.dirname(path.resolve(wt.path)));
-    }
-  }
-
-  if (forRepoRoots) {
-    for (const r of forRepoRoots) {
-      candidateDirs.add(path.resolve(r));
-      candidateDirs.add(path.dirname(path.resolve(r)));
-    }
-  }
-
-  // Scan candidate directories for .code-workspace files and auto-register any missing ones
-  let stateModified = false;
-  state.workspaces ??= {};
-
-  for (const dir of candidateDirs) {
-    const wsFiles = await findAllWorkspaceConfigFiles(dir);
-    for (const file of wsFiles) {
-      const key = path.resolve(file);
-      if (ignoredWorkspaces.has(key)) continue;
-      if (!state.workspaces[key]) {
-        const record = await parseWorkspaceFileAsRecord(key, knownWorktreeColors);
-        if (record) {
-          state.workspaces[key] = record;
-          stateModified = true;
-        }
-      }
-    }
-  }
-
-  if (stateModified) {
-    await updateWorkspaceState((workspaces) => {
-      Object.assign(workspaces, state.workspaces);
-    }).catch(() => {});
-  }
-
-  const all = Object.values(state.workspaces);
-  const valid: WorkspaceRecord[] = [];
-  const missing: string[] = [];
-  const updated: WorkspaceRecord[] = [];
-
-  for (const ws of all) {
-    if (await exists(ws.workspaceFile)) {
-      const liveRepos: WorkspaceRepoEntry[] = [];
-      for (const r of ws.repos) {
-        if (await exists(r.worktreePath)) {
-          liveRepos.push(r);
-        }
-      }
-      if (liveRepos.length === 0) {
-        missing.push(ws.workspaceFile);
-        continue;
-      }
-      if (liveRepos.length !== ws.repos.length) {
-        ws.repos = liveRepos;
-        updated.push(ws);
-      }
-      if (forRepoRoots && forRepoRoots.length > 0) {
-        const rootSet = new Set(forRepoRoots.map((r) => path.resolve(r)));
-        const matches = ws.repos.some((r) => rootSet.has(path.resolve(r.root)));
-        if (matches) valid.push(ws);
-      } else {
-        valid.push(ws);
-      }
-    } else {
-      missing.push(ws.workspaceFile);
-    }
-  }
-
-  if (missing.length > 0 || updated.length > 0) {
-    await updateWorkspaceState((workspaces) => {
-      for (const u of updated) {
-        workspaces[path.resolve(u.workspaceFile)] = u;
-      }
-      for (const m of missing) delete workspaces[path.resolve(m)];
-    }).catch(() => {});
-  }
-
-  return valid;
-}
-
-/**
- * Finds a recorded multi-repo workspace that includes the given worktree path.
- *
- * @param worktreePath - Absolute path of a worktree.
- * @returns The matching WorkspaceRecord or undefined.
- *
- * @example
- * const ws = await findWorkspaceForWorktree('/code/frontend-feat-login');
- */
-export async function findWorkspaceForWorktree(worktreePath: string): Promise<WorkspaceRecord | undefined> {
-  const target = path.resolve(worktreePath);
-  const workspaces = await getWorkspaceRecords();
-  for (const ws of workspaces) {
-    if (ws.repos.some((r) => path.resolve(r.worktreePath) === target)) {
-      if (await exists(ws.workspaceFile)) return ws;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Removes a multi-repo workspace record from `state.json`.
- *
- * @param workspaceFile - Absolute path to the .code-workspace file.
- * @param keepFile - Whether to suppress automatic discovery while leaving the file on disk.
- *
- * @example
- * await removeWorkspaceRecord('/code/my-app.code-workspace');
- */
-export async function removeWorkspaceRecord(workspaceFile: string, keepFile = true): Promise<void> {
-  await updateWorkspaceState((workspaces, ignoredWorkspaces) => {
-    const key = path.resolve(workspaceFile);
-    delete workspaces[key];
-    const ignoredIndex = ignoredWorkspaces.indexOf(key);
-    if (keepFile && ignoredIndex < 0) ignoredWorkspaces.push(key);
-    if (!keepFile && ignoredIndex >= 0) ignoredWorkspaces.splice(ignoredIndex, 1);
   });
 }

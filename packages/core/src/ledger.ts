@@ -14,7 +14,15 @@ export interface LedgerEntry {
   date?: Date;
 }
 
-/** The repo's context ledger: `<mainRoot>/.para-space/context-history.md` (gitignored, D-014). */
+/**
+ * Returns the path to the repo's context ledger: `<mainRoot>/.para-space/context-history.md` (gitignored, D-014).
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @returns Absolute path to `context-history.md`.
+ *
+ * @example
+ * ledgerPath('/code/app'); // → '/code/app/.para-space/context-history.md'
+ */
 export function ledgerPath(mainRoot: string): string {
   return path.resolve(mainRoot, LEDGER_DIR, LEDGER_FILE);
 }
@@ -24,6 +32,15 @@ function stamp(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/**
+ * Formats a `LedgerEntry` into a markdown section string.
+ *
+ * @param e - Ledger entry to format.
+ * @returns Markdown block for the ledger entry.
+ *
+ * @example
+ * formatEntry({ title: 'Init', requirement: 'Setup', decisions: ['Used offset'], problemSolved: 'Port safety' });
+ */
 export function formatEntry(e: LedgerEntry): string {
   return [
     `## [${stamp(e.date ?? new Date())}] ${e.title}`,
@@ -126,6 +143,10 @@ export async function readLedger(mainRoot: string): Promise<LedgerEntry[]> {
 
 /**
  * Appends a timestamped entry to the repo's context ledger, creating the file if needed (D-007).
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @param entry - Structured ledger entry to append.
+ * @returns Promise that resolves once the entry is appended.
  *
  * @example
  * await appendLedger(mainRoot, {

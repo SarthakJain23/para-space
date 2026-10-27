@@ -12,7 +12,7 @@ import { registerAgentCommands } from './commands/agent.js';
 const program = new Command()
   .name('para')
   .description('ParaSpace — parallel git worktrees with shared dependencies')
-  .version('0.1.1');
+  .version('0.1.2');
 
 const commands = [
   registerCreate,

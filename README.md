@@ -39,7 +39,7 @@ para setup-agent
 Install **ParaSpace** (`para-space.para-space-vscode`) from the VS Code Marketplace, or install from a packaged `.vsix`:
 
 ```bash
-code --install-extension para-space-vscode-0.1.1.vsix
+code --install-extension para-space-vscode-0.1.2.vsix
 ```
 
 ---
@@ -47,10 +47,11 @@ code --install-extension para-space-vscode-0.1.1.vsix
 ## Quick start
 
 ```bash
-para create feat/TK-101 --base main -r "Auth redesign"   # ../<repo>-feat-TK-101
+para create feat/TK-101 --base main -r "Auth redesign"   # ~/.para-space/worktrees/<project>/<repo>-feat-TK-101
 para workspace create feat/TK-101                        # multi-repo: provisions all repos & .code-workspace
 para workspace list                                      # list tracked & discovered multi-repo workspaces
 para workspace open feat/TK-101                          # reopen multi-repo workspace in VS Code
+para workspace remove feat/TK-101                        # remove tracked multi-repo workspace
 para list
 para check                      # detect manifest divergence across worktrees
 para isolate feat/TK-101        # break the shared node_modules/.venv link
@@ -71,10 +72,10 @@ When a feature spans multiple repositories (for example, `frontend` + `backend` 
    - **Shared branch mode:** Check out an existing branch present across all selected repositories, or create the same new branch across all of them.
    - **Per-repository mode (`--per-repo` / Advanced):** Select or create different branches and base refs for each repository individually.
 3. **Atomic Provisioning & Rollback:**
-   - Provisions each selected repository's worktree (`../<repo>-<branch-slug>`) with symlinked dependencies (`node_modules`, `.venv`, `.env`) and dedicated `.env.local` ports.
+   - Synchronizes each repository's base branch with `origin`, then provisions each selected repository's worktree under `~/.para-space/worktrees/<project>/<repo>-<branch-slug>` with symlinked dependencies (`node_modules`, `.venv`, `.env`) and dedicated `.env.local` ports.
    - If provisioning fails on any repository, ParaSpace automatically rolls back the worktrees already created in that run.
 4. **`.code-workspace` Generation & Window Coloring:**
-   - Generates a `<name>-<branch-slug>.code-workspace` file linking all provisioned worktrees, injects the OKLCH Peacock window color profile into top-level workspace `settings`, registers the workspace in `~/.para-space/state.json`, and opens it in a new VS Code window.
+   - Generates a `<name>-<branch-slug>.code-workspace` file in `~/.para-space/workspaces/` linking all provisioned worktrees, injects the OKLCH Peacock window color profile into top-level workspace `settings`, registers the workspace in `~/.para-space/state.json`, and opens it in a new VS Code window.
 5. **Reopening & Switching Workspaces:**
    - **VS Code:** Reopen any multi-repo workspace from the **Worktrees** sidebar (top-level `Workspace` nodes), the status bar **Quick Switcher** (`$(root-folder) [Workspace] <branch>`), or **ParaSpace: Open Workspace…** (which also includes a **Browse for workspace file…** dialog to import any `.code-workspace` from disk).
    - **CLI:** Run `para workspace list` (`para ws ls`) to inspect workspaces or `para workspace open <branch|name|path>` to launch in VS Code.
@@ -116,6 +117,7 @@ pnpm package:extension          # packages the VS Code extension .vsix
 | [DECISIONS.md](DECISIONS.md) | Decision log — why each design choice was made, plus open questions |
 | [FLOW.md](FLOW.md) | How each operation works step by step (current intended behavior) |
 | [GUIDELINES.md](GUIDELINES.md) | Rules every contributor follows; updated whenever a new rule is agreed |
+| [REUSABLE_COMPONENTS.md](REUSABLE_COMPONENTS.md) | Living catalog of reusable orchestrators, handlers, prompts, and utilities across all packages |
 | [AGENT_INTEGRATION.md](AGENT_INTEGRATION.md) | Guide for AI coding agents (Claude Code, Copilot, Cursor) to automate ParaSpace |
 | [VISUAL_BRIEF.md](VISUAL_BRIEF.md) | Project context for generating images, diagrams and posts with AI tools |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and notable changes |

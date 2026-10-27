@@ -1,6 +1,6 @@
 {
   "name": "@para-space-dev/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Parallel git worktree and multi-repo workspace orchestrator CLI with shared dependencies, per-worktree ports, and MCP server",
   "license": "MIT",
   "author": "Sarthak Jain",

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /** Per-repo config file, at the main repo root and committed (D-014, D-015). */
@@ -18,6 +18,15 @@ export interface ParaSpaceConfig {
 
 export const DEFAULT_BASE_PORT = 3000;
 
+/**
+ * Resolves the absolute path to `.para-space.json` for a given main repository root.
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @returns Absolute path to `.para-space.json`.
+ *
+ * @example
+ * configPath('/code/app'); // → '/code/app/.para-space.json'
+ */
 export function configPath(mainRoot: string): string {
   return path.resolve(mainRoot, CONFIG_FILE);
 }
@@ -65,6 +74,8 @@ export function validateConfig(raw: unknown): ParaSpaceConfig {
 /**
  * Expands a `pool` strategy port list into numbers.
  *
+ * @param pool - Array of port numbers or a range string like `"3001-3010"`.
+ * @returns Expanded array of integer port numbers.
  * @throws If a port is outside 1–65535 or the range string is malformed.
  *
  * @example
@@ -84,7 +95,16 @@ export function parsePortPool(pool: number[] | string): number[] {
   return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
 }
 
-/** Reads and validates `.para-space.json`; `undefined` if the repo has none yet. Throws if it is invalid. */
+/**
+ * Reads and validates `.para-space.json`; returns `undefined` if the repo has none yet.
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @returns Validated `ParaSpaceConfig` or `undefined` if `.para-space.json` does not exist.
+ * @throws If the file exists but contains invalid JSON or fails schema validation.
+ *
+ * @example
+ * const cfg = await loadConfig('/code/app');
+ */
 export async function loadConfig(mainRoot: string): Promise<ParaSpaceConfig | undefined> {
   let text: string;
   try {
@@ -95,7 +115,19 @@ export async function loadConfig(mainRoot: string): Promise<ParaSpaceConfig | un
   return validateConfig(JSON.parse(text));
 }
 
-/** Validates, then writes `.para-space.json` (pretty-printed, trailing newline). */
+/**
+ * Validates and writes `.para-space.json` (pretty-printed with a trailing newline).
+ *
+ * @param mainRoot - Absolute path to the main repository root.
+ * @param config - `ParaSpaceConfig` object to validate and write.
+ * @returns Promise that resolves when `.para-space.json` is written.
+ *
+ * @example
+ * await saveConfig('/code/app', { portStrategy: 'offset', basePort: 3000, envKeys: ['PORT'] });
+ */
 export async function saveConfig(mainRoot: string, config: ParaSpaceConfig): Promise<void> {
-  await writeFile(configPath(mainRoot), JSON.stringify(validateConfig(config), null, 2) + '\n');
+  const target = configPath(mainRoot);
+  const tmp = `${target}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+  await writeFile(tmp, JSON.stringify(validateConfig(config), null, 2) + '\n');
+  await rename(tmp, target);
 }

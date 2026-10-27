@@ -13,12 +13,13 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 1.3. **[FLOW.md](FLOW.md):** edit the affected flow section in place, update its `Status` / `Last updated` / `Decisions` line, and add a changelog row.
 1.4. Pure refactors with no behavior change still get a FLOW.md changelog row if they move components. Skip DECISIONS.md only when no choice was made.
 1.5. Docs are updated in the **same commit** as the code they describe.
+1.6. **[REUSABLE_COMPONENTS.md](REUSABLE_COMPONENTS.md):** before writing a new helper, handler, prompt, or utility, check [REUSABLE_COMPONENTS.md](REUSABLE_COMPONENTS.md) and reuse existing building blocks. Whenever a reusable component or handler is created, moved, or updated, document it in [REUSABLE_COMPONENTS.md](REUSABLE_COMPONENTS.md) in the same commit with its path, signature, responsibility, and usage context ([D-050](DECISIONS.md)).
 
 ## 2. Code structure
 
-2.1. Keep code clean and modules **orthogonal**: one responsibility per module, no hidden coupling (D-023).
-2.2. Split long files logically: one command/flow per file in `core/src/commands/` and `cli/src/commands/`.
-2.3. **DRY:** repeated patterns go into shared helpers (`util/`, `link.ts`, `frameworks/shared.ts`, …). Don't leave unused interface members.
+2.1. **Separation of responsibility ([D-023](DECISIONS.md), [D-050](DECISIONS.md)):** Every function and module must own a single, well-defined responsibility. Separate interactive prompting/input resolution, domain orchestration, state persistence, and UI/output formatting into distinct functions and modules.
+2.2. **File-size & decomposition protocol ([D-050](DECISIONS.md)):** Keep source files under **250 lines**. As soon as a file grows past ~250 lines or mixes multiple responsibilities (e.g., command registration + interactive prompts + execution handlers), split it into dedicated, single-purpose files (such as `*Prompts.ts`, `*Actions.ts`, `*Handlers.ts`, or a subdirectory).
+2.3. **DRY across the monorepo ([D-050](DECISIONS.md)):** Never duplicate orchestration, filtering, matching, or validation logic across `core`, `cli`, and `vscode-extension`. Shared domain logic belongs in `@para-space/core`; package-local reusable handlers belong in dedicated helper modules and must be cataloged in [REUSABLE_COMPONENTS.md](REUSABLE_COMPONENTS.md). Don't leave unused interface members.
 2.4. Match the surrounding code's naming, idioms and comment density.
 2.5. **Core never does terminal I/O.** It takes a `Prompter` and `Logger` from the caller; with no prompter it runs non-interactively (D-020). The CLI and the VS Code extension are thin front ends over core.
 2.6. New ecosystems or port behaviors are added as **strategies** (`FrameworkStrategy`, `PortStrategy`), not as conditionals in commands (D-004, D-005).
@@ -63,3 +64,4 @@ Rules for everyone working in this repo, human or AI agent. Follow them in every
 | 2026-10-16 | Initial guidelines, collected from README, DECISIONS.md and agreed working rules | All |
 | 2026-10-17 | Added rule for testable, vscode-free extension modules | 6.3 |
 | 2026-10-24 | Added API review protocol and CI enforcement for deprecated TypeScript APIs | 2.7 |
+| 2026-10-27 | Added living `REUSABLE_COMPONENTS.md` registry protocol, strict separation of responsibility, 250-line file decomposition limit, and cross-repo DRY rules (D-050) | 1.6, 2.1, 2.2, 2.3 |

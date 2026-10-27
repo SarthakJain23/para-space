@@ -16,6 +16,7 @@ describe('MCP server', () => {
     expect(tools['para_open_workspace']).toBeDefined();
     expect(tools['para_list_worktrees']).toBeDefined();
     expect(tools['para_isolate_worktree']).toBeDefined();
+    expect(tools['para_remove_workspace']).toBeDefined();
   });
 
   it('para_list_worktrees executes and returns structured JSON', async () => {

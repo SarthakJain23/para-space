@@ -1,5 +1,10 @@
 import path from 'node:path';
-import { discoverWorkspaceRepoRoots, mainRepoRoot } from '@para-space/core';
+import {
+  discoverWorkspaceRepoRoots,
+  findWorkspaceConfigFile,
+  getWorkspaceRecords,
+  mainRepoRoot,
+} from '@para-space/core';
 import * as vscode from 'vscode';
 import { isInside } from './dialogs.js';
 
@@ -16,6 +21,11 @@ export async function discoverRepoRoots(): Promise<string[]> {
     try {
       const root = await mainRepoRoot(f.uri.fsPath);
       roots.add(root);
+      const parentDir = path.dirname(root);
+      if (await findWorkspaceConfigFile(parentDir)) {
+        const siblingRoots = await discoverWorkspaceRepoRoots(parentDir);
+        for (const r of siblingRoots) roots.add(r);
+      }
     } catch {
       try {
         const subRoots = await discoverWorkspaceRepoRoots(f.uri.fsPath);
@@ -23,6 +33,18 @@ export async function discoverRepoRoots(): Promise<string[]> {
       } catch {
         // ignore
       }
+    }
+  }
+  if (roots.size > 0) {
+    try {
+      const workspaces = await getWorkspaceRecords([...roots]);
+      for (const ws of workspaces) {
+        for (const repo of ws.repos) {
+          roots.add(repo.root);
+        }
+      }
+    } catch {
+      // ignore
     }
   }
   return [...roots];

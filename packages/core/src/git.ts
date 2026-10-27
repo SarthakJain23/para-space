@@ -72,6 +72,51 @@ export async function branchExists(cwd: string, branch: string): Promise<boolean
   }
 }
 
+async function hasOriginRemote(cwd: string): Promise<boolean> {
+  try {
+    const out = await git(cwd, 'remote');
+    return out.split('\n').includes('origin');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetches the latest commit for `baseBranch` from `origin`, fast-forwards the local branch
+ * (in its checked-out worktree if checked out, or via `git fetch origin base:base` if not),
+ * and returns the most up-to-date ref (`origin/<baseBranch>` if fetched, else `baseBranch`).
+ */
+export async function syncBaseBranch(cwd: string, baseBranch: string): Promise<string> {
+  if (!(await hasOriginRemote(cwd))) return baseBranch;
+
+  try {
+    await git(cwd, 'fetch', '--quiet', 'origin', baseBranch);
+  } catch {
+    return baseBranch;
+  }
+
+  // Try fast-forwarding the local branch so local refs also stay current
+  const trees = await worktreeList(cwd).catch(() => []);
+  const checkedOutIn = trees.find((t) => t.branch === baseBranch);
+  if (checkedOutIn) {
+    await git(checkedOutIn.path, 'pull', '--ff-only', '--quiet', 'origin', baseBranch).catch(() => {});
+  } else {
+    await git(cwd, 'fetch', '--quiet', 'origin', `${baseBranch}:${baseBranch}`).catch(() => {});
+  }
+
+  try {
+    await git(cwd, 'rev-parse', '--verify', '--quiet', `refs/remotes/origin/${baseBranch}`);
+    try {
+      await git(cwd, 'merge-base', '--is-ancestor', `refs/remotes/origin/${baseBranch}`, `refs/heads/${baseBranch}`);
+      return baseBranch;
+    } catch {
+      return `origin/${baseBranch}`;
+    }
+  } catch {
+    return baseBranch;
+  }
+}
+
 export async function worktreeAdd(
   cwd: string,
   wtPath: string,
@@ -82,8 +127,10 @@ export async function worktreeAdd(
     await git(cwd, 'worktree', 'add', wtPath, branch);
     return { createdBranch: false };
   }
-  const args = ['worktree', 'add', '-b', branch, wtPath];
-  if (base) args.push(base);
+  const baseToSync = base ?? (await currentBranch(cwd));
+  const startPoint = baseToSync ? await syncBaseBranch(cwd, baseToSync) : undefined;
+  const args = ['worktree', 'add', '--no-track', '-b', branch, wtPath];
+  if (startPoint) args.push(startPoint);
   await git(cwd, ...args);
   return { createdBranch: true };
 }

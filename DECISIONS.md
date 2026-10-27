@@ -23,7 +23,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-009 | Windows falls back to directory junctions | Accepted | 2026-10-16 |
 | D-010 | Global state store at `~/.para-space/state.json` | Accepted | 2026-10-16 |
 | D-011 | pnpm workspaces + tsup + vitest for ParaSpace's own repo | Accepted | 2026-10-16 |
-| D-012 | Worktrees live in sibling dirs named `<repo>-<branch-slug>` | Accepted | 2026-10-16 |
+| D-012 | Worktrees live in sibling dirs named `<repo>-<branch-slug>` | Superseded by D-049 | 2026-10-16 |
 | D-013 | `.env` is symlinked; `.env.local` is a per-worktree copy | Accepted | 2026-10-16 |
 | D-014 | Commit `.para-space.json`; gitignore the ledger | Accepted | 2026-10-16 |
 | D-015 | Repo config lives at the repo root | Accepted | 2026-10-16 |
@@ -60,6 +60,8 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-046 | Automated GitHub Actions CI and tag-driven release pipeline | Accepted | 2026-10-23 |
 | D-047 | Review new APIs and block deprecated TypeScript APIs in CI | Accepted | 2026-10-24 |
 | D-048 | Workspace removal, search filtering, and cross-repo worktree resolution | Accepted | 2026-10-24 |
+| D-049 | Centralized `~/.para-space` worktree/workspace storage, automatic base-branch sync, and agent removal/Copilot integration | Accepted | 2026-10-27 |
+| D-050 | Cross-repo DRY registry (REUSABLE_COMPONENTS.md), single-responsibility functions, and 250-line file decomposition limit | Accepted | 2026-10-27 |
 
 ---
 
@@ -133,7 +135,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Problem Solved:** Strict workspace linking and fast builds without pipeline tooling that three packages don't need.
 
 ## D-012 — Worktrees live in sibling dirs named `<repo>-<branch-slug>`
-- **Status:** Accepted · 2026-10-16 · resolves Open Question 4
+- **Status:** Superseded by D-049 · 2026-10-16 · resolves Open Question 4
 - **Requirement Context:** Need a predictable location and name for each worktree.
 - **Decision Made:** `para create feat/TK-101` in `/code/myapp` creates `/code/myapp-feat-TK-101`. Slug: `/` and unsafe characters → `-`.
 - **Alternatives Considered:** Nested `<repo>/.worktrees/` (pulls worktrees into the main repo's watchers, linters and test runners).
@@ -456,6 +458,32 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Search & container directory support:** Added case-insensitive `query` filtering to `para_list_worktrees` (MCP and VS Code LM tools), `para workspace list`, and `para list`, and enabled multi-repo container directory discovery in `para list` and `para check`.
   - **Cross-repository resolution & multi-repo watching:** Updated `resolveWorktree()` to resolve the owning repository from the target path, active directory, discovered workspace repositories, and `state.json`, and updated VS Code's `removeWorktree`, `isolateWorktree`, `watchManifests`, and `WorktreeStore` to operate per repository across multi-root workspaces.
 - **Problem Solved:** Completes the multi-repository workspace lifecycle across IDE, CLI, and AI agent tools and eliminates cross-repository resolution and refresh bugs.
+
+## D-049 — Centralized `~/.para-space` worktree/workspace storage, automatic base-branch sync, and agent removal/Copilot integration
+- **Status:** Accepted · 2026-10-27 · supersedes D-012
+- **Requirement Context:**
+  1. Creating sibling worktree directories (`../<repo>-<branch>`) and `.code-workspace` files in the parent project folder accumulated dozens of folders alongside the original repositories, making the original repos hard to find.
+  2. Creating a new branch from a local base branch (such as `main`) branched off stale local commits if the developer had not recently pulled from `origin`.
+  3. AI agents via MCP and GitHub Copilot lacked a tool to remove workspaces/worktrees (`para_remove_workspace`), and VS Code Language Model Tools needed explicit prompt-reference metadata (`canBeReferencedInPrompt`, `toolReferenceName`, `tags`), `onLanguageModelTool:*` activation events, and VS Code `mcp.json` registration in `para setup-agent`.
+  4. Clicking the `+` (`Create Worktree…`) button in the Worktrees view title while a tree item was focused passed that focused `TreeItem` as the command argument, causing `resolveTargetRepos()` to skip the multi-repository picker.
+- **Decision Made:**
+  - **Centralized storage under `~/.para-space` (`PARA_SPACE_HOME`):** `worktreePathFor()` now provisions worktrees at `~/.para-space/worktrees/<project-slug>/<repo>-<branch-slug>`, and `multiRepoWorkspaceFilePath()` stores generated `.code-workspace` files in `~/.para-space/workspaces/`. Existing worktrees and `.code-workspace` files in older locations remain tracked and discoverable.
+  - **Automatic base-branch sync (`syncBaseBranch`):** When creating a new branch in `worktreeAdd()`, ParaSpace fetches `<base>` from `origin` (when an `origin` remote exists), fast-forwards the local base branch (`git pull --ff-only` if checked out in a worktree, or `git fetch origin <base>:<base>` otherwise), and branches from `origin/<base>` (`--no-track`).
+  - **Agent workspace/worktree removal & Copilot discoverability:** Added `para_remove_workspace` to both the CLI MCP server and VS Code Language Model Tools (supporting removal of multi-repo workspaces, their member worktrees, and `.code-workspace` files, or single worktrees). Added `onLanguageModelTool:*` activation events, `toolReferenceName`, `canBeReferencedInPrompt: true`, `tags`, and `prepareInvocation` to all VS Code LM tools, and updated `para setup-agent` to configure VS Code's user `mcp.json`.
+  - **Tree-focus-safe repository selection:** Updated `resolveTargetRepos()` to ignore focused `TreeItem` instances when deciding whether to prompt with the multi-repository picker, and expanded `discoverRepoRoots()` to include sibling repositories from associated multi-repo workspaces.
+- **Problem Solved:** Keeps the user's project parent folder completely clean, guarantees new branches start from the latest remote commit on the base branch, enables full workspace lifecycle management in GitHub Copilot and MCP agents, and ensures the multi-repository picker always appears when creating a workspace from the UI.
+
+## D-050 — Cross-repo DRY registry (REUSABLE_COMPONENTS.md), single-responsibility functions, and 250-line file decomposition limit
+- **Status:** Accepted · 2026-10-27
+- **Requirement Context:**
+  1. As multi-repository workspaces, CLI subcommands (`para workspace`), MCP server tools (`para mcp`), and VS Code Language Model Tools grew, orchestration logic (batch worktree provisioning with rollback, `.code-workspace` generation and persistence, cascade workspace removal, and case-insensitive workspace/worktree query matching) was duplicated across `packages/cli/src/commands/workspace.ts`, `packages/cli/src/mcp.ts`, `packages/vscode-extension/src/commands/create.ts`, and `packages/vscode-extension/src/lmTools.ts`.
+  2. Several command and tool files grew past 300–580 lines by mixing command/tool registration, interactive user prompting, domain orchestration, and output formatting in the same file.
+  3. Without a centralized catalog of existing helpers and handlers, human contributors and AI agents risked writing duplicate utilities instead of reusing existing building blocks.
+- **Decision Made:**
+  - **Shared multi-repo & query primitives in `@para-space/core`:** Extracted `provisionWorkspaceBatch`, `writeAndSaveWorkspace`, `removeWorkspaceCascade`, `matchesQuery`, `findMatchingWorkspace`, `filterWorkspaces`, and `filterWorktreeRows` into `packages/core/src/workspace/orchestrate.ts` (alongside `config.ts`, `discovery.ts`, and `packages/core/src/workspaceState.ts`, all re-exported via `packages/core/src/workspace.ts` and `packages/core/src/index.ts`).
+  - **Single-responsibility decomposition & 250-line ceiling:** Split oversized CLI and VS Code modules into focused files under 250 lines (`workspacePrompts.ts` + `workspaceActions.ts` + `workspace.ts`, `mcpHandlers.ts` + `mcp.ts`, `createPrompts.ts` + `create.ts`, and `lmToolHandlers.ts` + `lmTools.ts`), separating registration, interactive prompting, and execution handlers.
+  - **Living reusable-components registry (`REUSABLE_COMPONENTS.md`):** Created `REUSABLE_COMPONENTS.md` at the repository root cataloging all reusable core orchestrators, workspace/search helpers, state/git/safety utilities, CLI shared handlers, and VS Code builders/handlers, and codified mandatory check-and-update rules in `GUIDELINES.md` (rules `1.6`, `2.1`, `2.2`, `2.3`).
+- **Problem Solved:** Eliminates cross-package duplication, keeps every module small and focused on a single responsibility, and gives contributors and AI coding agents a single authoritative index of reusable building blocks to consult and maintain on every commit.
 
 ---
 

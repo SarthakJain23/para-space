@@ -1,3 +1,4 @@
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { type ColorProfile, colorForIndex, peacockSettings } from '../colors.js';
 import type { ParaSpaceConfig } from '../config.js';
@@ -50,10 +51,11 @@ interface Ctx {
 /**
  * Creates a ready-to-use worktree for a branch: checkout, shared dependencies, port and IDE color.
  *
- * Steps: ensure `.para-space.json` (asks on first run) → `git worktree add` in `../<repo>-<slug>`
- * → reserve index and port under the state lock → symlink `node_modules` / `.venv` / `.env` →
- * write the port to `.env.local` → optional IDE settings → ledger entry. If any step after the
- * checkout fails, everything is rolled back (D-022). See FLOW.md §1.
+ * Steps: ensure `.para-space.json` (asks on first run) → sync base branch from `origin` and
+ * `git worktree add` in `~/.para-space/worktrees/<project>/<repo>-<slug>` (D-049) → reserve index
+ * and port under the state lock → symlink `node_modules` / `.venv` / `.env` → write the port to
+ * `.env.local` → optional IDE settings → ledger entry. If any step after the checkout fails,
+ * everything is rolled back (D-022). See FLOW.md §1.
  *
  * @param opts - `cwd` (any dir in the repo), `branch`, optional `base`, `requirement`, `ide`,
  *   `prompter` (omit for non-interactive), first-run port options and `log`.
@@ -62,7 +64,7 @@ interface Ctx {
  *
  * @example
  * const wt = await createWorktree({ cwd: '/code/app', branch: 'feat/TK-101', base: 'main', ide: 'no' });
- * // wt.path === '/code/app-feat-TK-101', wt.port === 3001
+ * // wt.path === '/Users/you/.para-space/worktrees/code/app-feat-TK-101', wt.port === 3001
  */
 export async function createWorktree(opts: CreateOptions): Promise<CreateResult> {
   const log = opts.log ?? silentLogger;
@@ -73,6 +75,7 @@ export async function createWorktree(opts: CreateOptions): Promise<CreateResult>
   if (await exists(wtPath)) throw new Error(`Target directory already exists: ${wtPath}`);
 
   log.info(`Creating worktree at ${wtPath}…`);
+  await mkdir(path.dirname(wtPath), { recursive: true });
   const { createdBranch } = await git.worktreeAdd(mainRoot, wtPath, opts.branch, opts.base);
 
   const links: string[] = [];

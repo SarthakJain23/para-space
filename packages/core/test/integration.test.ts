@@ -12,6 +12,7 @@ import {
   updateConfig,
 } from '../src/commands/index.js';
 import { readLedger } from '../src/ledger.js';
+import { worktreePathFor } from '../src/paths.js';
 import type { Prompter } from '../src/prompts.js';
 import {
   getWorkspaceRecords,
@@ -66,7 +67,7 @@ describe('worktree lifecycle', () => {
       prompter: stubPrompter(true),
       requirement: 'Auth redesign',
     });
-    const wt = path.join(sandbox, 'app-feat-TK-101');
+    const wt = worktreePathFor(repo, 'feat/TK-101');
     expect(res.path).toBe(wt);
     expect(res.port).toBe(3001);
 
@@ -139,6 +140,36 @@ describe('worktree lifecycle', () => {
     expect(await listBranches({ cwd: repo })).toEqual(['main']);
     await createWorktree({ cwd: repo, branch: 'feat/x', base: 'main' });
     expect((await listBranches({ cwd: repo })).sort()).toEqual(['feat/x', 'main']);
+  });
+
+  it('pulls latest changes from origin on base branch when creating a new branch', async () => {
+    const remote = path.join(sandbox, 'origin.git');
+    const upstreamClone = path.join(sandbox, 'upstream-clone');
+    git(sandbox, 'init', '--bare', '-q', '-b', 'main', remote);
+    git(repo, 'remote', 'add', 'origin', remote);
+    git(repo, 'push', '-q', '-u', 'origin', 'main');
+
+    // Push a new commit to origin/main from another clone while local repo's main stays stale
+    git(sandbox, 'clone', '-q', '-b', 'main', remote, upstreamClone);
+    await writeFile(path.join(upstreamClone, 'remote-change.txt'), 'latest-from-remote\n');
+    git(upstreamClone, 'add', 'remote-change.txt');
+    git(upstreamClone, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'remote update');
+    git(upstreamClone, 'push', '-q', 'origin', 'main');
+    const latestRemoteSha = git(upstreamClone, 'rev-parse', 'HEAD');
+
+    const res = await createWorktree({ cwd: repo, branch: 'feat/from-latest', base: 'main' });
+    expect(git(res.path, 'rev-parse', 'HEAD')).toBe(latestRemoteSha);
+    expect(await readFile(path.join(res.path, 'remote-change.txt'), 'utf8')).toBe('latest-from-remote\n');
+    expect(git(repo, 'rev-parse', 'main')).toBe(latestRemoteSha);
+
+    // Unpushed local commit on main is preserved when creating a subsequent branch
+    await writeFile(path.join(repo, 'local-unpushed.txt'), 'ahead-of-origin\n');
+    git(repo, 'add', 'local-unpushed.txt');
+    git(repo, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'unpushed local commit');
+    const aheadLocalSha = git(repo, 'rev-parse', 'HEAD');
+
+    const res2 = await createWorktree({ cwd: repo, branch: 'feat/from-ahead-local', base: 'main' });
+    expect(git(res2.path, 'rev-parse', 'HEAD')).toBe(aheadLocalSha);
   });
 
   it('list writes state.json only when it prunes (D-031)', async () => {

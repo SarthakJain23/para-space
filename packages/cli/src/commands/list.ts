@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { Command } from 'commander';
 import Table from 'cli-table3';
 import pc from 'picocolors';
-import { type WorktreeInfo, discoverWorkspaceRepoRoots, listWorktrees } from '@para-space/core';
+import { type WorktreeInfo, discoverWorkspaceRepoRoots, filterWorktreeRows, listWorktrees } from '@para-space/core';
 import { action, log, printJson } from '../runtime.js';
 
 function renderTable(rows: WorktreeInfo[]): string {
@@ -32,10 +32,11 @@ export function registerList(program: Command) {
     .option('--json', 'print as JSON')
     .action(
       action(async (queryArg: string | undefined, flags: { query?: string; json?: boolean }) => {
+        const query = flags.query ?? queryArg;
         const cwd = process.cwd();
         let rows: WorktreeInfo[];
         try {
-          rows = await listWorktrees({ cwd, log });
+          rows = filterWorktreeRows(await listWorktrees({ cwd, log }), query);
         } catch (err) {
           const roots = await discoverWorkspaceRepoRoots(cwd);
           if (roots.length === 0) throw err;
@@ -43,18 +44,13 @@ export function registerList(program: Command) {
           const perRepo = await Promise.all(
             roots.map(async (root) => {
               const repoName = path.basename(root);
-              const repoRows = await listWorktrees({ cwd: root, log });
+              const repoRows = filterWorktreeRows(await listWorktrees({ cwd: root, log }), query, repoName);
               return multi
                 ? repoRows.map((r) => ({ ...r, name: flags.json ? r.name : `[${repoName}] ${r.name}` }))
                 : repoRows;
             }),
           );
           rows = perRepo.flat();
-        }
-
-        const search = (flags.query ?? queryArg)?.trim().toLowerCase();
-        if (search) {
-          rows = rows.filter((r) => [r.name, r.branch, r.path].some((v) => v?.toLowerCase().includes(search)));
         }
 
         if (flags.json) {
