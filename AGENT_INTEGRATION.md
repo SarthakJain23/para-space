@@ -149,7 +149,7 @@ para setup-agent
 ```
 This automatically configures the ParaSpace MCP server in:
 - `~/Library/Application Support/Code/User/mcp.json` (VS Code / GitHub Copilot)
-- `~/.claude.json` (Claude Code)
+- `~/.claude.json` and `permissions.allow` in `~/.claude/settings.json` (Claude Code)
 - `~/.cursor/mcp.json` (Cursor)
 - `~/.codeium/windsurf/mcp_config.json` (Windsurf)
 - `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude Desktop)

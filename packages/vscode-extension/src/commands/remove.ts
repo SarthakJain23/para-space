@@ -1,6 +1,7 @@
-import { removeWorkspaceRecord, removeWorktree } from '@para-space/core';
+import path from 'node:path';
+import { removeWorkspaceCascade, removeWorktree } from '@para-space/core';
 import * as vscode from 'vscode';
-import { isInside, removeDialog } from '../dialogs.js';
+import { isInside, removeDialog, removeWorkspaceDialog } from '../dialogs.js';
 import { action, withProgress } from '../runtime.js';
 import type { WorkspaceNode, WorktreeNode } from '../tree.js';
 import { requireWorkspaceRoot } from '../workspace.js';
@@ -42,30 +43,53 @@ export function registerRemove({ rt, store }: CommandContext): vscode.Disposable
   );
 }
 
-/** `paraSpace.removeWorkspace`: removes a workspace record, optionally moving its file to Trash. */
+/** `paraSpace.removeWorkspace`: removes a multi-repo workspace and optionally its member worktrees and branches. */
 export function registerRemoveWorkspace({ rt, store }: CommandContext): vscode.Disposable {
   return vscode.commands.registerCommand(
     'paraSpace.removeWorkspace',
     action(rt, async ({ workspace }: WorkspaceNode) => {
-      const deleteChoice = 'Move File to Trash & Remove';
+      const dirtyRepos = workspace.repos.flatMap((member) => {
+        const row = store.allRows.find((r) => path.resolve(r.path) === path.resolve(member.worktreePath));
+        return row && row.dirty > 0 ? [{ name: member.name, dirty: row.dirty }] : [];
+      });
+      const { message, detail, choices } = removeWorkspaceDialog(workspace, dirtyRepos);
       const picked = await vscode.window.showWarningMessage(
-        `Remove workspace ${workspace.name} from ParaSpace?`,
-        { modal: true, detail: 'You can keep the .code-workspace file or move it to Trash as well.' },
-        'Remove from ParaSpace',
-        deleteChoice,
+        message,
+        { modal: true, detail },
+        ...choices.map((c) => c.label),
       );
-      if (!picked) return;
+      const choice = choices.find((c) => c.label === picked);
+      if (!choice) return;
 
-      if (picked === deleteChoice) {
-        await vscode.workspace.fs.delete(vscode.Uri.file(workspace.workspaceFile), { useTrash: true });
+      if (choice.removeWorktrees) {
+        const openFolders = vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath) ?? [];
+        const openMember = workspace.repos.find((m) => openFolders.some((f) => isInside(f, m.worktreePath)));
+        if (openMember) {
+          throw new Error(
+            `This window has ${openMember.name} (${openMember.worktreePath}) open. Remove it from another window.`,
+          );
+        }
       }
-      await removeWorkspaceRecord(workspace.workspaceFile, picked !== deleteChoice);
-      await store.load();
-      vscode.window.showInformationMessage(
-        picked === deleteChoice
-          ? `Removed workspace ${workspace.name} and moved its file to Trash.`
-          : `Removed workspace ${workspace.name} from ParaSpace.`,
+
+      const { removedWorktrees, errors } = await withProgress(`Removing workspace ${workspace.name}…`, () =>
+        removeWorkspaceCascade({
+          workspace,
+          removeWorktrees: choice.removeWorktrees,
+          deleteWorkspaceFile: choice.deleteWorkspaceFile,
+          deleteBranch: choice.deleteBranch,
+          force: choice.force,
+          log: rt.log,
+        }),
       );
+      await store.load();
+      if (errors.length > 0) {
+        vscode.window.showWarningMessage(
+          `Partially removed ${workspace.name} (${removedWorktrees.length} worktree(s) removed). Errors: ${errors.join('; ')}`,
+        );
+      } else {
+        const wtSuffix = choice.removeWorktrees ? ` and ${removedWorktrees.length} worktree(s)` : '';
+        vscode.window.showInformationMessage(`Removed workspace ${workspace.name}${wtSuffix}.`);
+      }
     }),
   );
 }

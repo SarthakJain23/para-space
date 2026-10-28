@@ -12,10 +12,48 @@ interface McpConfigFile {
   [key: string]: unknown;
 }
 
+interface ClaudeSettingsFile {
+  permissions?: {
+    allow?: string[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 interface TargetConfig {
   name: string;
   filePath: string;
   format?: 'mcpServers' | 'vscode';
+}
+
+const CLAUDE_PARASPACE_PERMISSION = 'mcp__paraspace__*';
+
+/** Ensures Claude Code's settings.json allows ParaSpace MCP tools without auto-mode classifier blocks. */
+export async function ensureClaudePermissions(
+  settingsPath: string = path.join(os.homedir(), '.claude', 'settings.json'),
+): Promise<boolean> {
+  try {
+    let settings: ClaudeSettingsFile = {};
+    try {
+      const text = await fs.readFile(settingsPath, 'utf8');
+      settings = JSON.parse(text);
+    } catch {
+      // file doesn't exist or empty, start fresh
+    }
+
+    settings.permissions ??= {};
+    const allow = Array.isArray(settings.permissions.allow) ? settings.permissions.allow : [];
+    if (!allow.includes(CLAUDE_PARASPACE_PERMISSION)) {
+      allow.push(CLAUDE_PARASPACE_PERMISSION);
+    }
+    settings.permissions.allow = allow;
+
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Returns the list of standard user-level MCP configuration file locations across agents. */
@@ -137,6 +175,13 @@ export function registerAgentCommands(program: Command) {
           } else {
             console.log(`  ${pc.yellow('⚠')} ${target.name}: skipped (${pc.dim(target.filePath)})`);
           }
+        }
+
+        const claudeSettingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+        if (await ensureClaudePermissions(claudeSettingsPath)) {
+          console.log(
+            `  ${pc.green('✔')} ${pc.bold('Claude Code Permissions')}: allowed ${pc.cyan(CLAUDE_PARASPACE_PERMISSION)} in ${pc.dim(claudeSettingsPath)}`,
+          );
         }
 
         console.log('');

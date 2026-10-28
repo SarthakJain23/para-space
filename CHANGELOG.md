@@ -4,6 +4,22 @@ All notable changes to **ParaSpace** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-10-28
+
+### Added
+- **Claude Code Auto-Mode Permission Setup (`para setup-agent`):**
+  - `para setup-agent` now automatically configures `"mcp__paraspace__*"` in `permissions.allow` in `~/.claude/settings.json` so Claude Code's server-side auto-mode classifier does not block `para_remove_workspace` or other ParaSpace MCP tools.
+- **Cascading Workspace & Worktree Removal in VS Code (`ParaSpace: Remove Workspace…`):**
+  - Updated `paraSpace.removeWorkspace` and `removeWorkspaceDialog` in the VS Code extension to support one-click cascading removal of a multi-repository workspace along with its member worktrees (and optionally branches), with automatic `Force Remove` prompts when member worktrees have uncommitted changes.
+- **MCP Tool Safety Annotations (`para mcp`):**
+  - Added MCP tool `annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) and clarified `para_remove_workspace` schema descriptions.
+- **Non-Interactive `--yes` Flag on `para remove`:**
+  - Added `-y, --yes` to `para remove` for parity with `para workspace remove` and agent CLI scripts.
+
+### Fixed
+- **Partial Failure Guard in `removeWorkspaceCascade`:**
+  - Preserves the `.code-workspace` file and workspace state record if any member worktree fails to remove (e.g., dirty worktree without `--force`), preventing remaining member worktrees from being orphaned.
+
 ## [0.1.2] - 2026-10-27
 
 ### Added

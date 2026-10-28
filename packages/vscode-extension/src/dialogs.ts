@@ -2,6 +2,7 @@ import path from 'node:path';
 import {
   type CodeWorkspaceConfig,
   type CodeWorkspaceFolder,
+  type WorkspaceRecord,
   type WorktreeInfo,
   buildMultiRepoWorkspaceConfig,
   colorForHex,
@@ -51,6 +52,14 @@ export interface RemoveChoice {
   deleteBranch: boolean;
 }
 
+export interface RemoveWorkspaceChoice {
+  label: string;
+  removeWorktrees: boolean;
+  deleteWorkspaceFile: boolean;
+  force: boolean;
+  deleteBranch: boolean;
+}
+
 /**
  * Text and buttons for the Remove Worktree confirmation. A dirty worktree only offers
  * "Force Remove" variants, and the detail says what will be lost.
@@ -76,6 +85,52 @@ export function removeDialog(w: WorktreeInfo): { message: string; detail: string
     .filter(Boolean)
     .join('\n\n');
   return { message: `Remove worktree ${w.name}?`, detail, choices };
+}
+
+/**
+ * Text and buttons for the Remove Multi-Repository Workspace confirmation.
+ * Offers cascading removal of member worktrees (with force when any member worktree is dirty)
+ * as well as removing only the workspace file.
+ */
+export function removeWorkspaceDialog(
+  workspace: WorkspaceRecord,
+  dirtyRepos: Array<{ name: string; dirty: number }> = [],
+): { message: string; detail: string; choices: RemoveWorkspaceChoice[] } {
+  const force = dirtyRepos.length > 0;
+  const verb = force ? 'Force Remove' : 'Remove';
+  const choices: RemoveWorkspaceChoice[] = [
+    {
+      label: `${verb} Workspace & Worktrees`,
+      removeWorktrees: true,
+      deleteWorkspaceFile: true,
+      force,
+      deleteBranch: false,
+    },
+    {
+      label: `${verb} Workspace, Worktrees & Branches`,
+      removeWorktrees: true,
+      deleteWorkspaceFile: true,
+      force,
+      deleteBranch: true,
+    },
+    {
+      label: 'Remove Workspace Only (Keep Worktrees)',
+      removeWorktrees: false,
+      deleteWorkspaceFile: true,
+      force: false,
+      deleteBranch: false,
+    },
+  ];
+  const repoSummary = workspace.repos.map((r) => `• ${r.name}: ${r.worktreePath}`).join('\n');
+  const dirtySummary = force
+    ? `Uncommitted changes in: ${dirtyRepos.map((d) => `${d.name} (${d.dirty})`).join(', ')} — these will be discarded if worktrees are removed.`
+    : undefined;
+  const detail = [workspace.workspaceFile, repoSummary, dirtySummary].filter(Boolean).join('\n\n');
+  return {
+    message: `Remove workspace ${workspace.name}?`,
+    detail,
+    choices,
+  };
 }
 
 export interface BranchPickItem {

@@ -222,10 +222,10 @@ export async function removeWorkspaceCascade(
   opts: RemoveWorkspaceCascadeOptions,
 ): Promise<RemoveWorkspaceCascadeResult> {
   const { workspace, force, deleteBranch, log = silentLogger } = opts;
-  const workspaceFileDeleted = opts.deleteWorkspaceFile !== false;
+  const removeWorktrees = opts.removeWorktrees !== false;
   const removedWorktrees: string[] = [];
   const errors: string[] = [];
-  if (opts.removeWorktrees !== false) {
+  if (removeWorktrees) {
     for (const { root: cwd, worktreePath: target, name } of [...workspace.repos]) {
       try {
         await removeWorktree({ cwd, target, force, deleteBranch, log });
@@ -234,7 +234,11 @@ export async function removeWorkspaceCascade(
         errors.push(`${name}: ${(err as Error).message}`);
       }
     }
+    if (errors.length > 0) {
+      return { removedWorktrees, errors, workspaceFileDeleted: false };
+    }
   }
+  const workspaceFileDeleted = opts.deleteWorkspaceFile !== false;
   await removeWorkspaceRecord(workspace.workspaceFile, !workspaceFileDeleted);
   if (workspaceFileDeleted) await fs.rm(workspace.workspaceFile, { force: true });
   return { removedWorktrees, errors, workspaceFileDeleted };

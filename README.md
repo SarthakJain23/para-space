@@ -39,7 +39,7 @@ para setup-agent
 Install **ParaSpace** (`para-space.para-space-vscode`) from the VS Code Marketplace, or install from a packaged `.vsix`:
 
 ```bash
-code --install-extension para-space-vscode-0.1.2.vsix
+code --install-extension para-space-vscode-0.1.3.vsix
 ```
 
 ---

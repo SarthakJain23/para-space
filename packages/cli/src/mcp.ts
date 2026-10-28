@@ -15,7 +15,7 @@ import {
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: 'paraspace',
-    version: '0.1.2',
+    version: '0.1.3',
   });
 
   // 1. para_create_workspace
@@ -61,6 +61,12 @@ export function createMcpServer(): McpServer {
     {
       description:
         'Lists active Git worktrees, assigned dev server ports, and multi-repo workspaces. Optionally filter results by name, branch, repository, or path.',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         cwd: z.string().optional().describe('Directory to check from (default: process.cwd())'),
         query: z
@@ -80,6 +86,12 @@ export function createMcpServer(): McpServer {
     {
       description:
         'Replaces shared dependency symlinks in a worktree with an independent copy (APFS CoW clone on macOS, fresh install elsewhere).',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         target: z.string().describe('Branch name, directory name or path of the worktree to isolate'),
         reason: z.string().optional().describe('Why the worktree diverged from main (recorded in context history)'),
@@ -94,13 +106,19 @@ export function createMcpServer(): McpServer {
     'para_remove_workspace',
     {
       description:
-        'Removes a parallel multi-repository workspace and/or Git worktree managed by ParaSpace, freeing its assigned port and optionally deleting the Git branch and .code-workspace file.',
+        'Cleans up a secondary ParaSpace multi-repository workspace and/or Git worktree, safely unlinking shared dependencies first, releasing its assigned dev port, and keeping the main repository and Git branch commits intact unless deleteBranch is true.',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         target: z.string().describe('Branch name, workspace name, worktree directory name, or path to remove'),
         deleteBranch: z
           .boolean()
           .optional()
-          .describe('Also delete the Git branch associated with the removed worktree(s)'),
+          .describe('Also delete the Git branch associated with the removed worktree(s) (default: false)'),
         deleteWorkspaceFile: z
           .boolean()
           .optional()
@@ -111,7 +129,10 @@ export function createMcpServer(): McpServer {
           .boolean()
           .optional()
           .describe('When removing a multi-repository workspace, also remove its member Git worktrees (default: true)'),
-        force: z.boolean().optional().describe('Force removal even if a worktree has uncommitted changes'),
+        force: z
+          .boolean()
+          .optional()
+          .describe('Allow worktree cleanup even if the secondary worktree has local/untracked files'),
         cwd: z.string().optional().describe('Directory to execute in (default: process.cwd())'),
       },
     },

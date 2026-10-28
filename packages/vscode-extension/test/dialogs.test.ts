@@ -7,6 +7,7 @@ import {
   isInside,
   multiRepoWorkspaceFilePath,
   removeDialog,
+  removeWorkspaceDialog,
   sharedBranches,
   validateBranchName,
   validatePoolRange,
@@ -74,6 +75,40 @@ describe('removeDialog', () => {
 
   it('detached worktree: no branch option', () => {
     expect(removeDialog(row({ branch: undefined })).choices).toHaveLength(1);
+  });
+});
+
+describe('removeWorkspaceDialog', () => {
+  const ws = {
+    id: '/code/app-feat-x.code-workspace',
+    name: 'app-feat-x',
+    workspaceFile: '/code/app-feat-x.code-workspace',
+    branch: 'feat/x',
+    repos: [
+      { root: '/code/web', name: 'web', worktreePath: '/code/web-feat-x' },
+      { root: '/code/api', name: 'api', worktreePath: '/code/api-feat-x' },
+    ],
+    createdAt: '',
+  };
+
+  it('clean workspace: offers cascading remove and workspace-only remove without force', () => {
+    const d = removeWorkspaceDialog(ws);
+    expect(d.message).toBe('Remove workspace app-feat-x?');
+    expect(d.choices.map((c) => [c.label, c.removeWorktrees, c.force, c.deleteBranch])).toEqual([
+      ['Remove Workspace & Worktrees', true, false, false],
+      ['Remove Workspace, Worktrees & Branches', true, false, true],
+      ['Remove Workspace Only (Keep Worktrees)', false, false, false],
+    ]);
+  });
+
+  it('dirty member worktrees: offers Force Remove variants and lists dirty repos', () => {
+    const d = removeWorkspaceDialog(ws, [{ name: 'web', dirty: 1 }]);
+    expect(d.choices.map((c) => [c.label, c.removeWorktrees, c.force])).toEqual([
+      ['Force Remove Workspace & Worktrees', true, true],
+      ['Force Remove Workspace, Worktrees & Branches', true, true],
+      ['Remove Workspace Only (Keep Worktrees)', false, false],
+    ]);
+    expect(d.detail).toContain('Uncommitted changes in: web (1)');
   });
 });
 

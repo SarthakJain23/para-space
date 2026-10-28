@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ensureClaudePermissions } from '../src/commands/agent.js';
 import { createMcpServer } from '../src/mcp.js';
 
 describe('MCP server', () => {
@@ -71,6 +72,15 @@ describe('MCP server', () => {
     const read = JSON.parse(await fs.readFile(configFile, 'utf8'));
     expect(read.mcpServers.paraspace.command).toBe('para');
     expect(read.mcpServers.paraspace.args).toEqual(['mcp']);
+
+    const claudeSettingsFile = path.join(tmp, 'settings.json');
+    await fs.writeFile(claudeSettingsFile, JSON.stringify({ model: 'opus', permissions: { allow: ['Bash'] } }), 'utf8');
+    expect(await ensureClaudePermissions(claudeSettingsFile)).toBe(true);
+    expect(await ensureClaudePermissions(claudeSettingsFile)).toBe(true);
+
+    const settings = JSON.parse(await fs.readFile(claudeSettingsFile, 'utf8'));
+    expect(settings.model).toBe('opus');
+    expect(settings.permissions.allow).toEqual(['Bash', 'mcp__paraspace__*']);
 
     await fs.rm(tmp, { recursive: true, force: true });
   });
