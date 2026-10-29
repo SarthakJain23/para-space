@@ -15,7 +15,7 @@ export interface LedgerEntry {
 }
 
 /**
- * Returns the path to the repo's context ledger: `<mainRoot>/.para-space/context-history.md` (gitignored, D-014).
+ * Returns the path to the repo's context ledger: `<mainRoot>/.para-space/context-history.md` (excluded via `info/exclude`, D-051).
  *
  * @param mainRoot - Absolute path to the main repository root.
  * @returns Absolute path to `context-history.md`.

@@ -28,21 +28,20 @@ Files ParaSpace reads/writes:
 
 | File | Scope | Purpose |
 | :--- | :--- | :--- |
-| `.para-space.json` | Repo (committed) | Port strategy, base port, env keys, optional `portPool` (D-004, D-014, D-015) |
-| `.para-space/context-history.md` | Repo | Living decision ledger (D-007) |
+| `.para-space.json` | Repo (local) | Port strategy, base port, env keys, optional `portPool` (D-004, D-015, D-051) |
+| `.para-space/context-history.md` | Repo (local) | Living decision ledger (D-007, D-051) |
 | `~/.para-space/state.json` | Machine | Worktrees, index, ports, links, colors, multi-repo `workspaces`, and `ignoredWorkspaces`; atomic writes; `PARA_SPACE_HOME` overrides (D-010, D-022, D-041, D-048) |
 | `~/.para-space/worktrees/<project>/<repo>-<slug>` | Machine | Centralized directory where ParaSpace provisions linked Git worktrees (D-049) |
 | `~/.para-space/workspaces/<name>-<slug>.code-workspace` | Machine | Centralized multi-repo VS Code workspace file with member worktree folders and top-level OKLCH Peacock `settings` (D-038, D-039, D-040, D-049) |
 | `<worktree>/.env` | Worktree | Symlink to main's `.env` (D-013) |
 | `<worktree>/.env.local` | Worktree | Own copy of main's `.env.local` + assigned port(s) (D-013) |
-| `$GIT_COMMON_DIR/info/exclude` | Repo (local) | Patterns that hide ParaSpace's links from git (D-019) |
-| `.gitignore` | Repo | `.para-space/` appended on first run (D-014) |
+| `$GIT_COMMON_DIR/info/exclude` | Repo (local) | Patterns that hide ParaSpace's metadata (`.para-space/`, `.para-space.json`) and links from git (D-019, D-051) |
 | `<worktree>/.vscode/settings.json` | Worktree | Colors + interpreter path, only with consent (D-006) |
 
 ---
 
 ## 1. Create Worktree — `para create <branch> [--base <ref>]`
-_Status: Implemented · Last updated: 2026-10-27 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-013–D-020, D-022, D-027, D-037, D-049_
+_Status: Implemented · Last updated: 2026-10-29 · Decisions: D-001, D-002, D-004, D-005, D-006, D-007, D-009, D-013, D-015–D-020, D-022, D-027, D-037, D-049, D-051_
 
 Flags: `--port-strategy`, `--base-port`, `--port-pool` (first run only), `--ide` / `--no-ide`, `-r/--requirement <text>`, `-y/--yes`, `--json`.
 
@@ -50,8 +49,8 @@ Flags: `--port-strategy`, `--base-port`, `--port-pool` (first run only), `--ide`
 flowchart TD
     A[para create branch --base main] --> B{.para-space.json exists?}
     B -- No --> C[Default to offset strategy silently<br/>or use --port-strategy flag]
-    C --> D[Write .para-space.json<br/>append .para-space/ to .gitignore<br/>ledger entry]
-    B -- Yes --> E[Load config]
+    C --> D[Write .para-space.json<br/>exclude .para-space/ & .para-space.json in info/exclude<br/>ledger entry]
+    B -- Yes --> E[Load config & ensure info/exclude]
     D --> E
     E --> F[Sync base branch with origin<br/>git worktree add in ~/.para-space/worktrees/...]
     F --> S[Under state.lock: pick index, allocate port,<br/>write placeholder record]
@@ -69,7 +68,7 @@ flowchart TD
 ```
 
 1. Resolve the **main** repo root via `git rev-parse --git-common-dir` (works from inside any worktree). The target is `~/.para-space/worktrees/<project-slug>/<repo>-<slug>` (D-049), and it fails if that path already exists.
-2. **First run:** if `.para-space.json` is missing, use `--port-strategy` or default to `offset` silently without interrupting the user (D-037). `envKeys` = `PORT` plus strategy defaults (`VITE_PORT` for Vite). Append `.para-space/` to `.gitignore` and write a ledger entry. (Interactive port strategy configuration is available on-demand via `para config` / `paraSpace.configureRepo`).
+2. **First run:** if `.para-space.json` is missing, use `--port-strategy` or default to `offset` silently without interrupting the user (D-037). `envKeys` = `PORT` plus strategy defaults (`VITE_PORT` for Vite). Exclude `/.para-space/` and `/.para-space.json` via `$GIT_COMMON_DIR/info/exclude` (D-051) and write a ledger entry. (Interactive port strategy configuration is available on-demand via `para config` / `paraSpace.configureRepo`).
 3. **Sync base branch & checkout (D-049):** if `<branch>` already exists locally, `git worktree add <path> <branch>` checks it out. Otherwise, `syncBaseBranch()` fetches `<base>` (or the current branch if `--base` was omitted) from `origin`, fast-forwards the local base branch (`git pull --ff-only` in its checked-out worktree or `git fetch origin <base>:<base>`), and runs `git worktree add --no-track -b <branch> <path> origin/<base>`.
 3a. **Reserve a slot (D-027):** while holding `~/.para-space/state.lock`, take `worktreeIndex` = lowest unused index ≥ 1, allocate a port (`assignedPorts` = ports in state + `basePort`), and write a placeholder record. Concurrent creates therefore never share an index or port. This happens after `git worktree add` so a concurrent `list` doesn't prune the placeholder.
 4. For each detected `FrameworkStrategy`, call `linkDependencies()`. Node links `node_modules` (skipped for Yarn PnP). Python links `.venv`. Env links `.env` and copies `.env.local`. Existing paths in the worktree (e.g. a tracked `.env`) are left alone.
@@ -295,3 +294,4 @@ flowchart TD
 | 2026-10-24 | Workspace removal (`paraSpace.removeWorkspace`, `para workspace rm`), search query filtering across CLI/MCP/LM tools, stale workspace member pruning, and cross-repo worktree resolution & manifest watching | 1a, 2, 3, 4, 5, 6 | D-048 |
 | 2026-10-27 | Centralized `~/.para-space/worktrees` and `~/.para-space/workspaces` storage, automatic `origin` base-branch fetch/pull on new branch creation, `para_remove_workspace` MCP/LM tool, Copilot tool metadata & `mcp.json` setup, and tree-focus-safe repository picker | 0, 1, 1a, 5 | D-049 |
 | 2026-10-27 | Extracted shared multi-repo workspace orchestration (`provisionWorkspaceBatch`, `writeAndSaveWorkspace`, `removeWorkspaceCascade`) and search matchers (`findMatchingWorkspace`, `filterWorkspaces`, `filterWorktreeRows`) into `@para-space/core`; split CLI/VS Code workspace, create, MCP, and LM tool modules into `*Prompts.ts`, `*Actions.ts`, and `*Handlers.ts`; added `REUSABLE_COMPONENTS.md` registry | 0, 1a, 5 | D-050 |
+| 2026-10-29 | Excluded `/.para-space/` and `/.para-space.json` via `$GIT_COMMON_DIR/info/exclude` instead of modifying `.gitignore` so ParaSpace leaves zero untracked or modified metadata files in commits | 0, 1 | D-051 |

@@ -2,5 +2,6 @@ node_modules/
 dist/
 *.tsbuildinfo
 .para-space/
+.para-space.json
 *.vsix
 

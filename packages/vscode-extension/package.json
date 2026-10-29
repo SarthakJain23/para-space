@@ -2,7 +2,7 @@
   "name": "para-space-vscode",
   "displayName": "ParaSpace",
   "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "para-space",
   "author": "Sarthak Jain",
   "license": "MIT",

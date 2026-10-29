@@ -71,10 +71,11 @@ describe('worktree lifecycle', () => {
     expect(res.path).toBe(wt);
     expect(res.port).toBe(3001);
 
-    // config persisted with vite key detected; ledger gitignored
+    // config persisted with vite key detected; .gitignore untouched; main repo stays clean
     const config = JSON.parse(await readFile(path.join(repo, '.para-space.json'), 'utf8'));
     expect(config).toEqual({ portStrategy: 'offset', basePort: 3000, envKeys: ['PORT', 'VITE_PORT'] });
-    expect(await readFile(path.join(repo, '.gitignore'), 'utf8')).toContain('.para-space/');
+    expect(await readFile(path.join(repo, '.gitignore'), 'utf8')).not.toContain('.para-space');
+    expect(git(repo, 'status', '--porcelain')).toBe('');
 
     // absolute symlinks into main
     for (const rel of ['node_modules', '.venv', '.env']) {
@@ -91,8 +92,10 @@ describe('worktree lifecycle', () => {
     expect(settings['workbench.colorCustomizations']['titleBar.activeBackground']).toBe('#137d87');
     expect(settings['python.defaultInterpreterPath']).toBe(path.join(wt, '.venv', 'bin', 'python'));
 
-    // links excluded via info/exclude → worktree status shows only the (untracked) .vscode dir
+    // metadata and links excluded via info/exclude → worktree status shows only the (untracked) .vscode dir
     const exclude = await readFile(path.join(repo, '.git', 'info', 'exclude'), 'utf8');
+    expect(exclude).toContain('/.para-space/');
+    expect(exclude).toContain('/.para-space.json');
     expect(exclude).toContain('/node_modules');
     expect(git(wt, 'status', '--porcelain')).toBe('?? .vscode/');
 
@@ -203,8 +206,17 @@ describe('worktree lifecycle', () => {
     expect((await readState()).repos[repo]?.worktrees ?? []).toEqual([]);
   });
 
-  it('updateConfig updates .para-space.json and records to context ledger', async () => {
+  it('updateConfig updates .para-space.json, excludes metadata in info/exclude, and records to context ledger', async () => {
+    // Simulate a pre-existing .para-space.json from an older version before info/exclude had /.para-space.json
+    await writeFile(
+      path.join(repo, '.para-space.json'),
+      JSON.stringify({ portStrategy: 'offset', basePort: 3000, envKeys: ['PORT'] }),
+    );
+    expect(git(repo, 'status', '--porcelain')).toBe('?? .para-space.json');
+
     await createWorktree({ cwd: repo, branch: 'feat/first', base: 'main' });
+    expect(git(repo, 'status', '--porcelain')).toBe('');
+
     const { config, previous } = await updateConfig({
       cwd: repo,
       portStrategy: 'scan',
@@ -214,6 +226,7 @@ describe('worktree lifecycle', () => {
     expect(previous?.portStrategy).toBe('offset');
     expect(config.portStrategy).toBe('scan');
     expect(config.basePort).toBe(4000);
+    expect(git(repo, 'status', '--porcelain')).toBe('');
 
     const history = await readLedger(repo);
     expect(history.length).toBeGreaterThanOrEqual(2);

@@ -39,7 +39,7 @@ para setup-agent
 Install **ParaSpace** (`para-space.para-space-vscode`) from the VS Code Marketplace, or install from a packaged `.vsix`:
 
 ```bash
-code --install-extension para-space-vscode-0.1.3.vsix
+code --install-extension para-space-vscode-0.1.4.vsix
 ```
 
 ---
@@ -58,7 +58,7 @@ para isolate feat/TK-101        # break the shared node_modules/.venv link
 para remove feat/TK-101 --delete-branch
 ```
 
-The first `create` in a repo automatically uses the `offset` strategy and saves it to `.para-space.json`, which you should commit. To configure a different strategy (`scan`, `pool`, `passthrough`), run `para config` or use **ParaSpace: Configure Port Strategy…** in VS Code. For agents and scripts, pass `--yes`, and optionally `--port-strategy <offset|scan|pool|passthrough>` and `--ide`. Nothing will prompt.
+The first `create` in a repo automatically uses the `offset` strategy, saves it to `.para-space.json`, and excludes both `.para-space/` and `.para-space.json` in `.git/info/exclude` so your repository stays clean. To configure a different strategy (`scan`, `pool`, `passthrough`), run `para config` or use **ParaSpace: Configure Port Strategy…** in VS Code. For agents and scripts, pass `--yes`, and optionally `--port-strategy <offset|scan|pool|passthrough>` and `--ide`. Nothing will prompt.
 
 ---
 

@@ -1,7 +1,7 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-/** Per-repo config file, at the main repo root and committed (D-014, D-015). */
+/** Per-repo config file at the main repo root, excluded from git via `info/exclude` (D-015, D-051). */
 export const CONFIG_FILE = '.para-space.json';
 
 export const PORT_STRATEGY_NAMES = ['offset', 'scan', 'pool', 'passthrough'] as const;

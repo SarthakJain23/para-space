@@ -25,7 +25,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-011 | pnpm workspaces + tsup + vitest for ParaSpace's own repo | Accepted | 2026-10-16 |
 | D-012 | Worktrees live in sibling dirs named `<repo>-<branch-slug>` | Superseded by D-049 | 2026-10-16 |
 | D-013 | `.env` is symlinked; `.env.local` is a per-worktree copy | Accepted | 2026-10-16 |
-| D-014 | Commit `.para-space.json`; gitignore the ledger | Accepted | 2026-10-16 |
+| D-014 | Commit `.para-space.json`; gitignore the ledger | Superseded by D-051 | 2026-10-16 |
 | D-015 | Repo config lives at the repo root | Accepted | 2026-10-16 |
 | D-016 | Link pnpm `node_modules` whole; skip Yarn PnP | Accepted | 2026-10-16 |
 | D-017 | Isolate = CoW clone, else fresh install; Python always rebuilds venv | Accepted | 2026-10-16 |
@@ -62,6 +62,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-048 | Workspace removal, search filtering, and cross-repo worktree resolution | Accepted | 2026-10-24 |
 | D-049 | Centralized `~/.para-space` worktree/workspace storage, automatic base-branch sync, and agent removal/Copilot integration | Accepted | 2026-10-27 |
 | D-050 | Cross-repo DRY registry (REUSABLE_COMPONENTS.md), single-responsibility functions, and 250-line file decomposition limit | Accepted | 2026-10-27 |
+| D-051 | Exclude `.para-space/` and `.para-space.json` via `$GIT_COMMON_DIR/info/exclude` instead of `.gitignore` | Accepted | 2026-10-29 |
 
 ---
 
@@ -148,7 +149,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Problem Solved:** Secret edits propagate everywhere, while each worktree owns its port. Projects that keep secrets only in `.env.local` get a snapshot copy, not live sharing.
 
 ## D-014 — Commit `.para-space.json`; gitignore the ledger
-- **Status:** Accepted · 2026-10-16 · resolves Open Question 2
+- **Status:** Superseded by D-051 · 2026-10-16 · resolves Open Question 2
 - **Requirement Context:** Should config and history be team-shared?
 - **Decision Made:** `.para-space.json` is meant to be committed. On first run, `.para-space/` is appended to the repo `.gitignore`.
 - **Problem Solved:** The team shares one port strategy. The ledger holds machine-specific absolute paths, so it stays local and causes no merge noise.
@@ -484,6 +485,12 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **Single-responsibility decomposition & 250-line ceiling:** Split oversized CLI and VS Code modules into focused files under 250 lines (`workspacePrompts.ts` + `workspaceActions.ts` + `workspace.ts`, `mcpHandlers.ts` + `mcp.ts`, `createPrompts.ts` + `create.ts`, and `lmToolHandlers.ts` + `lmTools.ts`), separating registration, interactive prompting, and execution handlers.
   - **Living reusable-components registry (`REUSABLE_COMPONENTS.md`):** Created `REUSABLE_COMPONENTS.md` at the repository root cataloging all reusable core orchestrators, workspace/search helpers, state/git/safety utilities, CLI shared handlers, and VS Code builders/handlers, and codified mandatory check-and-update rules in `GUIDELINES.md` (rules `1.6`, `2.1`, `2.2`, `2.3`).
 - **Problem Solved:** Eliminates cross-package duplication, keeps every module small and focused on a single responsibility, and gives contributors and AI coding agents a single authoritative index of reusable building blocks to consult and maintain on every commit.
+
+## D-051 — Exclude `.para-space/` and `.para-space.json` via `$GIT_COMMON_DIR/info/exclude` instead of `.gitignore`
+- **Status:** Accepted · 2026-10-29 · supersedes D-014
+- **Requirement Context:** Leaving `.para-space.json` un-ignored and appending `.para-space/` to `.gitignore` polluted the main repository's working tree with untracked `.para-space.json` and modified `.gitignore` entries, causing ParaSpace metadata to accidentally sneak into user commits and pull requests.
+- **Decision Made:** `ensureConfig()` and `updateConfig()` now exclude both `/.para-space/` and `/.para-space.json` via `$GIT_COMMON_DIR/info/exclude` (`excludeFromGit`) instead of modifying the repository's `.gitignore`. Existing repositories with an already-created `.para-space.json` also have `/.para-space/` and `/.para-space.json` added to `$GIT_COMMON_DIR/info/exclude` on the next `ensureConfig()` run.
+- **Problem Solved:** Using ParaSpace leaves zero untracked or modified metadata files in the repository's `git status` across both the main checkout and all linked worktrees, so neither `.para-space.json` nor `.gitignore` changes are accidentally included in commits.
 
 ---
 

@@ -18,13 +18,13 @@ export async function ensureLines(file: string, lines: string[], header = MARKER
 }
 
 /**
- * Ignore ParaSpace's links via `$GIT_COMMON_DIR/info/exclude` — shared by every worktree,
- * never committed. A `node_modules/` pattern only matches directories, not symlinks, so
- * links need their own slash-less, root-anchored patterns (D-019).
+ * Ignore ParaSpace's local metadata and links via `$GIT_COMMON_DIR/info/exclude` — shared by
+ * every worktree, never committed. A `node_modules/` pattern only matches directories, not
+ * symlinks, so links need their own slash-less, root-anchored patterns (D-019, D-051).
  */
 export async function excludeFromGit(gitCommonDir: string, relPaths: string[]): Promise<string[]> {
   return ensureLines(
     path.join(gitCommonDir, 'info', 'exclude'),
-    relPaths.map((p) => `/${p.split(path.sep).join('/')}`),
+    relPaths.map((p) => `/${p.replace(/^\/+/, '').split(path.sep).join('/')}`),
   );
 }

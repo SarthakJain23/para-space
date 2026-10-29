@@ -1,4 +1,3 @@
-import path from 'node:path';
 import {
   type ParaSpaceConfig,
   type PortStrategyName,
@@ -9,11 +8,13 @@ import {
 } from '../config.js';
 import { defaultEnvKeys } from '../frameworks/index.js';
 import * as git from '../git.js';
-import { ensureLines } from '../ignore.js';
+import { excludeFromGit } from '../ignore.js';
 import { LEDGER_DIR, appendLedger } from '../ledger.js';
 import { type PortStrategyAnswer, type Prompter, silentLogger } from '../prompts.js';
 import { code, codeList } from '../util/format.js';
 import type { CommonOptions } from './types.js';
+
+const LOCAL_METADATA_EXCLUDES = [`${LEDGER_DIR}/`, CONFIG_FILE];
 
 export interface EnsureConfigOptions extends CommonOptions {
   /** Asked on first run unless `portStrategy` is given. */
@@ -47,9 +48,10 @@ function chooseStrategy(opts: EnsureConfigOptions): PortStrategyAnswer {
  * Loads the repo's `.para-space.json`, creating it on first run.
  *
  * On first run the port strategy comes from `opts.portStrategy`, defaulting to `offset`
- * without interrupting the user. It also adds `.para-space/` to `.gitignore` and writes
- * a ledger entry (D-004, D-014). To configure a different strategy interactively, use
- * `updateConfig()` / `para config` / `ParaSpace: Configure Port Strategy…`.
+ * without interrupting the user. It also adds `/.para-space/` and `/.para-space.json` to
+ * `$GIT_COMMON_DIR/info/exclude` and writes a ledger entry (D-004, D-051). To configure a
+ * different strategy interactively, use `updateConfig()` / `para config` /
+ * `ParaSpace: Configure Port Strategy…`.
  *
  * @param opts - `cwd`, optional `portStrategy` / `basePort` / `portPool`.
  * @returns The config, and `created: true` if it was just written.
@@ -62,14 +64,18 @@ function chooseStrategy(opts: EnsureConfigOptions): PortStrategyAnswer {
 export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config: ParaSpaceConfig; created: boolean }> {
   const log = opts.log ?? silentLogger;
   const mainRoot = await git.mainRepoRoot(opts.cwd);
+  const commonDir = await git.gitCommonDir(mainRoot);
   const existing = await loadConfig(mainRoot);
-  if (existing) return { config: existing, created: false };
+  if (existing) {
+    await excludeFromGit(commonDir, LOCAL_METADATA_EXCLUDES);
+    return { config: existing, created: false };
+  }
 
   const { portStrategy, basePort, portPool } = chooseStrategy(opts);
   const config: ParaSpaceConfig = { portStrategy, basePort, envKeys: await defaultEnvKeys(mainRoot) };
   if (portPool) config.portPool = portPool;
   await saveConfig(mainRoot, config);
-  const ignored = await ensureLines(path.join(mainRoot, '.gitignore'), [`${LEDGER_DIR}/`]);
+  const excluded = await excludeFromGit(commonDir, LOCAL_METADATA_EXCLUDES);
   log.info(`Saved ${CONFIG_FILE} (portStrategy: ${portStrategy}).`);
 
   await appendLedger(mainRoot, {
@@ -77,7 +83,9 @@ export async function ensureConfig(opts: EnsureConfigOptions): Promise<{ config:
     requirement: 'First ParaSpace worktree in this repository.',
     decisions: [
       `Port strategy ${code(portStrategy)}, base port ${code(basePort)}, env keys ${codeList(config.envKeys)} saved to ${code(CONFIG_FILE)}.`,
-      ...(ignored.length ? [`Added ${code(`${LEDGER_DIR}/`)} to ${code('.gitignore')} (ledger stays local).`] : []),
+      ...(excluded.length
+        ? [`Added ${codeList(excluded)} to ${code('.git/info/exclude')} (ParaSpace metadata stays local).`]
+        : []),
     ],
     problemSolved: 'Future worktrees reuse this choice without prompting; dev servers get non-colliding ports.',
   });
@@ -152,7 +160,8 @@ export async function updateConfig(opts: UpdateConfigOptions): Promise<UpdateCon
   }
 
   await saveConfig(mainRoot, newConfig);
-  const ignored = await ensureLines(path.join(mainRoot, '.gitignore'), [`${LEDGER_DIR}/`]);
+  const commonDir = await git.gitCommonDir(mainRoot);
+  const excluded = await excludeFromGit(commonDir, LOCAL_METADATA_EXCLUDES);
   log.info(`Updated ${CONFIG_FILE} (portStrategy: ${portStrategy}, basePort: ${basePort}).`);
 
   const decisions = [
@@ -161,8 +170,8 @@ export async function updateConfig(opts: UpdateConfigOptions): Promise<UpdateCon
   if (previous && previous.portStrategy !== portStrategy) {
     decisions.push(`Changed port strategy from ${code(previous.portStrategy)} to ${code(portStrategy)}.`);
   }
-  if (ignored.length) {
-    decisions.push(`Added ${code(`${LEDGER_DIR}/`)} to ${code('.gitignore')}.`);
+  if (excluded.length) {
+    decisions.push(`Added ${codeList(excluded)} to ${code('.git/info/exclude')}.`);
   }
 
   await appendLedger(mainRoot, {
