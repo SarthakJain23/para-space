@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to package (e.g. v0.1.1)'
+        description: 'Release tag to package (e.g. v0.1.5)'
         required: false
-        default: 'v0.1.1'
+        default: 'v0.1.5'
 
 permissions:
   contents: write
@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - name: Checkout repository
@@ -77,12 +76,17 @@ jobs:
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "@para-space-dev/cli@$PKG_VERSION" version >/dev/null 2>&1; then
+            echo "@para-space-dev/cli@$PKG_VERSION is already published to npm. Skipping."
+          else
+            npm publish --provenance --access public
+          fi
 
-      - name: Publish extension to VS Code Marketplace
-        if: env.VSCE_PAT != ''
+      - name: Publish extension to VS Code Marketplace (OIDC Trusted Publishing)
         working-directory: packages/vscode-extension
-        run: npx @vscode/vsce publish --packagePath *.vsix -p "$VSCE_PAT"
+        run: npx @vscode/vsce publish --packagePath *.vsix --oidc --skip-duplicate
 
       - name: Publish extension to Open VSX Registry
         if: env.OVSX_PAT != ''

@@ -438,7 +438,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Requirement Context:** Public open-source contributors and users need automated verification on every push/PR across operating systems and Node.js versions, as well as repeatable release packaging for GitHub Releases, npm, the VS Code Marketplace, and Open VSX.
 - **Decision Made:**
   - **CI Workflow (`.github/workflows/ci.yml`):** Runs on pushes to `main` and pull requests. Executes `pnpm format:check` and `pnpm typecheck`, followed by a matrix build and test job across `ubuntu-latest` and `macos-latest` on Node 20 and Node 22, plus `.vsix` packaging validation.
-  - **Release Workflow (`.github/workflows/release.yml`):** Triggers on `v*.*.*` tags and `workflow_dispatch`. Runs full verification, packages the `.vsix` and `@para-space/cli` tarball, publishes a GitHub Release with both artifacts attached using `GITHUB_TOKEN`, and conditionally publishes to npm (`NPM_TOKEN`), Visual Studio Marketplace (`VSCE_PAT`), and Open VSX (`OVSX_PAT`) when secrets are configured.
+  - **Release Workflow (`.github/workflows/release.yml`):** Triggers on `v*.*.*` tags and `workflow_dispatch`. Runs full verification, packages the `.vsix` and `@para-space/cli` tarball, publishes a GitHub Release with both artifacts attached using `GITHUB_TOKEN`, publishes the VS Code extension to the Visual Studio Marketplace via OIDC Trusted Publishing (`--oidc`), and conditionally publishes to npm (`NPM_TOKEN`) and Open VSX (`OVSX_PAT`) when secrets are configured.
 - **Problem Solved:** Guarantees cross-platform quality on every commit and automates `v*.*.*` releases even before external registry secrets are configured.
 
 ## D-047 — Review new APIs and block deprecated TypeScript APIs in CI
