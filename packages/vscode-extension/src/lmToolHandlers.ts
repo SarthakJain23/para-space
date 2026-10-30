@@ -53,6 +53,32 @@ export async function invokeCreateWorkspace(input: {
   }
 }
 
+/** Handles `para_add_repo_to_workspace` Language Model Tool invocation. */
+export async function invokeAddRepoToWorkspace(input: {
+  repos: string[];
+  target?: string;
+  branch?: string;
+  base?: string;
+  requirement?: string;
+}): Promise<unknown> {
+  const { repos, target, branch, base, requirement } = input;
+  try {
+    await vscode.commands.executeCommand('paraSpace.addRepoToWorkspace', {
+      repos,
+      target,
+      branch,
+      base,
+      requirement,
+      ide: 'yes',
+    });
+    return makeToolResult(
+      `Successfully added ${repos.join(', ')} to the parallel workspace${target ? ` "${target}"` : ''}.`,
+    );
+  } catch (err) {
+    return makeToolResult(`Failed to add repository to workspace: ${(err as Error).message}`);
+  }
+}
+
 /** Handles `para_open_workspace` Language Model Tool invocation. */
 export async function invokeOpenWorkspace({ store }: CommandContext, input: { target: string }): Promise<unknown> {
   const { target } = input;

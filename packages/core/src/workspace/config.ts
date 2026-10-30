@@ -94,7 +94,11 @@ export function multiRepoWorkspaceFilePath(
 ): string {
   const branchSlug = slugify(branch);
   if (existingWorkspaceFilePath) {
+    const resolvedExisting = path.resolve(existingWorkspaceFilePath);
     const base = path.basename(existingWorkspaceFilePath, '.code-workspace');
+    if (path.dirname(resolvedExisting) === path.resolve(workspacesDir()) && base.endsWith(`-${branchSlug}`)) {
+      return resolvedExisting;
+    }
     return path.join(workspacesDir(), `${base}-${branchSlug}.code-workspace`);
   }
   const projectDir = worktreePaths[0] ? path.basename(path.dirname(worktreePaths[0])) : undefined;

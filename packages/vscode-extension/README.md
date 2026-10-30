@@ -15,7 +15,7 @@ Spin up isolated Git worktrees and multi-repository workspaces in milliseconds�
 - **Manifest Watcher & 1-Click Breakaway Isolation:** Automatically detects when `package.json`, lockfiles, or Python manifests diverge from the main checkout and offers 1-click **Isolate Dependencies** (using instant APFS Copy-on-Write clones on macOS).
 - **OKLCH Window Coloring:** Opt-in, equal-lightness title bar and status bar themes so you can immediately tell parallel windows apart.
 - **Living Context History Ledger:** Records why each worktree was created, configured, or isolated in `.para-space/context-history.md` and surfaces it in the **Context History** sidebar view.
-- **Native GitHub Copilot Tools:** Exposes `para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, and `para_remove_workspace` to GitHub Copilot Chat out of the box—no repo configuration files needed.
+- **Native GitHub Copilot Tools:** Exposes `para_create_workspace`, `para_add_repo_to_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, and `para_remove_workspace` to GitHub Copilot Chat out of the box—no repo configuration files needed.
 
 ---
 
@@ -34,6 +34,7 @@ Click the **ParaSpace status bar item** (showing your current branch, assigned p
 | Command | Description |
 | :--- | :--- |
 | **ParaSpace: Create Worktree…** | Search/pick an existing branch or create a new branch across one or more repositories |
+| **ParaSpace: Add Repository to Workspace…** | Provision and add one or more repositories (e.g. `mobile`) to an existing multi-repo workspace |
 | **ParaSpace: List Worktrees** | Open the Quick Switcher for worktrees and multi-repo workspaces |
 | **ParaSpace: Open Workspace…** | Reopen a tracked multi-repo workspace or browse for a `.code-workspace` file on disk |
 | **ParaSpace: Configure Port Strategy…** | Configure `offset`, `scan`, `pool`, or `passthrough` port allocation in `.para-space.json` |
@@ -58,6 +59,7 @@ ParaSpace supports full multi-repository workflows (for example, `frontend` + `b
    - **Sidebar (`Worktrees` view):** Active multi-repo workspaces appear at the top as expandable `Workspace` nodes—click the inline **Open in New Window** icon to launch, or expand to inspect member repository worktrees.
    - **Quick Switcher (`ParaSpace: List Worktrees` / Status Bar):** Multi-repo workspaces appear right below *Create Worktree…* as `$(root-folder) [Workspace] <branch>`.
    - **Open or Browse (`ParaSpace: Open Workspace…`):** Type to search tracked or auto-discovered workspaces by their displayed details, or pick **Browse for workspace file…** to import and open any `.code-workspace` file from disk.
+   - **Add Repository (`ParaSpace: Add Repository to Workspace…`):** Right-click a workspace node or run from the Command Palette to provision and attach additional sibling or browsed repositories to an existing multi-repo workspace.
    - **Remove:** Right-click a workspace node and choose **Remove Workspace…** to remove its ParaSpace record while keeping the file, or explicitly move the file to Trash.
    - **Filter Repositories (`ParaSpace: Select Repositories to Include…`):** Choose which repositories are shown in the sidebar views.
 

@@ -1,15 +1,19 @@
 import path from 'node:path';
 import * as p from '@clack/prompts';
 import {
+  type WorkspaceRecord,
+  addReposToWorkspace,
   discoverWorkspaceRepoRoots,
   exists,
+  findWorkspaceForWorktree,
   getWorkspaceRecords,
   listBranches,
+  parseWorkspaceFileAsRecord,
   removeWorkspaceCascade,
 } from '@para-space/core';
 import type { Command } from 'commander';
 import pc from 'picocolors';
-import { bail } from '../prompter.js';
+import { bail, clackPrompter } from '../prompter.js';
 import { action, log, ok, printJson } from '../runtime.js';
 import {
   filterWorkspaceRecords,
@@ -18,7 +22,63 @@ import {
   provisionCliWorktrees,
   saveAndEmitWorkspace,
 } from './workspaceActions.js';
-import { type Flags, planCliBranches, resolveCliTargetRepos, selectOption } from './workspacePrompts.js';
+import {
+  type Flags,
+  planCliBranches,
+  resolveCliReposToAdd,
+  resolveCliTargetRepos,
+  selectOption,
+} from './workspacePrompts.js';
+
+async function resolveTargetWorkspace(
+  target: string | undefined,
+  baseDir: string,
+  isInteractive: boolean,
+): Promise<WorkspaceRecord> {
+  const roots = await discoverWorkspaceRepoRoots(baseDir);
+  const scopedRecords = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+  const allRecords = scopedRecords.length > 0 ? scopedRecords : await getWorkspaceRecords();
+
+  if (target) {
+    const match =
+      matchWorkspaceRecord(scopedRecords, target) ??
+      matchWorkspaceRecord(allRecords, target) ??
+      (allRecords !== scopedRecords ? matchWorkspaceRecord(await getWorkspaceRecords(), target) : undefined);
+    if (match) return match;
+    if (target.endsWith('.code-workspace') && (await exists(path.resolve(baseDir, target)))) {
+      const parsed = await parseWorkspaceFileAsRecord(path.resolve(baseDir, target));
+      if (parsed) return parsed;
+    }
+    throw new Error(`No workspace matches "${target}". Run \`para workspace list\` to see available workspaces.`);
+  }
+
+  const currentWs = await findWorkspaceForWorktree(baseDir);
+  if (currentWs) return currentWs;
+
+  if (allRecords.length === 0) {
+    throw new Error('No multi-repository workspaces found. Create one first with `para workspace create`.');
+  }
+  if (allRecords.length === 1) {
+    return allRecords[0];
+  }
+  if (!isInteractive) {
+    throw new Error(
+      'Multiple workspaces found. Specify a target workspace: `para workspace add <workspace> --repo <path>`.',
+    );
+  }
+
+  const chosenFile = await selectOption(
+    'Select workspace to add repositories to:',
+    allRecords.map((r) => ({
+      value: r.workspaceFile,
+      label: `${r.name} (${r.branch})`,
+      hint: `${r.repos.length} repos (${r.repos.map((repo) => repo.name).join(', ')})`,
+    })),
+  );
+  const chosen = allRecords.find((r) => r.workspaceFile === chosenFile);
+  if (!chosen) throw new Error('Workspace selection cancelled.');
+  return chosen;
+}
 
 export function registerWorkspace(program: Command) {
   const ws = program.command('workspace').alias('ws').description('Manage multi-repository parallel workspaces');
@@ -81,6 +141,70 @@ export function registerWorkspace(program: Command) {
 
         const results = await provisionCliWorktrees(plans, requirement, ide, isInteractive);
         await saveAndEmitWorkspace(results, plans, flags.name, flags.json);
+      }),
+    );
+
+  ws.command('add [target]')
+    .alias('add-repo')
+    .description('Add one or more repositories to an existing multi-repository workspace')
+    .option('--repo <paths...>', 'repositories to add (path or sibling repository name)')
+    .option('-b, --branch <branch>', 'branch name for added repositories (default: workspace branch)')
+    .option('--base <ref>', 'base ref if creating a new branch')
+    .option('--per-repo', 'choose branches per repository')
+    .option('-r, --requirement <text>', 'why this repository worktree exists (recorded in ledger)')
+    .option('--ide', 'write window color / interpreter to settings without asking')
+    .option('--no-ide', 'never touch settings')
+    .option('-y, --yes', 'non-interactive: no prompts')
+    .option('--json', 'print the result as JSON')
+    .action(
+      action(async (targetArg: string | undefined, flags: Flags) => {
+        const isInteractive = !flags.yes && Boolean(process.stdin.isTTY && process.stdout.isTTY);
+        const workspace = await resolveTargetWorkspace(targetArg, process.cwd(), isInteractive);
+        const targetRepos = await resolveCliReposToAdd(workspace, flags, isInteractive, process.cwd());
+        const branchLists = await Promise.all(targetRepos.map((r) => listBranches({ cwd: r.root })));
+        const defaultBranch = flags.branch ?? (flags.perRepo ? undefined : workspace.branch);
+        const plans = await planCliBranches(targetRepos, branchLists, defaultBranch, flags, isInteractive);
+
+        const requirement = flags.requirement?.trim();
+        let ide: 'yes' | 'no' = 'yes';
+        if (flags.ide !== undefined) {
+          ide = flags.ide ? 'yes' : 'no';
+        }
+
+        const res = await addReposToWorkspace({
+          workspace,
+          plans: plans.map((pl) => ({
+            root: pl.repo.root,
+            name: pl.repo.name,
+            branch: pl.branch,
+            base: pl.base,
+          })),
+          requirement,
+          prompter: isInteractive ? clackPrompter : undefined,
+          ide,
+          log,
+        });
+
+        if (flags.json) {
+          printJson({
+            workspaceFile: res.workspaceFile,
+            added: res.added,
+            skipped: res.skipped,
+            repos: res.record.repos,
+          });
+          return;
+        }
+
+        ok(`Updated workspace: ${pc.bold(res.workspaceFile)}`);
+        for (const r of res.added) {
+          const port = r.port !== undefined ? ` :${r.port}` : '';
+          console.log(
+            `  + ${pc.cyan(path.basename(r.mainRoot))} → ${r.branch}${r.createdBranch ? pc.dim(' (new)') : ''}${port} (${pc.dim(r.path)})`,
+          );
+        }
+        if (res.skipped.length > 0) {
+          console.log(pc.dim(`  Skipped already included: ${res.skipped.join(', ')}`));
+        }
       }),
     );
 

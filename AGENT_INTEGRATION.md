@@ -61,6 +61,7 @@ When a project spans multiple repositories in a workspace or parent directory:
 | :--- | :--- |
 | **Create workspace** | `para workspace create <branch> --yes -r "<task-description>" --json` |
 | **Create with explicit repos** | `para workspace create <branch> --repo ./frontend --repo ./backend --yes -r "<task-description>" --json` |
+| **Add repo to workspace** | `para workspace add <branch> --repo ./mobile --yes -r "<task-description>" --json` |
 | **List workspaces** | `para workspace list --json` |
 | **Open workspace in VS Code** | `para workspace open <branch>` *(or `code <workspaceFile>`)* |
 | **Remove workspace** | `para workspace remove <branch> --remove-worktrees --delete-file --yes` |

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { CommandContext } from './commands/context.js';
 import {
+  invokeAddRepoToWorkspace,
   invokeCreateWorkspace,
   invokeIsolateWorktree,
   invokeListWorktrees,
@@ -35,7 +36,39 @@ export function registerLmTools(ctx: CommandContext): vscode.Disposable[] {
     }),
   );
 
-  // 2. para_open_workspace
+  // 2. para_add_repo_to_workspace
+  disposables.push(
+    lm.registerTool('para_add_repo_to_workspace', {
+      prepareInvocation(options: {
+        input: {
+          repos: string[];
+          target?: string;
+          branch?: string;
+          base?: string;
+          requirement?: string;
+        };
+      }) {
+        const repoList = options.input.repos?.join(', ') || 'repositories';
+        const wsTarget = options.input.target ? ` "${options.input.target}"` : '';
+        return {
+          invocationMessage: `Adding ${repoList} to ParaSpace workspace${wsTarget}…`,
+        };
+      },
+      async invoke(options: {
+        input: {
+          repos: string[];
+          target?: string;
+          branch?: string;
+          base?: string;
+          requirement?: string;
+        };
+      }) {
+        return invokeAddRepoToWorkspace(options.input);
+      },
+    }),
+  );
+
+  // 3. para_open_workspace
   disposables.push(
     lm.registerTool('para_open_workspace', {
       prepareInvocation(options: { input: { target: string } }) {
@@ -110,6 +143,6 @@ export function registerLmTools(ctx: CommandContext): vscode.Disposable[] {
     }),
   );
 
-  rt.log.info('Registered 5 ParaSpace Language Model Tools for AI coding agents.');
+  rt.log.info('Registered 6 ParaSpace Language Model Tools for AI coding agents.');
   return disposables;
 }

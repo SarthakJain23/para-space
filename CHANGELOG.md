@@ -4,6 +4,15 @@ All notable changes to **ParaSpace** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-10-30
+
+### Added
+- **Add Repositories to Existing Multi-Repo Workspaces (`D-052`):**
+  - **Core (`@para-space/core`):** Added `addReposToWorkspace()`, `discoverCandidateReposForWorkspace()`, and `resolveRepoInput()`, and updated `provisionWorkspaceBatch()` to reuse existing worktrees on the target branch while rolling back only newly created worktrees on failure.
+  - **CLI (`@para-space-dev/cli`):** Added `para workspace add [target]` (alias `para ws add` / `para ws add-repo`) with interactive sibling repository discovery and non-interactive `--repo <path|name...>` support.
+  - **AI Agents (MCP & GitHub Copilot):** Added `para_add_repo_to_workspace` (`paraAddRepoToWorkspace`) to both the MCP server (`para mcp`) and VS Code Language Model Tools, and enhanced `para_create_workspace` to extend an existing multi-repo workspace when invoked with additional repositories on the same branch.
+  - **VS Code Extension (`para-space-vscode`):** Added `paraSpace.addRepoToWorkspace` (**ParaSpace: Add Repository to Workspace…**) to the Command Palette and Workspace tree node context menu, and expanded `discoverRepoRoots()` to discover sibling repositories when a `.code-workspace` window is open.
+
 ## [0.1.4] - 2026-10-29
 
 ### Fixed

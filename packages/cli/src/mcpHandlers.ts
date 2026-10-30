@@ -1,14 +1,18 @@
 import {
+  type WorkspaceRecord,
+  addReposToWorkspace,
   createWorktree,
   discoverWorkspaceRepoRoots,
   exists,
   filterWorktreeRows,
+  findWorkspaceForWorktree,
   getWorkspaceRecords,
   isolateWorktree,
   listWorktrees,
-  mainRepoRoot,
+  parseWorkspaceFileAsRecord,
   removeWorkspaceCascade,
   removeWorktree,
+  resolveRepoInput,
 } from '@para-space/core';
 import path from 'node:path';
 import {
@@ -30,6 +34,31 @@ function errorResult(text: string) {
   return { content: [{ type: 'text' as const, text }], isError: true };
 }
 
+async function findTargetWorkspaceForMcp(baseDir: string, target?: string): Promise<WorkspaceRecord | undefined> {
+  const roots = await discoverWorkspaceRepoRoots(baseDir);
+  const scoped = await getWorkspaceRecords(roots.length > 0 ? roots : undefined);
+  const all = scoped.length > 0 ? scoped : await getWorkspaceRecords();
+
+  if (target) {
+    const matched =
+      matchWorkspaceRecord(scoped, target) ??
+      matchWorkspaceRecord(all, target) ??
+      (all !== scoped ? matchWorkspaceRecord(await getWorkspaceRecords(), target) : undefined);
+    if (matched) return matched;
+    const resolvedTarget = path.resolve(baseDir, target);
+    if (target.endsWith('.code-workspace') && (await exists(resolvedTarget))) {
+      return parseWorkspaceFileAsRecord(resolvedTarget);
+    }
+    return undefined;
+  }
+
+  const current = await findWorkspaceForWorktree(baseDir);
+  if (current) return current;
+  if (scoped.length === 1) return scoped[0];
+  if (all.length === 1) return all[0];
+  return undefined;
+}
+
 /** Handles `para_create_workspace` MCP tool invocations. */
 export async function handleCreateWorkspace(args: {
   branch: string;
@@ -40,12 +69,37 @@ export async function handleCreateWorkspace(args: {
 }) {
   const { branch, base, requirement, repos, cwd } = args;
   const baseDir = cwd ? path.resolve(cwd) : process.cwd();
-  const targetRoots =
-    repos && repos.length > 0
-      ? Array.from(new Set(await Promise.all(repos.map((r) => mainRepoRoot(path.resolve(baseDir, r))))))
-      : await discoverWorkspaceRepoRoots(baseDir);
+  const existingWs = await findTargetWorkspaceForMcp(baseDir, branch);
+
+  let targetRoots: string[];
+  try {
+    targetRoots =
+      repos && repos.length > 0
+        ? Array.from(new Set(await Promise.all(repos.map((r) => resolveRepoInput(r, baseDir, existingWs)))))
+        : await discoverWorkspaceRepoRoots(baseDir);
+  } catch (err) {
+    return errorResult(`Error resolving repositories: ${(err as Error).message}`);
+  }
 
   if (targetRoots.length === 0) return errorResult(`Error: No Git repositories found in ${baseDir}.`);
+
+  // If a multi-repo workspace already exists for this exact branch and the caller passed additional repo(s),
+  // extend the existing workspace rather than creating a disconnected standalone worktree.
+  if (existingWs && existingWs.branch === branch && repos && repos.length > 0) {
+    const newOnly = targetRoots.filter(
+      (root) => !existingWs.repos.some((r) => path.resolve(r.root) === path.resolve(root)),
+    );
+    if (newOnly.length > 0 && targetRoots.length < existingWs.repos.length + newOnly.length) {
+      return handleAddRepoToWorkspace({
+        target: existingWs.workspaceFile,
+        repos,
+        branch,
+        base,
+        requirement,
+        cwd: baseDir,
+      });
+    }
+  }
 
   if (targetRoots.length === 1) {
     try {
@@ -80,6 +134,78 @@ export async function handleCreateWorkspace(args: {
     });
   } catch (err) {
     return errorResult(`Error creating multi-repo workspace: ${(err as Error).message}`);
+  }
+}
+
+/** Handles `para_add_repo_to_workspace` MCP tool invocations. */
+export async function handleAddRepoToWorkspace(args: {
+  repos: string[];
+  target?: string;
+  branch?: string;
+  base?: string;
+  requirement?: string;
+  cwd?: string;
+}) {
+  const { repos, target, branch, base, requirement, cwd } = args;
+  const baseDir = cwd ? path.resolve(cwd) : process.cwd();
+
+  if (!repos || repos.length === 0) {
+    return errorResult('Error: At least one repository must be specified in "repos".');
+  }
+
+  const workspace = await findTargetWorkspaceForMcp(baseDir, target ?? branch);
+  if (!workspace) {
+    return errorResult(
+      target
+        ? `Error: No multi-repository workspace found matching "${target}".`
+        : 'Error: Could not determine target multi-repository workspace. Specify "target" (branch, workspace name, or .code-workspace path).',
+    );
+  }
+
+  let resolvedRoots: string[];
+  try {
+    resolvedRoots = Array.from(new Set(await Promise.all(repos.map((r) => resolveRepoInput(r, baseDir, workspace)))));
+  } catch (err) {
+    return errorResult(`Error resolving repository: ${(err as Error).message}`);
+  }
+
+  try {
+    const targetBranch = branch || workspace.branch;
+    const plans = resolvedRoots.map((root) => ({
+      root,
+      name: path.basename(root),
+      branch: targetBranch,
+      base,
+    }));
+
+    const res = await addReposToWorkspace({
+      workspace,
+      plans,
+      requirement,
+      ide: 'yes',
+      log,
+    });
+
+    await openWithCode(res.workspaceFile);
+    return jsonResult({
+      message: `Added ${res.added.length} repository(s) to workspace ${res.record.name}`,
+      workspaceFile: res.workspaceFile,
+      branch: res.record.branch,
+      added: res.added.map((r) => ({
+        repo: path.basename(r.mainRoot),
+        path: r.path,
+        port: r.port,
+        branch: r.branch,
+      })),
+      skipped: res.skipped,
+      repos: res.record.repos.map((r) => ({
+        repo: r.name,
+        root: r.root,
+        worktreePath: r.worktreePath,
+      })),
+    });
+  } catch (err) {
+    return errorResult(`Error adding repository to workspace: ${(err as Error).message}`);
   }
 }
 

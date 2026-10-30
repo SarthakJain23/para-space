@@ -492,6 +492,16 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 - **Decision Made:** `ensureConfig()` and `updateConfig()` now exclude both `/.para-space/` and `/.para-space.json` via `$GIT_COMMON_DIR/info/exclude` (`excludeFromGit`) instead of modifying the repository's `.gitignore`. Existing repositories with an already-created `.para-space.json` also have `/.para-space/` and `/.para-space.json` added to `$GIT_COMMON_DIR/info/exclude` on the next `ensureConfig()` run.
 - **Problem Solved:** Using ParaSpace leaves zero untracked or modified metadata files in the repository's `git status` across both the main checkout and all linked worktrees, so neither `.para-space.json` nor `.gitignore` changes are accidentally included in commits.
 
+## D-052 — Adding repositories to existing multi-repository workspaces across Core, CLI, MCP/LM tools, and VS Code
+- **Status:** Accepted · 2026-10-30
+- **Requirement Context:** When a developer creates a multi-repository workspace (e.g. `frontend` + `backend`) and later needs to bring an additional repository (e.g. `mobile`) into the same workspace, there was no command or agent tool to attach or provision that repository into the existing `.code-workspace` file and `WorkspaceRecord`, and re-running `create` with all three repositories failed because the first two worktrees already existed.
+- **Decision Made:**
+  - **Core (`addReposToWorkspace`, `discoverCandidateReposForWorkspace`, `resolveRepoInput`):** Added `addReposToWorkspace()` in `packages/core/src/workspace/orchestrate.ts` to skip already-included repos, provision or reuse worktrees for new repos, append them to the `.code-workspace` file (preserving settings and Peacock window color), and update `state.json`. Updated `provisionWorkspaceBatch()` to reuse existing linked worktrees on the target branch and only roll back worktrees created in the current batch. Added `discoverCandidateReposForWorkspace()` and `resolveRepoInput()` to resolve sibling repositories by bare name (`mobile`), relative path (`../mobile`), or absolute path.
+  - **CLI (`para workspace add` / `para ws add-repo`):** Added `para workspace add [target]` supporting both interactive sibling repository multi-select and non-interactive `--repo <paths...>` execution.
+  - **AI Agents (`para_add_repo_to_workspace`):** Added `para_add_repo_to_workspace` to both the MCP server (`para mcp`) and VS Code Language Model Tools (`paraAddRepoToWorkspace`), and updated `handleCreateWorkspace` to extend an existing workspace when called on the same branch with additional repos.
+  - **VS Code Extension (`paraSpace.addRepoToWorkspace`):** Added **ParaSpace: Add Repository to Workspace…** to the Command Palette and Workspace node context menu (with sibling auto-discovery plus a **Browse for repository folder…** fallback) and expanded `discoverRepoRoots()` to scan sibling directories when a `.code-workspace` window is open.
+- **Problem Solved:** Enables seamless incremental expansion of multi-repository workspaces from AI agents, the CLI, and the VS Code extension without recreating or breaking existing worktrees.
+
 ---
 
 ## Open Questions

@@ -158,3 +158,108 @@ export async function discoverWorkspaceRepoRoots(cwd: string): Promise<string[]>
 
   return Array.from(roots);
 }
+
+/**
+ * Discovers candidate Git repository roots that can be added to an existing multi-repo workspace,
+ * scanning sibling directories of member repositories, `cwd`, and recorded repositories in state,
+ * while excluding repositories already present in `workspace`.
+ *
+ * @param workspace - Existing multi-repository workspace record.
+ * @param cwd - Optional working directory context.
+ * @returns Array of absolute repository root paths not yet in `workspace`.
+ *
+ * @example
+ * const available = await discoverCandidateReposForWorkspace(workspace, process.cwd());
+ */
+export async function discoverCandidateReposForWorkspace(workspace: WorkspaceRecord, cwd?: string): Promise<string[]> {
+  const existingRoots = new Set(workspace.repos.map((r) => path.resolve(r.root)));
+  const searchDirs = new Set<string>();
+
+  for (const repo of workspace.repos) {
+    searchDirs.add(path.dirname(path.resolve(repo.root)));
+  }
+
+  if (cwd) {
+    const absCwd = path.resolve(cwd);
+    searchDirs.add(absCwd);
+    try {
+      const cwdRoot = await mainRepoRoot(absCwd);
+      searchDirs.add(path.dirname(cwdRoot));
+    } catch {
+      searchDirs.add(path.dirname(absCwd));
+    }
+  }
+
+  const candidates = new Set<string>();
+  for (const dir of searchDirs) {
+    const discovered = await discoverWorkspaceRepoRoots(dir);
+    for (const root of discovered) {
+      const resolved = path.resolve(root);
+      if (!existingRoots.has(resolved)) {
+        candidates.add(resolved);
+      }
+    }
+  }
+
+  return Array.from(candidates);
+}
+
+/**
+ * Resolves a repository path or name (e.g. `mobile`, `../mobile`, `/code/mobile`) against
+ * `baseDir`, sibling directories of `workspace` member repos, and discovered candidate repositories.
+ *
+ * @param input - Repository path or folder name.
+ * @param baseDir - Working directory to resolve relative paths against first.
+ * @param workspace - Optional workspace whose member sibling directories should be searched.
+ * @returns Resolved main repository root path.
+ *
+ * @example
+ * const root = await resolveRepoInput('mobile', '/code/frontend', workspace);
+ */
+export async function resolveRepoInput(input: string, baseDir: string, workspace?: WorkspaceRecord): Promise<string> {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error('Repository path or name cannot be empty.');
+  }
+
+  const candidatePaths: string[] = [path.resolve(baseDir, trimmed)];
+  if (workspace) {
+    for (const repo of workspace.repos) {
+      candidatePaths.push(path.resolve(path.dirname(path.resolve(repo.root)), trimmed));
+    }
+  }
+  try {
+    const cwdRoot = await mainRepoRoot(baseDir);
+    candidatePaths.push(path.resolve(path.dirname(cwdRoot), trimmed));
+  } catch {
+    candidatePaths.push(path.resolve(path.dirname(path.resolve(baseDir)), trimmed));
+  }
+
+  for (const candidate of candidatePaths) {
+    if (await exists(candidate)) {
+      try {
+        return await mainRepoRoot(candidate);
+      } catch {
+        // try next candidate
+      }
+    }
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (workspace) {
+    const existingMatch = workspace.repos.find(
+      (r) => r.name.toLowerCase() === lower || path.basename(r.root).toLowerCase() === lower,
+    );
+    if (existingMatch) return path.resolve(existingMatch.root);
+
+    const candidates = await discoverCandidateReposForWorkspace(workspace, baseDir);
+    const nameMatch = candidates.find((root) => path.basename(root).toLowerCase() === lower);
+    if (nameMatch) return nameMatch;
+  }
+
+  const discoveredInBase = await discoverWorkspaceRepoRoots(baseDir);
+  const baseMatch = discoveredInBase.find((root) => path.basename(root).toLowerCase() === lower);
+  if (baseMatch) return baseMatch;
+
+  throw new Error(`Repository not found: "${input}". Provide a valid Git repository path or sibling repo name.`);
+}

@@ -3,9 +3,17 @@ import path from 'node:path';
 import { colorForHex } from '../colors.js';
 import { type CreateResult, createWorktree } from '../commands/create.js';
 import { removeWorktree } from '../commands/remove.js';
-import { branchExists } from '../git.js';
+import { branchExists, mainRepoRoot, worktreeList } from '../git.js';
+import { worktreePathFor } from '../paths.js';
 import { type Logger, type Prompter, silentLogger } from '../prompts.js';
-import { type WorkspaceRecord, removeWorkspaceRecord, saveWorkspaceRecord } from '../workspaceState.js';
+import { getRepoState } from '../state.js';
+import { exists } from '../util/fs.js';
+import {
+  type WorkspaceRecord,
+  type WorkspaceRepoEntry,
+  removeWorkspaceRecord,
+  saveWorkspaceRecord,
+} from '../workspaceState.js';
 import {
   type CodeWorkspaceConfig,
   buildMultiRepoWorkspaceConfig,
@@ -28,6 +36,8 @@ export interface ProvisionBatchOptions {
   ide?: 'ask' | 'yes' | 'no';
   prompter?: Prompter;
   log?: Logger;
+  /** Reuse existing linked worktree for the target branch instead of failing (default: true). */
+  reuseExisting?: boolean;
 }
 
 /** Options for writing a .code-workspace file and saving its WorkspaceRecord. */
@@ -45,6 +55,25 @@ export interface WriteWorkspaceResult {
   config: CodeWorkspaceConfig;
 }
 
+/** Options for adding repositories to an existing multi-repository workspace. */
+export interface AddReposToWorkspaceOptions {
+  workspace: WorkspaceRecord;
+  plans: WorkspaceBranchPlan[];
+  requirement?: string;
+  ide?: 'ask' | 'yes' | 'no';
+  prompter?: Prompter;
+  log?: Logger;
+}
+
+/** Result of adding repositories to an existing multi-repository workspace. */
+export interface AddReposToWorkspaceResult {
+  workspaceFile: string;
+  record: WorkspaceRecord;
+  config: CodeWorkspaceConfig;
+  added: CreateResult[];
+  skipped: string[];
+}
+
 /** Options for cascading removal of a multi-repository workspace. */
 export interface RemoveWorkspaceCascadeOptions {
   workspace: WorkspaceRecord;
@@ -60,6 +89,33 @@ export interface RemoveWorkspaceCascadeResult {
   removedWorktrees: string[];
   errors: string[];
   workspaceFileDeleted: boolean;
+}
+
+async function findExistingWorktreeResult(root: string, branch: string): Promise<CreateResult | undefined> {
+  const mainRoot = await mainRepoRoot(root);
+  const trees = await worktreeList(mainRoot).catch(() => []);
+  const expectedPath = path.resolve(worktreePathFor(mainRoot, branch));
+  const match = trees.find(
+    (t) =>
+      !t.bare &&
+      path.resolve(t.path) !== path.resolve(mainRoot) &&
+      (t.branch === branch || path.resolve(t.path) === expectedPath),
+  );
+  if (!match) return undefined;
+  const wtPath = path.resolve(match.path);
+  if (!(await exists(wtPath))) return undefined;
+  const repoState = await getRepoState(mainRoot);
+  const rec = repoState.worktrees.find((w) => path.resolve(w.path) === wtPath);
+  return {
+    mainRoot,
+    path: wtPath,
+    branch: match.branch ?? branch,
+    createdBranch: false,
+    port: rec?.port,
+    color: rec?.color,
+    strategies: [],
+    links: rec?.links ?? [],
+  };
 }
 
 async function rollbackBatch(results: CreateResult[], err: Error, log: Logger): Promise<never> {
@@ -82,21 +138,33 @@ async function rollbackBatch(results: CreateResult[], err: Error, log: Logger): 
 
 /**
  * Sequentially provisions worktrees across `plans` and rolls back created worktrees if a later repo fails.
- * @param opts - Batch provisioning options (`plans`, `requirement`, `ide`, `prompter`, `log`).
+ * If a linked worktree for a plan's branch already exists and `reuseExisting` is not false, reuses it.
+ * @param opts - Batch provisioning options (`plans`, `requirement`, `ide`, `prompter`, `log`, `reuseExisting`).
  * @returns Array of `CreateResult` objects in plan order.
  * @example
  * const results = await provisionWorkspaceBatch({ plans: [{ root: '/code/api', branch: 'feat/x' }] });
  */
 export async function provisionWorkspaceBatch(opts: ProvisionBatchOptions): Promise<CreateResult[]> {
-  const { requirement, prompter, ide = 'yes', log = silentLogger } = opts;
+  const { requirement, prompter, ide = 'yes', log = silentLogger, reuseExisting = true } = opts;
   const results: CreateResult[] = [];
+  const newlyCreated: CreateResult[] = [];
   for (const { root, branch, base: planBase } of opts.plans) {
     try {
+      if (reuseExisting) {
+        const existing = await findExistingWorktreeResult(root, branch);
+        if (existing) {
+          log.info(`Reusing existing worktree for ${path.basename(existing.mainRoot)} at ${existing.path}`);
+          results.push(existing);
+          continue;
+        }
+      }
       const hasBranch = await branchExists(root, branch);
       const base = !hasBranch && planBase && (await branchExists(root, planBase)) ? planBase : undefined;
-      results.push(await createWorktree({ cwd: root, branch, base, requirement, prompter, ide, log }));
+      const created = await createWorktree({ cwd: root, branch, base, requirement, prompter, ide, log });
+      results.push(created);
+      newlyCreated.push(created);
     } catch (err) {
-      await rollbackBatch(results, err as Error, log);
+      await rollbackBatch(newlyCreated, err as Error, log);
     }
   }
   return results;
@@ -111,12 +179,16 @@ export async function provisionWorkspaceBatch(opts: ProvisionBatchOptions): Prom
  */
 export async function writeAndSaveWorkspace(opts: WriteWorkspaceOptions): Promise<WriteWorkspaceResult> {
   const { results, branch, existingWorkspaceFile, workspaceName } = opts;
-  const existingConfig = existingWorkspaceFile ? await readWorkspaceConfigFile(existingWorkspaceFile) : undefined;
+  const paths = results.map((r) => r.path);
+  const workspaceFile = multiRepoWorkspaceFilePath(paths, branch, existingWorkspaceFile, workspaceName);
+  const existingConfig = existingWorkspaceFile
+    ? await readWorkspaceConfigFile(existingWorkspaceFile)
+    : (await exists(workspaceFile))
+      ? await readWorkspaceConfigFile(workspaceFile)
+      : undefined;
   const hex = results.find((r) => r.color)?.color;
   const worktrees = results.map((r) => ({ mainRoot: r.mainRoot, worktreePath: r.path }));
   const config = buildMultiRepoWorkspaceConfig(worktrees, existingConfig, hex ? colorForHex(hex) : undefined);
-  const paths = results.map((r) => r.path);
-  const workspaceFile = multiRepoWorkspaceFilePath(paths, branch, existingWorkspaceFile, workspaceName);
   await fs.mkdir(path.dirname(workspaceFile), { recursive: true });
   await fs.writeFile(workspaceFile, JSON.stringify(config, null, 2), 'utf8');
   const repos = results.map((r) => ({ root: r.mainRoot, name: path.basename(r.mainRoot), worktreePath: r.path }));
@@ -132,6 +204,97 @@ export async function writeAndSaveWorkspace(opts: WriteWorkspaceOptions): Promis
   };
   await saveWorkspaceRecord(record);
   return { workspaceFile, record, config };
+}
+
+/**
+ * Adds one or more repositories to an existing multi-repository workspace, provisioning or reusing
+ * their worktrees, updating the `.code-workspace` file, and saving the updated `WorkspaceRecord`.
+ *
+ * @param opts - Target `workspace`, repository `plans`, and optional `requirement`, `ide`, `prompter`, `log`.
+ * @returns Updated workspace file path, record, config, newly added `CreateResult[]`, and skipped repo names.
+ * @example
+ * const res = await addReposToWorkspace({ workspace, plans: [{ root: '/code/mobile', branch: workspace.branch }] });
+ */
+export async function addReposToWorkspace(opts: AddReposToWorkspaceOptions): Promise<AddReposToWorkspaceResult> {
+  const { workspace, requirement, prompter, ide = 'yes', log = silentLogger } = opts;
+  const liveExistingRepos: WorkspaceRepoEntry[] = [];
+  const existingRoots = new Set<string>();
+
+  for (const r of workspace.repos) {
+    if (await exists(r.worktreePath)) {
+      const resolvedRoot = path.resolve(r.root);
+      liveExistingRepos.push({ ...r, root: resolvedRoot, worktreePath: path.resolve(r.worktreePath) });
+      existingRoots.add(resolvedRoot);
+    }
+  }
+
+  const toProvision: WorkspaceBranchPlan[] = [];
+  const seenNewRoots = new Set<string>();
+  const skipped: string[] = [];
+
+  for (const plan of opts.plans) {
+    const resolvedRoot = path.resolve(await mainRepoRoot(plan.root));
+    const repoName = plan.name || path.basename(resolvedRoot);
+    if (existingRoots.has(resolvedRoot)) {
+      skipped.push(repoName);
+      continue;
+    }
+    if (seenNewRoots.has(resolvedRoot)) continue;
+    seenNewRoots.add(resolvedRoot);
+    toProvision.push({
+      root: resolvedRoot,
+      name: repoName,
+      branch: plan.branch || workspace.branch,
+      base: plan.base,
+    });
+  }
+
+  const added =
+    toProvision.length > 0
+      ? await provisionWorkspaceBatch({
+          plans: toProvision,
+          requirement,
+          prompter,
+          ide,
+          log,
+          reuseExisting: true,
+        })
+      : [];
+
+  const mergedRepos: WorkspaceRepoEntry[] = [
+    ...liveExistingRepos,
+    ...added.map((r) => ({
+      root: path.resolve(r.mainRoot),
+      name: path.basename(r.mainRoot),
+      worktreePath: path.resolve(r.path),
+    })),
+  ];
+
+  const workspaceFile = path.resolve(workspace.workspaceFile);
+  const existingConfig = await readWorkspaceConfigFile(workspaceFile);
+  const hex = workspace.color ?? added.find((r) => r.color)?.color;
+  const worktrees = mergedRepos.map((r) => ({ mainRoot: r.root, worktreePath: r.worktreePath }));
+  const config = buildMultiRepoWorkspaceConfig(worktrees, existingConfig, hex ? colorForHex(hex) : undefined);
+
+  await fs.mkdir(path.dirname(workspaceFile), { recursive: true });
+  await fs.writeFile(workspaceFile, JSON.stringify(config, null, 2), 'utf8');
+
+  const record: WorkspaceRecord = {
+    ...workspace,
+    id: workspaceFile,
+    workspaceFile,
+    color: hex,
+    repos: mergedRepos,
+  };
+  await saveWorkspaceRecord(record);
+
+  return {
+    workspaceFile,
+    record,
+    config,
+    added,
+    skipped,
+  };
 }
 
 /**

@@ -16,13 +16,14 @@ export const EXCLUDED_REPOS_KEY = 'paraSpace.excludedRepos';
  */
 export async function discoverRepoRoots(): Promise<string[]> {
   const folders = vscode.workspace.workspaceFolders ?? [];
+  const isMultiFolderOrWorkspaceFile = Boolean(vscode.workspace.workspaceFile) || folders.length > 1;
   const roots = new Set<string>();
   for (const f of folders) {
     try {
       const root = await mainRepoRoot(f.uri.fsPath);
       roots.add(root);
       const parentDir = path.dirname(root);
-      if (await findWorkspaceConfigFile(parentDir)) {
+      if (isMultiFolderOrWorkspaceFile || (await findWorkspaceConfigFile(parentDir))) {
         const siblingRoots = await discoverWorkspaceRepoRoots(parentDir);
         for (const r of siblingRoots) roots.add(r);
       }
@@ -41,6 +42,8 @@ export async function discoverRepoRoots(): Promise<string[]> {
       for (const ws of workspaces) {
         for (const repo of ws.repos) {
           roots.add(repo.root);
+          const siblingRoots = await discoverWorkspaceRepoRoots(path.dirname(repo.root));
+          for (const r of siblingRoots) roots.add(r);
         }
       }
     } catch {

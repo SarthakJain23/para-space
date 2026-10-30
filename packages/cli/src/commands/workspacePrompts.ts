@@ -1,9 +1,12 @@
 import path from 'node:path';
 import * as p from '@clack/prompts';
 import {
+  type WorkspaceRecord,
   branchExists,
+  discoverCandidateReposForWorkspace,
   discoverWorkspaceRepoRoots,
   mainRepoRoot,
+  resolveRepoInput,
   sharedBranches,
   validateBranchName,
 } from '@para-space/core';
@@ -11,6 +14,7 @@ import { bail } from '../prompter.js';
 
 export interface Flags {
   repo?: string[];
+  branch?: string;
   base?: string;
   perRepo?: boolean;
   requirement?: string;
@@ -116,6 +120,39 @@ export async function resolveCliTargetRepos(flags: Flags, isInteractive: boolean
         }),
       );
     }
+  }
+  return selectedRoots.map((root) => ({ root, name: path.basename(root) }));
+}
+
+/** Resolves repositories to add to an existing workspace from `--repo` flags or interactive sibling discovery. */
+export async function resolveCliReposToAdd(
+  workspace: WorkspaceRecord,
+  flags: Flags,
+  isInteractive: boolean,
+  baseDir = process.cwd(),
+): Promise<TargetRepo[]> {
+  let selectedRoots: string[] = [];
+  if (flags.repo && flags.repo.length > 0) {
+    const resolved = await Promise.all(flags.repo.map((r) => resolveRepoInput(r, baseDir, workspace)));
+    selectedRoots = Array.from(new Set(resolved));
+  } else {
+    const candidates = await discoverCandidateReposForWorkspace(workspace, baseDir);
+    if (candidates.length === 0) {
+      throw new Error(
+        `No additional Git repositories found to add to workspace "${workspace.name}". Pass --repo <path...> to specify repositories.`,
+      );
+    }
+    if (!isInteractive) {
+      throw new Error('Pass --repo <path...> to specify repositories to add in non-interactive mode.');
+    }
+    selectedRoots = bail(
+      await p.multiselect({
+        message: `Select repositories to add to workspace "${workspace.name}" (${workspace.branch}):`,
+        options: candidates.map((r) => ({ value: r, label: path.basename(r), hint: r })),
+        initialValues: candidates,
+        required: true,
+      }),
+    );
   }
   return selectedRoots.map((root) => ({ root, name: path.basename(root) }));
 }

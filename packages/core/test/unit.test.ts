@@ -22,6 +22,8 @@ import {
   readWorkspaceConfigFile,
   parseWorkspaceFileAsRecord,
   discoverWorkspaceRepoRoots,
+  discoverCandidateReposForWorkspace,
+  resolveRepoInput,
   findMatchingWorkspace,
   filterWorkspaces,
   filterWorktreeRows,
@@ -274,8 +276,49 @@ describe('workspace helpers', () => {
     const p1 = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', '/code/existing.code-workspace');
     expect(p1).toBe(path.join(workspacesDir(), 'existing-feat-1.code-workspace'));
 
+    // Idempotent when passed an existing ParaSpace workspace file for the same branch
+    const p1Repeat = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', p1);
+    expect(p1Repeat).toBe(p1);
+
     const p2 = multiRepoWorkspaceFilePath(['/code/repo-a-feat'], 'feat/1', undefined, 'my-project');
     expect(p2).toBe(path.join(workspacesDir(), 'my-project-feat-1.code-workspace'));
+  });
+
+  it('discovers sibling candidate repos and resolves repo names for an existing workspace', async () => {
+    const tmp = await realpath(await mkdtemp(path.join(os.tmpdir(), 'para-test-candidates-')));
+    const frontend = path.join(tmp, 'frontend');
+    const backend = path.join(tmp, 'backend');
+    const mobile = path.join(tmp, 'mobile');
+    for (const dir of [frontend, backend, mobile]) {
+      await mkdir(dir, { recursive: true });
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+    }
+
+    const wsRecord = {
+      id: path.join(tmp, 'app-feat-x.code-workspace'),
+      name: 'app-feat-x',
+      workspaceFile: path.join(tmp, 'app-feat-x.code-workspace'),
+      branch: 'feat/x',
+      repos: [
+        { root: frontend, name: 'frontend', worktreePath: frontend },
+        { root: backend, name: 'backend', worktreePath: backend },
+      ],
+      createdAt: '',
+    };
+
+    const candidates = await discoverCandidateReposForWorkspace(wsRecord, frontend);
+    expect(candidates).toEqual([mobile]);
+
+    // Resolves bare name "mobile" even when cwd is inside frontend
+    const resolvedByName = await resolveRepoInput('mobile', frontend, wsRecord);
+    expect(resolvedByName).toBe(mobile);
+
+    // Resolves relative "../mobile" from frontend
+    const resolvedByRel = await resolveRepoInput('../mobile', frontend, wsRecord);
+    expect(resolvedByRel).toBe(mobile);
+
+    await expect(resolveRepoInput('non-existent-repo', frontend, wsRecord)).rejects.toThrow(/Repository not found/);
+    await rm(tmp, { recursive: true, force: true });
   });
 
   it('reads and discovers workspace config files (including JSONC comments and trailing commas)', async () => {

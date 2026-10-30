@@ -35,6 +35,9 @@ para create feat/TK-101 --base main -r "Auth redesign"
 # Create a multi-repository workspace across multiple repos and generate a .code-workspace file
 para workspace create feat/TK-101 -r "Full-stack auth redesign"
 
+# Add another repository (e.g. mobile) to an existing multi-repository workspace
+para workspace add feat/TK-101 --repo ./mobile -r "Include mobile app"
+
 # List and reopen multi-repository workspaces
 para workspace list
 para workspace open feat/TK-101
@@ -84,6 +87,7 @@ When working across multiple repositories (e.g., `frontend` and `backend` in a p
 | :--- | :--- |
 | `para create <branch>` | Create a parallel worktree with shared `node_modules`/`.venv`, `.env.local` port, and optional IDE colors |
 | `para workspace create [branch]` | Create synchronized worktrees across multiple repos and emit a `.code-workspace` file (alias: `para ws`) |
+| `para workspace add [target]` | Add one or more repositories to an existing multi-repository workspace (alias: `para ws add-repo`) |
 | `para workspace list` | List tracked and discovered multi-repository workspaces |
 | `para workspace open <target>` | Open a multi-repository workspace in VS Code |
 | `para list` (`para ls`) | List worktrees, ports, link status, and divergence state |

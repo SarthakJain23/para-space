@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import {
+  handleAddRepoToWorkspace,
   handleCreateWorkspace,
   handleIsolateWorktree,
   handleListWorktrees,
@@ -15,7 +16,7 @@ import {
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: 'paraspace',
-    version: '0.1.4',
+    version: '0.1.5',
   });
 
   // 1. para_create_workspace
@@ -41,7 +42,39 @@ export function createMcpServer(): McpServer {
     handleCreateWorkspace,
   );
 
-  // 2. para_open_workspace
+  // 2. para_add_repo_to_workspace
+  server.registerTool(
+    'para_add_repo_to_workspace',
+    {
+      description:
+        'Adds one or more Git repositories to an existing ParaSpace multi-repository workspace, provisioning or reusing their worktrees and updating the .code-workspace file.',
+      inputSchema: {
+        repos: z
+          .array(z.string())
+          .min(1)
+          .describe('Repository paths or sibling repository names to add (e.g. ["mobile"] or ["../mobile"])'),
+        target: z
+          .string()
+          .optional()
+          .describe(
+            'Target workspace branch, workspace name, or .code-workspace file path. If omitted, uses the active or single recorded workspace.',
+          ),
+        branch: z
+          .string()
+          .optional()
+          .describe('Branch name to checkout or create in the added repositories (defaults to the workspace branch)'),
+        base: z.string().optional().describe('Base ref for a new branch (default: main or current HEAD)'),
+        requirement: z
+          .string()
+          .optional()
+          .describe('Why these repositories are being added (recorded in the context history ledger)'),
+        cwd: z.string().optional().describe('Directory to execute in (default: process.cwd())'),
+      },
+    },
+    handleAddRepoToWorkspace,
+  );
+
+  // 3. para_open_workspace
   server.registerTool(
     'para_open_workspace',
     {

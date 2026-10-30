@@ -39,7 +39,7 @@ para setup-agent
 Install **ParaSpace** (`para-space.para-space-vscode`) from the VS Code Marketplace, or install from a packaged `.vsix`:
 
 ```bash
-code --install-extension para-space-vscode-0.1.4.vsix
+code --install-extension para-space-vscode-0.1.5.vsix
 ```
 
 ---
@@ -49,6 +49,7 @@ code --install-extension para-space-vscode-0.1.4.vsix
 ```bash
 para create feat/TK-101 --base main -r "Auth redesign"   # ~/.para-space/worktrees/<project>/<repo>-feat-TK-101
 para workspace create feat/TK-101                        # multi-repo: provisions all repos & .code-workspace
+para workspace add feat/TK-101 --repo ./mobile           # add another repo to an existing multi-repo workspace
 para workspace list                                      # list tracked & discovered multi-repo workspaces
 para workspace open feat/TK-101                          # reopen multi-repo workspace in VS Code
 para workspace remove feat/TK-101                        # remove tracked multi-repo workspace

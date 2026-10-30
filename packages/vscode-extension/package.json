@@ -2,7 +2,7 @@
   "name": "para-space-vscode",
   "displayName": "ParaSpace",
   "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "para-space",
   "author": "Sarthak Jain",
   "license": "MIT",
@@ -36,6 +36,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguageModelTool:para_create_workspace",
+    "onLanguageModelTool:para_add_repo_to_workspace",
     "onLanguageModelTool:para_open_workspace",
     "onLanguageModelTool:para_list_worktrees",
     "onLanguageModelTool:para_isolate_worktree",
@@ -104,6 +105,12 @@
         "title": "Select Repositories to Include…",
         "category": "ParaSpace",
         "icon": "$(filter)"
+      },
+      {
+        "command": "paraSpace.addRepoToWorkspace",
+        "title": "Add Repository to Workspace…",
+        "category": "ParaSpace",
+        "icon": "$(add)"
       },
       {
         "command": "paraSpace.configureRepo",
@@ -194,6 +201,11 @@
           "command": "paraSpace.openInNewWindow",
           "when": "view == paraSpace.worktrees && viewItem == paraSpace.workspace",
           "group": "1_open"
+        },
+        {
+          "command": "paraSpace.addRepoToWorkspace",
+          "when": "view == paraSpace.worktrees && viewItem == paraSpace.workspace",
+          "group": "2_manage"
         },
         {
           "command": "paraSpace.removeWorkspace",
@@ -293,6 +305,50 @@
           },
           "required": [
             "branch"
+          ]
+        }
+      },
+      {
+        "name": "para_add_repo_to_workspace",
+        "toolReferenceName": "paraAddRepoToWorkspace",
+        "displayName": "Add Repository to Parallel Workspace",
+        "modelDescription": "Adds one or more Git repositories to an existing ParaSpace multi-repository workspace, provisioning or reusing their worktrees and updating the .code-workspace file.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repos": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Repository paths or sibling repository names to add (e.g. [\"mobile\"] or [\"../mobile\"])"
+            },
+            "target": {
+              "type": "string",
+              "description": "Optional target workspace branch, workspace name, or .code-workspace file path (defaults to the active or single workspace)"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Optional branch name to checkout or create in the added repositories (defaults to the workspace branch)"
+            },
+            "base": {
+              "type": "string",
+              "description": "Base ref for a new branch (default: main or current HEAD)"
+            },
+            "requirement": {
+              "type": "string",
+              "description": "Why these repositories are being added (ticket or task description)"
+            }
+          },
+          "required": [
+            "repos"
           ]
         }
       },

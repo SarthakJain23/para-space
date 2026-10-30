@@ -1,10 +1,10 @@
 import path from 'node:path';
-import { listBranches } from '@para-space/core';
+import { listBranches, resolveRepoInput } from '@para-space/core';
 import * as vscode from 'vscode';
 import { sharedBranches } from '../dialogs.js';
 import { CancelledError, ask, pick, pickBranch, pickMany } from '../runtime.js';
 import type { WorktreeStore } from '../store.js';
-import { discoverRepoRoots, requireActiveRepoRoot } from '../workspace.js';
+import { discoverRepoRoots, findWorkspaceRoot, requireActiveRepoRoot } from '../workspace.js';
 
 const TITLE = 'ParaSpace: Create Worktree';
 
@@ -37,7 +37,12 @@ export async function resolveTargetRepos(target: unknown, store: WorktreeStore):
   if (!isTreeItem && target && typeof target === 'object') {
     const t = target as CreateCommandArgs;
     if (Array.isArray(t.repos) && t.repos.length > 0) {
-      return t.repos.map((r) => ({ root: r, name: path.basename(r) }));
+      const baseDir = findWorkspaceRoot() ?? store.root ?? process.cwd();
+      const resolved = await Promise.all(
+        t.repos.map((r) => resolveRepoInput(r, baseDir, store.currentWorkspace).catch(() => path.resolve(baseDir, r))),
+      );
+      const unique = Array.from(new Set(resolved));
+      return unique.map((root) => ({ root, name: path.basename(root) }));
     }
     targetRepoRoot = t.repo?.root ?? t.repoRoot;
   }

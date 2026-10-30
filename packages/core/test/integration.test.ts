@@ -24,7 +24,7 @@ import {
   updateRepoState,
 } from '../src/state.js';
 import { withFileLock } from '../src/util/lock.js';
-import { discoverWorkspaceRepoRoots } from '../src/workspace.js';
+import { addReposToWorkspace, discoverWorkspaceRepoRoots, writeAndSaveWorkspace } from '../src/workspace.js';
 
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
@@ -412,5 +412,77 @@ describe('multi-repo workspace', () => {
     const afterAllRemoved = await getWorkspaceRecords([repo]);
     expect(afterAllRemoved).toEqual([]);
     expect((await readState()).workspaces?.[path.resolve(workspaceFile)]).toBeUndefined();
+  });
+
+  it('adds a third repository (mobile) to an existing frontend + backend workspace via core and cli', async () => {
+    const backend = path.join(sandbox, 'backend');
+    const mobile = path.join(sandbox, 'mobile');
+    for (const [dir, pkgName] of [
+      [backend, 'backend'],
+      [mobile, 'mobile'],
+    ] as const) {
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, 'package.json'), JSON.stringify({ name: pkgName }));
+      git(dir, 'init', '-q', '-b', 'main');
+      git(dir, 'add', '.');
+      git(dir, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'init');
+    }
+
+    // 1. Create initial workspace with frontend (repo) + backend
+    const wtFront = await createWorktree({ cwd: repo, branch: 'feat/mobile-sync', base: 'main', ide: 'yes' });
+    const wtBack = await createWorktree({ cwd: backend, branch: 'feat/mobile-sync', base: 'main', ide: 'yes' });
+    const initialWs = await writeAndSaveWorkspace({
+      results: [wtFront, wtBack],
+      branch: 'feat/mobile-sync',
+      workspaceName: 'fullstack',
+    });
+
+    expect(initialWs.record.repos).toHaveLength(2);
+    expect(initialWs.config.folders.map((f) => f.name)).toEqual(['app', 'backend']);
+
+    // 2. Add mobile to the existing workspace via addReposToWorkspace
+    const updated = await addReposToWorkspace({
+      workspace: initialWs.record,
+      plans: [
+        { root: repo, branch: 'feat/mobile-sync' }, // already in workspace -> should be skipped
+        { root: mobile, branch: 'feat/mobile-sync', base: 'main' },
+      ],
+      requirement: 'Involve mobile repo in feature',
+      ide: 'yes',
+    });
+
+    expect(updated.skipped).toEqual(['app']);
+    expect(updated.added).toHaveLength(1);
+    expect(updated.added[0].mainRoot).toBe(mobile);
+    expect(updated.record.repos.map((r) => r.name)).toEqual(['app', 'backend', 'mobile']);
+
+    const wsDisk = JSON.parse(await readFile(updated.workspaceFile, 'utf8'));
+    expect(wsDisk.folders.map((f: { name: string }) => f.name)).toEqual(['app', 'backend', 'mobile']);
+
+    // 3. Test CLI `para workspace add` command on another workspace
+    const cliPath = path.resolve(__dirname, '../../cli/dist/index.js');
+    execFileSync(
+      'node',
+      [cliPath, 'workspace', 'create', 'feat/cli-add', '--yes', '--repo', repo, '--repo', backend, '--json'],
+      {
+        cwd: sandbox,
+        encoding: 'utf8',
+        env: { ...process.env, PARA_SPACE_HOME: path.join(sandbox, 'home') },
+      },
+    );
+
+    const cliAddOut = execFileSync(
+      'node',
+      [cliPath, 'workspace', 'add', 'feat/cli-add', '--yes', '--repo', 'mobile', '--json'],
+      {
+        cwd: repo, // run from inside frontend repo using bare sibling name "mobile"!
+        encoding: 'utf8',
+        env: { ...process.env, PARA_SPACE_HOME: path.join(sandbox, 'home') },
+      },
+    );
+
+    const parsedAdd = JSON.parse(cliAddOut);
+    expect(parsedAdd.added).toHaveLength(1);
+    expect(parsedAdd.repos.map((r: { name: string }) => r.name)).toEqual(['app', 'backend', 'mobile']);
   });
 });
