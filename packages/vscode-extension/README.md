@@ -1,8 +1,12 @@
 # ParaSpace for VS Code
 
+![ParaSpace: parallel workspaces for parallel work](https://raw.githubusercontent.com/SarthakJain23/para-space/main/.github/assets/readme/hero-light.png)
+
 **Parallel workspace orchestrator for multi-agent and multi-task IDE workflows.**
 
 Spin up isolated Git worktrees and multi-repository workspaces in milliseconds—with **zero-duplication dependency sharing** (`node_modules`, `.venv`), **per-worktree dev server ports** (`.env.local`), **OKLCH Peacock window coloring**, **manifest divergence safety**, and **native GitHub Copilot Language Model Tools**.
+
+![Without ParaSpace vs with ParaSpace](https://raw.githubusercontent.com/SarthakJain23/para-space/main/.github/assets/readme/before-after.png)
 
 ---
 

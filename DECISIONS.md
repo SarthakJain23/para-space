@@ -63,6 +63,8 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-049 | Centralized `~/.para-space` worktree/workspace storage, automatic base-branch sync, and agent removal/Copilot integration | Accepted | 2026-10-27 |
 | D-050 | Cross-repo DRY registry (REUSABLE_COMPONENTS.md), single-responsibility functions, and 250-line file decomposition limit | Accepted | 2026-10-27 |
 | D-051 | Exclude `.para-space/` and `.para-space.json` via `$GIT_COMMON_DIR/info/exclude` instead of `.gitignore` | Accepted | 2026-10-29 |
+| D-052 | Adding repositories to existing multi-repository workspaces | Accepted | 2026-10-30 |
+| D-053 | Brand assets live in `.github/assets/`; package READMEs use absolute image URLs | Accepted | 2026-10-31 |
 
 ---
 
@@ -501,6 +503,15 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - **AI Agents (`para_add_repo_to_workspace`):** Added `para_add_repo_to_workspace` to both the MCP server (`para mcp`) and VS Code Language Model Tools (`paraAddRepoToWorkspace`), and updated `handleCreateWorkspace` to extend an existing workspace when called on the same branch with additional repos.
   - **VS Code Extension (`paraSpace.addRepoToWorkspace`):** Added **ParaSpace: Add Repository to Workspace…** to the Command Palette and Workspace node context menu (with sibling auto-discovery plus a **Browse for repository folder…** fallback) and expanded `discoverRepoRoots()` to scan sibling directories when a `.code-workspace` window is open.
 - **Problem Solved:** Enables seamless incremental expansion of multi-repository workspaces from AI agents, the CLI, and the VS Code extension without recreating or breaking existing worktrees.
+
+## D-053 — Brand assets live in `.github/assets/`; package READMEs use absolute image URLs
+- **Status:** Accepted · 2026-10-31
+- **Requirement Context:** A set of README images and a logo were rendered from `VISUAL_BRIEF.md` (hero, before/after, how-it-works, `para list` terminal, architecture, palette). They needed a home in the repo, and the READMEs published to npm and the VS Code Marketplace cannot resolve repo-relative image paths.
+- **Decision Made:**
+  - Only the PNGs the READMEs use are committed, under `.github/assets/readme/` (2x renders, so they look the same for every viewer regardless of installed fonts). The editable SVG sources, social images and the Python generator stay outside the repo.
+  - The root `README.md` references them relatively, with a `<picture>` element switching between `hero-dark.png` and `hero-light.png`. `packages/cli/README.md` and `packages/vscode-extension/README.md` reference them as absolute `raw.githubusercontent.com/.../main/.github/assets/...` URLs.
+  - The extension icon (`media/icon.png`) is the new three-branch mark (graphite root, Lagoon/Coral/Violet branches), and the activity-bar icon (`media/para-space.svg`) is the same mark redrawn as a monochrome `currentColor` outline so VS Code can tint it.
+- **Problem Solved:** One copy of each image serves GitHub, npm and the Marketplace, the repo carries no unused design files, and the extension's icons match the project's visual identity.
 
 ---
 

@@ -16,7 +16,7 @@ import {
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: 'paraspace',
-    version: '0.1.5',
+    version: '0.1.6',
   });
 
   // 1. para_create_workspace

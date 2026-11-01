@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme/hero-dark.png">
+    <img alt="ParaSpace: parallel workspaces for parallel work" src=".github/assets/readme/hero-light.png" width="100%">
+  </picture>
+</p>
+
 # ParaSpace
 
 [![CI](https://github.com/SarthakJain23/para-space/actions/workflows/ci.yml/badge.svg)](https://github.com/SarthakJain23/para-space/actions/workflows/ci.yml)
@@ -6,6 +13,10 @@
 Parallel workspace orchestrator for multi-agent and multi-task IDE workflows: Git worktrees with zero-duplication dependency sharing, per-worktree ports, and opt-in IDE window coloring. Ships as a CLI (`para`) and a VS Code extension.
 
 > Status: Phase 1 (core engine + `para` CLI), Phase 2 (VS Code extension UI: worktrees sidebar, status bar indicator, quick switcher, context history ledger view, and port strategy configuration), Phase 3 (Safety, Watchers & Dependency Divergence Detection: manifest watchers, `para check`, divergence warning indicators, and 1-click breakaway isolation), Multi-Repository Workspaces (`para workspace`, `.code-workspace` provisioning, auto-discovery, and switcher reopening), and Zero-Config AI Agent Integration (VS Code Language Model Tools + `para mcp` Server) are implemented. Phase 4 (Monorepo Nested Packages & Ecosystem Expansion) is next.
+
+## Why ParaSpace
+
+![Without ParaSpace: one folder, stashed work, npm install per clone, port 3000 collisions, identical windows. With ParaSpace: a worktree per task, shared deps, assigned ports, a color per window](.github/assets/readme/before-after.png)
 
 ## Installation
 
@@ -39,7 +50,7 @@ para setup-agent
 Install **ParaSpace** (`para-space.para-space-vscode`) from the VS Code Marketplace, or install from a packaged `.vsix`:
 
 ```bash
-code --install-extension para-space-vscode-0.1.5.vsix
+code --install-extension para-space-vscode-0.1.6.vsix
 ```
 
 ---
@@ -61,6 +72,14 @@ para remove feat/TK-101 --delete-branch
 
 The first `create` in a repo automatically uses the `offset` strategy, saves it to `.para-space.json`, and excludes both `.para-space/` and `.para-space.json` in `.git/info/exclude` so your repository stays clean. To configure a different strategy (`scan`, `pool`, `passthrough`), run `para config` or use **ParaSpace: Configure Port Strategy…** in VS Code. For agents and scripts, pass `--yes`, and optionally `--port-strategy <offset|scan|pool|passthrough>` and `--ide`. Nothing will prompt.
 
+<p align="center"><img alt="para list output: main on 3000 (source deps), app-feat-login on 3001 (symlinked), app-fix-checkout on 3002 (isolated)" src=".github/assets/readme/terminal-para-list.png" width="720"></p>
+
+---
+
+## How it works
+
+![para workspace create: find repos, add worktrees, share deps, assign ports, open workspace](.github/assets/readme/how-it-works.png)
+
 ---
 
 ## Multi-Repository Workspaces Workflow
@@ -80,6 +99,18 @@ When a feature spans multiple repositories (for example, `frontend` + `backend` 
 5. **Reopening & Switching Workspaces:**
    - **VS Code:** Reopen any multi-repo workspace from the **Worktrees** sidebar (top-level `Workspace` nodes), the status bar **Quick Switcher** (`$(root-folder) [Workspace] <branch>`), or **ParaSpace: Open Workspace…** (which also includes a **Browse for workspace file…** dialog to import any `.code-workspace` from disk).
    - **CLI:** Run `para workspace list` (`para ws ls`) to inspect workspaces or `para workspace open <branch|name|path>` to launch in VS Code.
+
+### Window colors
+
+Each worktree or multi-repo workspace gets the next color from an equal-lightness OKLCH palette (index 0 is the main repo), applied to the title bar and status bar:
+
+![The eight worktree colors: Graphite (main), Lagoon, Coral, Violet, Ochre, Cobalt, Jade, Orchid](.github/assets/readme/palette.png)
+
+---
+
+## Architecture
+
+![One engine, many front ends: VS Code LM Tools, MCP server, CLI and extension UI over @para-space/core](.github/assets/readme/architecture.png)
 
 ---
 

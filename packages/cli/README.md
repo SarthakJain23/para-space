@@ -1,8 +1,12 @@
 # `@para-space-dev/cli`
 
+![ParaSpace: parallel workspaces for parallel work](https://raw.githubusercontent.com/SarthakJain23/para-space/main/.github/assets/readme/hero-light.png)
+
 **Parallel workspace orchestrator CLI (`para`) and MCP server for multi-agent and multi-task workflows.**
 
 Provision isolated Git worktrees and multi-repository workspaces in milliseconds—with **zero-duplication dependency sharing** (`node_modules`, `.venv`), **per-worktree dev server ports** (`.env.local`), **OKLCH Peacock window coloring**, and a built-in **Model Context Protocol (MCP) server** for AI coding agents.
+
+![para workspace create: find repos, add worktrees, share deps, assign ports, open workspace](https://raw.githubusercontent.com/SarthakJain23/para-space/main/.github/assets/readme/how-it-works.png)
 
 ---
 
