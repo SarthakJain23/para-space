@@ -1,86 +1,110 @@
 import path from 'node:path';
-import {
-  discoverWorkspaceRepoRoots,
-  findWorkspaceConfigFile,
-  getWorkspaceRecords,
-  mainRepoRoot,
-} from '@para-space/core';
+import { discoverWorkspaceRepoRoots, mainRepoRoot } from '@para-space/core';
 import * as vscode from 'vscode';
 import { isInside } from './dialogs.js';
 
 export const EXCLUDED_REPOS_KEY = 'paraSpace.excludedRepos';
+export const INCLUDED_REPOS_KEY = 'paraSpace.includedRepos';
 
 /**
  * Discovers all unique Git repository roots across open workspace folders.
- * Checks each folder directly as a git repo, or scans subdirectories/workspace files if it is a container folder.
+ * Checks each folder directly as a git repo, or scans subdirectories/workspace files only if it is a non-git container folder.
  */
 export async function discoverRepoRoots(): Promise<string[]> {
   const folders = vscode.workspace.workspaceFolders ?? [];
-  const isMultiFolderOrWorkspaceFile = Boolean(vscode.workspace.workspaceFile) || folders.length > 1;
   const roots = new Set<string>();
   for (const f of folders) {
     try {
       const root = await mainRepoRoot(f.uri.fsPath);
-      roots.add(root);
-      const parentDir = path.dirname(root);
-      if (isMultiFolderOrWorkspaceFile || (await findWorkspaceConfigFile(parentDir))) {
-        const siblingRoots = await discoverWorkspaceRepoRoots(parentDir);
-        for (const r of siblingRoots) roots.add(r);
-      }
+      roots.add(path.resolve(root));
     } catch {
       try {
         const subRoots = await discoverWorkspaceRepoRoots(f.uri.fsPath);
-        for (const r of subRoots) roots.add(r);
+        for (const r of subRoots) roots.add(path.resolve(r));
       } catch {
         // ignore
       }
-    }
-  }
-  if (roots.size > 0) {
-    try {
-      const workspaces = await getWorkspaceRecords([...roots]);
-      for (const ws of workspaces) {
-        for (const repo of ws.repos) {
-          roots.add(repo.root);
-          const siblingRoots = await discoverWorkspaceRepoRoots(path.dirname(repo.root));
-          for (const r of siblingRoots) roots.add(r);
-        }
-      }
-    } catch {
-      // ignore
     }
   }
   return [...roots];
 }
 
 /**
- * Returns all repository roots included by the user in this workspace.
- * By default, all discovered repositories in the workspace are selected.
+ * Discovers sibling Git repository roots in the parent directories of `openRoots`
+ * that are not already open in the current workspace.
  */
-export async function getIncludedRepoRoots(state?: vscode.Memento): Promise<string[]> {
-  const allRepos = await discoverRepoRoots();
-  if (!state) return allRepos;
-  const excluded = new Set(state.get<string[]>(EXCLUDED_REPOS_KEY) ?? []);
-  return allRepos.filter((r) => !excluded.has(r));
+export async function discoverSiblingRepoRoots(openRoots: string[]): Promise<string[]> {
+  const openSet = new Set(openRoots.map((r) => path.resolve(r)));
+  const parentDirs = new Set(openRoots.map((r) => path.dirname(path.resolve(r))));
+  const siblings = new Set<string>();
+  for (const dir of parentDirs) {
+    try {
+      const discovered = await discoverWorkspaceRepoRoots(dir);
+      for (const r of discovered) {
+        const resolved = path.resolve(r);
+        if (!openSet.has(resolved)) {
+          siblings.add(resolved);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return [...siblings];
 }
 
 /**
- * Prompts the user to select which repositories in the workspace to include or remove.
- * By default all are checked.
+ * Returns all repository roots included by the user in this workspace.
+ * By default, only repositories opened in the workspace are included; sibling repositories
+ * are included only when explicitly checked in `Select Repositories to Include…`.
+ */
+export async function getIncludedRepoRoots(state?: vscode.Memento): Promise<string[]> {
+  const openRepos = await discoverRepoRoots();
+  if (!state) return openRepos;
+  const excluded = new Set((state.get<string[]>(EXCLUDED_REPOS_KEY) ?? []).map((r) => path.resolve(r)));
+  const extraIncluded = (state.get<string[]>(INCLUDED_REPOS_KEY) ?? []).map((r) => path.resolve(r));
+  const openSet = new Set(openRepos.map((r) => path.resolve(r)));
+  const result = openRepos.filter((r) => !excluded.has(path.resolve(r)));
+  if (extraIncluded.length > 0) {
+    const siblings = new Set((await discoverSiblingRepoRoots(openRepos)).map((r) => path.resolve(r)));
+    for (const r of extraIncluded) {
+      if (!openSet.has(r) && !excluded.has(r) && siblings.has(r)) {
+        result.push(r);
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Prompts the user to select which repositories in the workspace (and any sibling repositories) to include or remove.
+ * Opened workspace repositories are checked by default; sibling repositories are unchecked by default.
  */
 export async function selectRepositoriesPrompt(context: vscode.ExtensionContext, onChanged: () => void): Promise<void> {
-  const allRepos = await discoverRepoRoots();
+  const openRepos = await discoverRepoRoots();
+  const siblingRepos = await discoverSiblingRepoRoots(openRepos);
+  const allRepos = [...openRepos, ...siblingRepos];
   if (allRepos.length === 0) {
     void vscode.window.showInformationMessage('No Git repositories found in the current workspace.');
     return;
   }
-  const excluded = new Set(context.workspaceState.get<string[]>(EXCLUDED_REPOS_KEY) ?? []);
-  const items = allRepos.map((root) => ({
-    label: path.basename(root),
-    description: root,
-    picked: !excluded.has(root),
-    root,
-  }));
+  const openSet = new Set(openRepos.map((r) => path.resolve(r)));
+  const excluded = new Set(
+    (context.workspaceState.get<string[]>(EXCLUDED_REPOS_KEY) ?? []).map((r) => path.resolve(r)),
+  );
+  const included = new Set(
+    (context.workspaceState.get<string[]>(INCLUDED_REPOS_KEY) ?? []).map((r) => path.resolve(r)),
+  );
+  const items = allRepos.map((root) => {
+    const resolved = path.resolve(root);
+    const isOpen = openSet.has(resolved);
+    return {
+      label: path.basename(root),
+      description: isOpen ? root : `${root} (sibling)`,
+      picked: isOpen ? !excluded.has(resolved) : included.has(resolved),
+      root: resolved,
+    };
+  });
 
   const picked = await vscode.window.showQuickPick(items, {
     title: 'ParaSpace: Select Repositories to Include',
@@ -90,8 +114,10 @@ export async function selectRepositoriesPrompt(context: vscode.ExtensionContext,
   if (!picked) return;
 
   const pickedRoots = new Set(picked.map((p) => p.root));
-  const newExcluded = allRepos.filter((r) => !pickedRoots.has(r));
+  const newExcluded = openRepos.map((r) => path.resolve(r)).filter((r) => !pickedRoots.has(r));
+  const newIncluded = siblingRepos.map((r) => path.resolve(r)).filter((r) => pickedRoots.has(r));
   await context.workspaceState.update(EXCLUDED_REPOS_KEY, newExcluded);
+  await context.workspaceState.update(INCLUDED_REPOS_KEY, newIncluded);
   onChanged();
 }
 

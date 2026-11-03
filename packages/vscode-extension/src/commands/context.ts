@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import type { Runtime } from '../runtime.js';
 import type { WorktreeStore } from '../store.js';
+import type { WorktreeTreeProvider } from '../tree.js';
 
 /** What every command module receives from `extension.ts`. */
 export interface CommandContext {
   rt: Runtime;
   /** Call `store.load()` after a change so the tree and status bar update. */
   store: WorktreeStore;
+  worktreeTree?: WorktreeTreeProvider;
   extensionContext: vscode.ExtensionContext;
 }
 

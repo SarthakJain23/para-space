@@ -131,7 +131,7 @@ export class WorktreeStore implements vscode.Disposable {
 
     this.repos = results;
     try {
-      this.workspaces = await getWorkspaceRecords(this.roots);
+      this.workspaces = this.roots.length > 0 ? await getWorkspaceRecords(this.roots) : [];
     } catch (err) {
       this.workspaces = [];
       this.log.warn(`Could not load workspaces: ${(err as Error).message}`);

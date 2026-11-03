@@ -1,4 +1,11 @@
-import type { LedgerEntry, WorktreeInfo, WorkspaceRecord } from '@para-space/core';
+import path from 'node:path';
+import {
+  type LedgerEntry,
+  type WorktreeInfo,
+  type WorkspaceRecord,
+  filterWorkspaces,
+  filterWorktreeRows,
+} from '@para-space/core';
 import { isInside } from './dialogs.js';
 
 // Pure row text for the tree, switcher and status bar. No `vscode` import, so it is unit-testable (GUIDELINES 6.3).
@@ -185,4 +192,51 @@ export function toLedgerDetails(e: LedgerEntry): LedgerDetailItem[] {
     icon: 'pass',
   });
   return items;
+}
+
+export interface FilteredRepoWorktrees {
+  root: string;
+  name: string;
+  rows: WorktreeInfo[];
+  error?: string;
+}
+
+export interface FilteredTreeData {
+  workspaces: WorkspaceRecord[];
+  repos: FilteredRepoWorktrees[];
+}
+
+/**
+ * Filters multi-repo workspaces and per-repository worktree groups for the sidebar tree view.
+ * Keeps a workspace if its metadata matches `query` or any of its member worktree rows match `query`.
+ * Keeps a repository group when at least one of its worktree rows (or its repo name/root) matches `query`.
+ */
+export function filterTreeData(
+  workspaces: WorkspaceRecord[],
+  repos: FilteredRepoWorktrees[],
+  allRows: WorktreeInfo[],
+  query?: string,
+): FilteredTreeData {
+  const q = query?.trim();
+  if (!q) {
+    return { workspaces, repos };
+  }
+
+  const directWsIds = new Set(filterWorkspaces(workspaces, q).map((w) => w.id));
+  const filteredWorkspaces = workspaces.filter((ws) => {
+    if (directWsIds.has(ws.id)) return true;
+    const memberRows = ws.repos
+      .map((repo) => allRows.find((r) => path.resolve(r.path) === path.resolve(repo.worktreePath)))
+      .filter((r): r is WorktreeInfo => Boolean(r));
+    return filterWorktreeRows(memberRows, q).length > 0;
+  });
+
+  const filteredRepos = repos
+    .map((repo) => ({
+      ...repo,
+      rows: filterWorktreeRows(repo.rows, q, `${repo.name} ${repo.root}`),
+    }))
+    .filter((repo) => repo.rows.length > 0);
+
+  return { workspaces: filteredWorkspaces, repos: filteredRepos };
 }

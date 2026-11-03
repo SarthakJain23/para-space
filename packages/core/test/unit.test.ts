@@ -354,6 +354,36 @@ describe('workspace helpers', () => {
     expect(filterWorkspaces(records, 'web')).toHaveLength(1);
     expect(filterWorkspaces(records, 'missing')).toHaveLength(0);
     expect(filterWorktreeRows([{ name: '(main)', branch: 'main', path: '/code/web' }], 'web', 'web')).toHaveLength(1);
+    expect(
+      filterWorktreeRows(
+        [
+          {
+            name: 'web-feat',
+            branch: 'feat/x',
+            path: '/code/web-feat',
+            port: 3001,
+            depsMode: 'Symlinked',
+            diverged: true,
+          },
+        ],
+        ':3001',
+      ),
+    ).toHaveLength(1);
+    expect(
+      filterWorktreeRows(
+        [
+          {
+            name: 'web-feat',
+            branch: 'feat/x',
+            path: '/code/web-feat',
+            port: 3001,
+            depsMode: 'Symlinked',
+            diverged: true,
+          },
+        ],
+        'diverged',
+      ),
+    ).toHaveLength(1);
   });
 
   it('parses existing workspace file into a WorkspaceRecord', async () => {

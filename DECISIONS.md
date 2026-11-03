@@ -65,6 +65,7 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
 | D-051 | Exclude `.para-space/` and `.para-space.json` via `$GIT_COMMON_DIR/info/exclude` instead of `.gitignore` | Accepted | 2026-10-29 |
 | D-052 | Adding repositories to existing multi-repository workspaces | Accepted | 2026-10-30 |
 | D-053 | Brand assets live in `.github/assets/`; package READMEs use absolute image URLs | Accepted | 2026-10-31 |
+| D-054 | Scope workspace repo discovery to opened folders and add in-place sidebar search filter | Accepted | 2026-11-03 |
 
 ---
 
@@ -512,6 +513,16 @@ Status values: `Accepted` · `Proposed` · `Superseded by D-NNN` · `Rejected`
   - The root `README.md` references them relatively, with a `<picture>` element switching between `hero-dark.png` and `hero-light.png`. `packages/cli/README.md` and `packages/vscode-extension/README.md` reference them as absolute `raw.githubusercontent.com/.../main/.github/assets/...` URLs.
   - The extension icon (`media/icon.png`) is the new three-branch mark (graphite root, Lagoon/Coral/Violet branches), and the activity-bar icon (`media/para-space.svg`) is the same mark redrawn as a monochrome `currentColor` outline so VS Code can tint it.
 - **Problem Solved:** One copy of each image serves GitHub, npm and the Marketplace, the repo carries no unused design files, and the extension's icons match the project's visual identity.
+
+## D-054 — Scope workspace repo discovery to opened folders and add in-place sidebar search filter
+- **Status:** Accepted · 2026-11-03
+- **Requirement Context:**
+  1. When a parent directory contained 5 Git repositories and a developer opened only 2 of them in a VS Code workspace, `discoverRepoRoots()` scanned `path.dirname(root)` and pulled in all 5 sibling repositories into `store.repos` and the sidebar views.
+  2. When many ParaSpace worktrees and multi-repository workspaces exist, developers need an in-place search filter in the sidebar `Worktrees` view to quickly find a specific ParaSpace.
+- **Decision Made:**
+  - **Repository discovery (`discoverRepoRoots`, `discoverSiblingRepoRoots`, `getIncludedRepoRoots`):** `discoverRepoRoots()` now resolves only the Git repositories actually open in `vscode.workspace.workspaceFolders` (falling back to scanning subdirectories via `discoverWorkspaceRepoRoots()` only when an opened workspace folder is itself a non-Git container directory). `Select Repositories to Include…` (`paraSpace.selectRepositories`) additionally discovers sibling repositories via `discoverSiblingRepoRoots()` and lists them as unchecked `(sibling)` options persisted under `paraSpace.includedRepos`.
+  - **In-place sidebar tree search (`paraSpace.searchWorktrees`, `paraSpace.clearSearch`, `filterTreeData`):** Added a Search (`$(search)`) action and conditional Clear Search Filter (`$(clear-all)`, `when: paraSpace.hasSearchFilter`) action to the `Worktrees` view title bar. `paraSpace.searchWorktrees` opens a live-filtering input box (reverting to the prior filter on Escape) that filters `WorkspaceNode`, `RepoNode`, and `WorktreeNode` items in-place by branch, worktree name, repository, port (`:port`), dependency mode, divergence status, or path via `filterTreeData()` and core's `filterWorkspaces()` / `filterWorktreeRows()`.
+- **Problem Solved:** Keeps the extension scoped strictly to the repositories open in the current workspace unless the user explicitly opts in to sibling repositories, and allows instant live filtering across large lists of worktrees and workspaces in the sidebar.
 
 ---
 

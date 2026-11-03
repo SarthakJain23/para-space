@@ -4,6 +4,18 @@ All notable changes to **ParaSpace** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-11-03
+
+### Added
+- **In-Place Sidebar Search Filter in VS Code (`D-054`):**
+  - Added `paraSpace.searchWorktrees` (**ParaSpace: Search ParaSpaces…**, `$(search)`) and `paraSpace.clearSearch` (**ParaSpace: Clear Search Filter**, `$(clear-all)`) to the `Worktrees` view title bar, enabling live as-you-type filtering of multi-repo workspaces, repositories, and worktrees by branch, name, repository, port (`:port`), dependency mode, divergence status, or path.
+  - Extended `filterWorktreeRows()` in `@para-space/core` to match `:port`, `depsMode`, and `diverged` status alongside name, branch, repo, and path.
+
+### Fixed
+- **Scoped Repository Discovery in Multi-Folder Workspaces (`D-054`):**
+  - Fixed `discoverRepoRoots()` in `para-space-vscode` so opening a subset of repositories from a parent directory no longer pulls all sibling repositories into `store.repos` and the sidebar views.
+  - Added `discoverSiblingRepoRoots()` and `paraSpace.includedRepos` state so **ParaSpace: Select Repositories to Include…** lists opened repositories as checked by default and sibling repositories (`(sibling)`) as unchecked opt-in options.
+
 ## [0.1.6] - 2026-11-01
 
 ### Changed

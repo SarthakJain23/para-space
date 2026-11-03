@@ -144,3 +144,52 @@ export function registerRefresh({ rt, store }: CommandContext): vscode.Disposabl
     action(rt, () => store.load()),
   );
 }
+
+/** `paraSpace.searchWorktrees`: filters the sidebar Worktrees tree view in-place as the user types. */
+export function registerSearchWorktrees({ rt, worktreeTree }: CommandContext): vscode.Disposable {
+  return vscode.commands.registerCommand(
+    'paraSpace.searchWorktrees',
+    action(rt, async (queryArg?: unknown) => {
+      if (!worktreeTree) return;
+      if (typeof queryArg === 'string') {
+        worktreeTree.setFilter(queryArg);
+        return;
+      }
+
+      const previousFilter = worktreeTree.filterQuery;
+      const input = vscode.window.createInputBox();
+      input.title = 'ParaSpace: Search ParaSpaces';
+      input.prompt = 'Filter ParaSpaces by branch, worktree name, repository, port, or path (leave empty to clear)';
+      input.placeholder = 'e.g. feat/login, frontend, :3001, diverged';
+      input.value = previousFilter;
+      input.ignoreFocusOut = true;
+
+      let accepted = false;
+      input.onDidChangeValue((val) => {
+        worktreeTree.setFilter(val);
+      });
+      input.onDidAccept(() => {
+        accepted = true;
+        worktreeTree.setFilter(input.value);
+        input.hide();
+      });
+      input.onDidHide(() => {
+        if (!accepted) {
+          worktreeTree.setFilter(previousFilter);
+        }
+        input.dispose();
+      });
+      input.show();
+    }),
+  );
+}
+
+/** `paraSpace.clearSearch`: clears the active search filter on the Worktrees tree view. */
+export function registerClearSearch({ rt, worktreeTree }: CommandContext): vscode.Disposable {
+  return vscode.commands.registerCommand(
+    'paraSpace.clearSearch',
+    action(rt, async () => {
+      worktreeTree?.clearFilter();
+    }),
+  );
+}

@@ -4,6 +4,7 @@ import {
   CREATE_ITEM,
   currentWorktree,
   describeWorktree,
+  filterTreeData,
   formatLedgerDate,
   ledgerTooltip,
   statusBarText,
@@ -179,5 +180,61 @@ describe('ledger items', () => {
       tooltip: 'Prevented port collision',
       icon: 'pass',
     });
+  });
+});
+
+describe('filterTreeData', () => {
+  const frontendMain = row({ name: '(main)', path: '/code/frontend', branch: 'main', isMain: true, port: 3000 });
+  const frontendFeat = row({
+    name: 'frontend-feat-auth',
+    path: '/code/frontend-feat-auth',
+    branch: 'feat/auth',
+    port: 3001,
+    diverged: true,
+  });
+  const backendMain = row({ name: '(main)', path: '/code/backend', branch: 'main', isMain: true, port: 4000 });
+  const backendFeat = row({
+    name: 'backend-feat-billing',
+    path: '/code/backend-feat-billing',
+    branch: 'feat/billing',
+    port: 4001,
+  });
+  const allRows = [frontendMain, frontendFeat, backendMain, backendFeat];
+  const repos = [
+    { root: '/code/frontend', name: 'frontend', rows: [frontendMain, frontendFeat] },
+    { root: '/code/backend', name: 'backend', rows: [backendMain, backendFeat] },
+  ];
+  const workspaces = [
+    {
+      id: '/code/auth.code-workspace',
+      name: 'auth',
+      workspaceFile: '/code/auth.code-workspace',
+      branch: 'feat/auth',
+      repos: [{ root: '/code/frontend', name: 'frontend', worktreePath: '/code/frontend-feat-auth' }],
+      createdAt: '',
+    },
+  ];
+
+  it('returns unfiltered data when query is empty', () => {
+    expect(filterTreeData(workspaces, repos, allRows, '')).toEqual({ workspaces, repos });
+    expect(filterTreeData(workspaces, repos, allRows, '   ')).toEqual({ workspaces, repos });
+  });
+
+  it('filters workspaces and repo worktree rows by branch, repo name, port, and divergence', () => {
+    const byBranch = filterTreeData(workspaces, repos, allRows, 'feat/billing');
+    expect(byBranch.workspaces).toHaveLength(0);
+    expect(byBranch.repos).toHaveLength(1);
+    expect(byBranch.repos[0].name).toBe('backend');
+    expect(byBranch.repos[0].rows).toEqual([backendFeat]);
+
+    const byPort = filterTreeData(workspaces, repos, allRows, ':3001');
+    expect(byPort.workspaces).toHaveLength(1);
+    expect(byPort.repos).toHaveLength(1);
+    expect(byPort.repos[0].rows).toEqual([frontendFeat]);
+
+    const byDiverged = filterTreeData(workspaces, repos, allRows, 'diverged');
+    expect(byDiverged.workspaces).toHaveLength(1);
+    expect(byDiverged.repos).toHaveLength(1);
+    expect(byDiverged.repos[0].rows).toEqual([frontendFeat]);
   });
 });

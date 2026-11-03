@@ -38,6 +38,8 @@ Click the **ParaSpace status bar item** (showing your current branch, assigned p
 | Command | Description |
 | :--- | :--- |
 | **ParaSpace: Create Worktree…** | Search/pick an existing branch or create a new branch across one or more repositories |
+| **ParaSpace: Search ParaSpaces…** | Live-filter workspaces and worktrees in the sidebar by branch, name, repo, port, or status |
+| **ParaSpace: Clear Search Filter** | Clear the active search filter in the Worktrees sidebar view |
 | **ParaSpace: Add Repository to Workspace…** | Provision and add one or more repositories (e.g. `mobile`) to an existing multi-repo workspace |
 | **ParaSpace: List Worktrees** | Open the Quick Switcher for worktrees and multi-repo workspaces |
 | **ParaSpace: Open Workspace…** | Reopen a tracked multi-repo workspace or browse for a `.code-workspace` file on disk |

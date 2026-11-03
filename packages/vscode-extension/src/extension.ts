@@ -22,7 +22,7 @@ export function activate(context: vscode.ExtensionContext): void {
     worktreeTree,
     ledgerTree,
     createStatusBar(store),
-    ...registerCommands({ rt, store, extensionContext: context }),
+    ...registerCommands({ rt, store, worktreeTree, extensionContext: context }),
     ...registerLmTools({ rt, store, extensionContext: context }),
     ...watchForChanges(store),
     ...watchManifests(store, rt),

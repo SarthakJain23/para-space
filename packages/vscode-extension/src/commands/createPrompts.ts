@@ -52,12 +52,11 @@ export async function resolveTargetRepos(target: unknown, store: WorktreeStore):
     return [found ?? { root: targetRepoRoot, name: path.basename(targetRepoRoot) }];
   }
 
-  const discovered = await discoverRepoRoots();
   const roots = Array.from(
     new Set([
-      ...discovered,
+      ...store.roots,
       ...store.repos.map((r) => r.root),
-      ...store.workspaces.flatMap((w) => w.repos.map((r) => r.root)),
+      ...(store.roots.length === 0 ? await discoverRepoRoots() : []),
     ]),
   );
   if (roots.length <= 1) {

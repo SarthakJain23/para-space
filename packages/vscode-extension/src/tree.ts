@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { WorktreeInfo, WorkspaceRecord } from '@para-space/core';
 import * as vscode from 'vscode';
-import { describeWorktree, worktreeTooltip } from './items.js';
+import { describeWorktree, filterTreeData, worktreeTooltip } from './items.js';
 import type { RepoWorktrees, WorktreeStore } from './store.js';
 
 /** A multi-repo workspace node in the sidebar tree. */
@@ -63,13 +63,52 @@ export class WorktreeTreeProvider implements vscode.TreeDataProvider<WorktreeTre
   readonly onDidChangeTreeData = this.changed.event;
   readonly view: vscode.TreeView<WorktreeTreeNode>;
   private readonly subscription: vscode.Disposable;
+  private filter = '';
 
   constructor(private readonly store: WorktreeStore) {
     this.view = vscode.window.createTreeView('paraSpace.worktrees', { treeDataProvider: this });
     this.subscription = store.onDidChange(() => {
-      this.view.message = store.error ? `Errors: ${store.error}` : undefined;
+      this.updateViewState();
       this.changed.fire();
     });
+  }
+
+  /** Active search filter query in the sidebar tree view. */
+  get filterQuery(): string {
+    return this.filter;
+  }
+
+  /** Applies a search filter query to the Worktrees tree view. */
+  setFilter(query: string): void {
+    this.filter = query.trim();
+    void vscode.commands.executeCommand('setContext', 'paraSpace.hasSearchFilter', Boolean(this.filter));
+    this.updateViewState();
+    this.changed.fire();
+  }
+
+  /** Clears any active search filter on the Worktrees tree view. */
+  clearFilter(): void {
+    this.setFilter('');
+  }
+
+  private updateViewState(): void {
+    this.view.description = this.filter ? `Filter: "${this.filter}"` : undefined;
+    if (this.store.error) {
+      this.view.message = `Errors: ${this.store.error}`;
+      return;
+    }
+    if (this.filter) {
+      const { workspaces, repos } = filterTreeData(
+        this.store.workspaces,
+        this.store.repos,
+        this.store.allRows,
+        this.filter,
+      );
+      this.view.message =
+        workspaces.length === 0 && repos.length === 0 ? `No ParaSpaces matching "${this.filter}".` : undefined;
+      return;
+    }
+    this.view.message = undefined;
   }
 
   getTreeItem(node: WorktreeTreeNode): vscode.TreeItem {
@@ -79,16 +118,21 @@ export class WorktreeTreeProvider implements vscode.TreeDataProvider<WorktreeTre
   getChildren(node?: WorktreeTreeNode): WorktreeTreeNode[] {
     const current = this.store.current;
     if (!node) {
+      const { workspaces, repos } = filterTreeData(
+        this.store.workspaces,
+        this.store.repos,
+        this.store.allRows,
+        this.filter,
+      );
       const nodes: WorktreeTreeNode[] = [];
-      if (this.store.workspaces.length > 0) {
-        nodes.push(
-          ...this.store.workspaces.map((ws) => new WorkspaceNode(ws, ws.id === this.store.currentWorkspace?.id)),
-        );
+      if (workspaces.length > 0) {
+        nodes.push(...workspaces.map((ws) => new WorkspaceNode(ws, ws.id === this.store.currentWorkspace?.id)));
       }
       if (this.store.repos.length <= 1) {
-        nodes.push(...this.store.rows.map((r) => new WorktreeNode(r, r.path === current?.path, this.store.root)));
+        const rows = repos[0]?.rows ?? [];
+        nodes.push(...rows.map((r) => new WorktreeNode(r, r.path === current?.path, this.store.root)));
       } else {
-        nodes.push(...this.store.repos.map((repo) => new RepoNode(repo)));
+        nodes.push(...repos.map((repo) => new RepoNode(repo)));
       }
       return nodes;
     }

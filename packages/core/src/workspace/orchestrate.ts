@@ -327,7 +327,7 @@ export function filterWorkspaces(records: WorkspaceRecord[], query?: string): Wo
 }
 
 /**
- * Filters worktree rows by optional `repoName`, worktree `name`, `branch`, or `path`.
+ * Filters worktree rows by optional `repoName`, worktree `name`, `branch`, `path`, `port`, `depsMode`, or `diverged`.
  * @param rows - Array of worktree row objects to filter.
  * @param query - Optional case-insensitive search query.
  * @param repoName - Optional repository name or path context included in matching.
@@ -335,12 +335,23 @@ export function filterWorkspaces(records: WorkspaceRecord[], query?: string): Wo
  * @example
  * const rows = filterWorktreeRows(allRows, 'feat/x', 'frontend');
  */
-export function filterWorktreeRows<T extends { name: string; branch?: string; path: string }>(
-  rows: T[],
-  query?: string,
-  repoName?: string,
-): T[] {
-  return !query?.trim() ? rows : rows.filter((r) => matchesQuery(query, repoName, r.name, r.branch, r.path));
+export function filterWorktreeRows<
+  T extends { name: string; branch?: string; path: string; port?: number; depsMode?: string; diverged?: boolean },
+>(rows: T[], query?: string, repoName?: string): T[] {
+  return !query?.trim()
+    ? rows
+    : rows.filter((r) =>
+        matchesQuery(
+          query,
+          repoName,
+          r.name,
+          r.branch,
+          r.path,
+          r.port !== undefined ? `:${r.port}` : undefined,
+          r.depsMode,
+          r.diverged ? 'diverged' : undefined,
+        ),
+      );
 }
 
 /**

@@ -2,7 +2,7 @@
   "name": "para-space-vscode",
   "displayName": "ParaSpace",
   "description": "Parallel git worktrees with shared dependencies, per-worktree ports and window colors",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "para-space",
   "author": "Sarthak Jain",
   "license": "MIT",
@@ -101,6 +101,18 @@
         "icon": "$(add)"
       },
       {
+        "command": "paraSpace.searchWorktrees",
+        "title": "Search ParaSpaces…",
+        "category": "ParaSpace",
+        "icon": "$(search)"
+      },
+      {
+        "command": "paraSpace.clearSearch",
+        "title": "Clear Search Filter",
+        "category": "ParaSpace",
+        "icon": "$(clear-all)"
+      },
+      {
         "command": "paraSpace.selectRepositories",
         "title": "Select Repositories to Include…",
         "category": "ParaSpace",
@@ -156,19 +168,29 @@
           "group": "navigation@1"
         },
         {
-          "command": "paraSpace.selectRepositories",
+          "command": "paraSpace.searchWorktrees",
           "when": "view == paraSpace.worktrees",
           "group": "navigation@2"
         },
         {
+          "command": "paraSpace.clearSearch",
+          "when": "view == paraSpace.worktrees && paraSpace.hasSearchFilter",
+          "group": "navigation@3"
+        },
+        {
+          "command": "paraSpace.selectRepositories",
+          "when": "view == paraSpace.worktrees",
+          "group": "navigation@4"
+        },
+        {
           "command": "paraSpace.configureRepo",
           "when": "view == paraSpace.worktrees",
-          "group": "navigation@3"
+          "group": "navigation@5"
         },
         {
           "command": "paraSpace.refresh",
           "when": "view == paraSpace.worktrees",
-          "group": "navigation@4"
+          "group": "navigation@6"
         },
         {
           "command": "paraSpace.openLedgerFile",
@@ -249,6 +271,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "paraSpace.clearSearch",
+          "when": "paraSpace.hasSearchFilter"
+        },
         {
           "command": "paraSpace.openInNewWindow",
           "when": "false"
