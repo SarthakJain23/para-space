@@ -19,7 +19,8 @@ Spin up isolated Git worktrees and multi-repository workspaces in milliseconds�
 - **Manifest Watcher & 1-Click Breakaway Isolation:** Automatically detects when `package.json`, lockfiles, or Python manifests diverge from the main checkout and offers 1-click **Isolate Dependencies** (using instant APFS Copy-on-Write clones on macOS).
 - **OKLCH Window Coloring:** Opt-in, equal-lightness title bar and status bar themes so you can immediately tell parallel windows apart.
 - **Living Context History Ledger:** Records why each worktree was created, configured, or isolated in `.para-space/context-history.md` and surfaces it in the **Context History** sidebar view.
-- **Native GitHub Copilot Tools:** Exposes `para_create_workspace`, `para_add_repo_to_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, and `para_remove_workspace` to GitHub Copilot Chat out of the box—no repo configuration files needed.
+- **ParaSpace Stats & Savings Dashboard:** Tracks live and lifetime disk/time savings, actual disk usage breakdown, worktree health, and activity over time in the **Stats** sidebar view, a rich **Stats Dashboard** Webview (with scope toggle, storage breakdown bar, inline SVG activity chart, and quick actions), and the status bar tooltip.
+- **Native GitHub Copilot Tools:** Exposes `para_create_workspace`, `para_add_repo_to_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, `para_remove_workspace`, and `para_stats` to GitHub Copilot Chat out of the box—no repo configuration files needed.
 
 ---
 
@@ -27,7 +28,8 @@ Spin up isolated Git worktrees and multi-repository workspaces in milliseconds�
 
 ### Sidebar Views (ParaSpace Activity Bar)
 1. **Worktrees:** View all active multi-repo workspaces, repositories, and linked worktrees with their assigned port, dependency sharing state (`shared` / `isolated` / `diverged`), and 1-click actions to open in a new window, isolate dependencies, or remove.
-2. **Context History:** Browse the chronological decision ledger across your repositories and open `.para-space/context-history.md` in the editor.
+2. **Stats:** Inspect live & lifetime disk/time savings, workspace overview, on-disk footprint, and lifetime counters with a 1-click **Workspace / All Repos** scope toggle and **Open Stats Dashboard** button.
+3. **Context History:** Browse the chronological decision ledger across your repositories and open `.para-space/context-history.md` in the editor.
 
 ### Status Bar & Quick Switcher
 Click the **ParaSpace status bar item** (showing your current branch, assigned port, and window color indicator) to open the **Quick Switcher**:
@@ -45,6 +47,9 @@ Click the **ParaSpace status bar item** (showing your current branch, assigned p
 | **ParaSpace: Open Workspace…** | Reopen a tracked multi-repo workspace or browse for a `.code-workspace` file on disk |
 | **ParaSpace: Configure Port Strategy…** | Configure `offset`, `scan`, `pool`, or `passthrough` port allocation in `.para-space.json` |
 | **ParaSpace: Select Repositories to Include…** | Filter which repositories appear in the ParaSpace sidebar |
+| **ParaSpace: Open Stats Dashboard** | Open the interactive Stats Webview Dashboard (KPIs, storage breakdown, activity chart, per-worktree table) |
+| **ParaSpace: Toggle Stats Scope (Workspace / All Repos)** | Switch the Stats sidebar and dashboard between current workspace and all tracked repositories |
+| **ParaSpace: Refresh Stats** | Recompute live and persistent ParaSpace statistics |
 | **ParaSpace: Open Context History in Editor** | Open `.para-space/context-history.md` |
 | **ParaSpace: Refresh** | Refresh worktrees, workspaces, and manifest divergence status |
 
@@ -76,7 +81,7 @@ ParaSpace supports full multi-repository workflows (for example, `frontend` + `b
 With the extension installed, ask GitHub Copilot in Agent mode:
 > *"Create a parallel workspace for branch `feat/TK-101` with requirement 'Auth redesign' and open it."*
 
-Copilot automatically invokes ParaSpace's built-in Language Model Tools (`para_create_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, `para_remove_workspace`).
+Copilot automatically invokes ParaSpace's built-in Language Model Tools (`para_create_workspace`, `para_add_repo_to_workspace`, `para_open_workspace`, `para_list_worktrees`, `para_isolate_worktree`, `para_remove_workspace`, `para_stats`).
 
 ---
 

@@ -5,6 +5,8 @@ import { registerLmTools } from './lmTools.js';
 import { watchManifests } from './manifestWatcher.js';
 import { watchForChanges } from './refresh.js';
 import { createRuntime } from './runtime.js';
+import { StatsTreeProvider } from './statsTree.js';
+import { StatsWebviewManager } from './statsWebview.js';
 import { createStatusBar } from './statusbar.js';
 import { WorktreeStore } from './store.js';
 import { WorktreeTreeProvider } from './tree.js';
@@ -15,15 +17,19 @@ export function activate(context: vscode.ExtensionContext): void {
   const store = new WorktreeStore(rt.log, context.workspaceState);
   const worktreeTree = new WorktreeTreeProvider(store);
   const ledgerTree = new LedgerTreeProvider(store);
+  const statsTree = new StatsTreeProvider(store, rt, context.workspaceState);
+  const statsWebview = new StatsWebviewManager(statsTree);
 
   context.subscriptions.push(
     rt.output,
     store,
     worktreeTree,
     ledgerTree,
-    createStatusBar(store),
-    ...registerCommands({ rt, store, worktreeTree, extensionContext: context }),
-    ...registerLmTools({ rt, store, extensionContext: context }),
+    statsTree,
+    statsWebview,
+    createStatusBar(store, statsTree),
+    ...registerCommands({ rt, store, worktreeTree, statsTree, statsWebview, extensionContext: context }),
+    ...registerLmTools({ rt, store, statsTree, statsWebview, extensionContext: context }),
     ...watchForChanges(store),
     ...watchManifests(store, rt),
   );

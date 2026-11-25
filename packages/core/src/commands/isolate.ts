@@ -3,6 +3,7 @@ import { appendLedger } from '../ledger.js';
 import { isSymlink } from '../link.js';
 import { silentLogger } from '../prompts.js';
 import { updateRepoState } from '../state.js';
+import { recordWorktreeIsolated } from '../stats/index.js';
 import { codeList } from '../util/format.js';
 import { labelOf, resolveWorktree } from './resolve.js';
 import type { CommonOptions } from './types.js';
@@ -61,5 +62,6 @@ export async function isolateWorktree(opts: IsolateOptions): Promise<IsolateResu
     decisions: [`Replaced shared dependency links with an independent copy for ${codeList(isolated)}.`],
     problemSolved: "Installing packages in this worktree can no longer alter the main repo's environment.",
   });
+  await recordWorktreeIsolated({ mainRoot }).catch(() => {});
   return { path: wtPath, isolated };
 }

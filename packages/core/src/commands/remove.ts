@@ -5,6 +5,7 @@ import { appendLedger } from '../ledger.js';
 import { linkTarget, unlinkIfSymlink } from '../link.js';
 import { silentLogger } from '../prompts.js';
 import { updateRepoState, updateWorkspaceState } from '../state.js';
+import { recordWorktreeRemoved } from '../stats/index.js';
 import { exists } from '../util/fs.js';
 import { code } from '../util/format.js';
 import { type ResolvedWorktree, labelOf, resolveWorktree } from './resolve.js';
@@ -73,6 +74,7 @@ export async function removeWorktree(opts: RemoveOptions): Promise<RemoveResult>
     ],
     problemSolved: 'Frees disk space and the dev port; keeps `git worktree list` tidy.',
   });
+  await recordWorktreeRemoved({ mainRoot }).catch(() => {});
   return { path: wtPath, branch, branchDeleted };
 }
 

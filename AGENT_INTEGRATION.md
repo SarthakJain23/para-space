@@ -25,6 +25,7 @@ All CLI commands support non-interactive mode via `--yes` (`-y`) and machine-rea
 | :--- | :--- |
 | **Create worktree** | `para create <branch> --base main --yes -r "<ticket-or-task-description>" --json` |
 | **List worktrees & ports** | `para list --json` |
+| **Inspect stats & savings** | `para stats --json` *(add `--all` for machine-wide or `--no-disk` for instant counts)* |
 | **Check divergence** | `para check --json` |
 | **Isolate dependencies** | `para isolate <branch> -r "<reason-for-divergence>"` |
 | **Remove worktree** | `para remove <branch> --delete-branch` |
@@ -123,10 +124,12 @@ ParaSpace integrates directly at the **IDE and Environment level**. You never ne
 
 The ParaSpace extension registers native tools via VS Code's Language Model Tools API:
 - `para_create_workspace`: Creates a parallel worktree or multi-repo workspace.
+- `para_add_repo_to_workspace`: Adds one or more repositories to an existing multi-repo workspace.
 - `para_open_workspace`: Opens an existing workspace in VS Code.
 - `para_list_worktrees`: Lists active worktrees and workspaces with ports; accepts an optional `query` to filter by name, branch, repository, or path.
 - `para_isolate_worktree`: Safely breaks away shared dependencies when manifests diverge.
 - `para_remove_workspace`: Removes a parallel multi-repo workspace and/or Git worktree, freeing its port and optionally deleting the branch and `.code-workspace` file.
+- `para_stats`: Reports disk/time savings, live worktree overview, actual disk usage breakdown, and persistent lifetime usage stats (`repo` or `global` scope).
 
 **User Experience:**
 When a user installs the **ParaSpace** extension from the Marketplace:

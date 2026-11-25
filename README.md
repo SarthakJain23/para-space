@@ -12,7 +12,7 @@
 
 Parallel workspace orchestrator for multi-agent and multi-task IDE workflows: Git worktrees with zero-duplication dependency sharing, per-worktree ports, and opt-in IDE window coloring. Ships as a CLI (`para`) and a VS Code extension.
 
-> Status: Phase 1 (core engine + `para` CLI), Phase 2 (VS Code extension UI: worktrees sidebar, status bar indicator, quick switcher, context history ledger view, and port strategy configuration), Phase 3 (Safety, Watchers & Dependency Divergence Detection: manifest watchers, `para check`, divergence warning indicators, and 1-click breakaway isolation), Multi-Repository Workspaces (`para workspace`, `.code-workspace` provisioning, auto-discovery, and switcher reopening), and Zero-Config AI Agent Integration (VS Code Language Model Tools + `para mcp` Server) are implemented. Phase 4 (Monorepo Nested Packages & Ecosystem Expansion) is next.
+> Status: Phase 1 (core engine + `para` CLI), Phase 2 (VS Code extension UI: worktrees sidebar, status bar indicator, quick switcher, context history ledger view, and port strategy configuration), Phase 3 (Safety, Watchers & Dependency Divergence Detection: manifest watchers, `para check`, divergence warning indicators, and 1-click breakaway isolation), Multi-Repository Workspaces (`para workspace`, `.code-workspace` provisioning, auto-discovery, and switcher reopening), Zero-Config AI Agent Integration (VS Code Language Model Tools + `para mcp` Server), and Multi-Surface Stats (`para stats`, `para_stats`, VS Code Stats sidebar, Webview dashboard, and status bar tooltip) are implemented. Phase 4 (Monorepo Nested Packages & Ecosystem Expansion) is next.
 
 ## Why ParaSpace
 
@@ -65,6 +65,7 @@ para workspace list                                      # list tracked & discov
 para workspace open feat/TK-101                          # reopen multi-repo workspace in VS Code
 para workspace remove feat/TK-101                        # remove tracked multi-repo workspace
 para list
+para stats                      # disk/time savings, live overview, disk usage & lifetime activity (--all, --json, -v)
 para check                      # detect manifest divergence across worktrees
 para isolate feat/TK-101        # break the shared node_modules/.venv link
 para remove feat/TK-101 --delete-branch
@@ -135,6 +136,7 @@ pnpm package:extension          # packages the VS Code extension .vsix
 | Path | What |
 | :--- | :--- |
 | `packages/core/src/commands/` | One file per flow (`create`, `list`, `isolate`, `remove`, first-run `config`). No terminal I/O. |
+| `packages/core/src/stats/` | Persistent `~/.para-space/stats.json` tracking, symlink-safe disk/time measurement, ledger bootstrap, and `getStats()` engine |
 | `packages/core/src/{frameworks,ports}/` | Strategy patterns: Node/Python/Env and offset/scan/pool/passthrough |
 | `packages/core/src/util/` | Shared helpers (exec, fs, markdown formatting) |
 | `packages/cli/src/commands/` | One file per `para` command; `runtime.ts` holds the shared logger, prompter choice and error handling |

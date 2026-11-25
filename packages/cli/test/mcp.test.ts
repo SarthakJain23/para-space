@@ -19,6 +19,28 @@ describe('MCP server', () => {
     expect(tools['para_list_worktrees']).toBeDefined();
     expect(tools['para_isolate_worktree']).toBeDefined();
     expect(tools['para_remove_workspace']).toBeDefined();
+    expect(tools['para_stats']).toBeDefined();
+  });
+
+  it('para_stats executes and returns structured JSON summary', async () => {
+    const server = createMcpServer();
+    const tools = (
+      server as unknown as {
+        _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ content: { text: string }[] }> }>;
+      }
+    )._registeredTools;
+    const res = await tools['para_stats'].handler({
+      cwd: process.cwd(),
+      scope: 'repo',
+      includeDiskUsage: false,
+    });
+    expect(res.content).toHaveLength(1);
+    const parsed = JSON.parse(res.content[0].text);
+    expect(parsed.scope).toBe('repo');
+    expect(parsed.diskMeasured).toBe(false);
+    expect(parsed.summary).toBeDefined();
+    expect(parsed.lifetime).toBeDefined();
+    expect(typeof parsed.summaryText).toBe('string');
   });
 
   it('para_list_worktrees executes and returns structured JSON', async () => {

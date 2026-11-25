@@ -13,6 +13,7 @@ import { worktreePathFor } from '../paths.js';
 import { allocateWorktreePort } from '../ports/index.js';
 import { type Logger, type Prompter, silentLogger } from '../prompts.js';
 import { type WorktreeRecord, nextWorktreeIndex, updateRepoState } from '../state.js';
+import { recordWorktreeCreationSnapshot } from '../stats/index.js';
 import { code, codeList } from '../util/format.js';
 import { exists } from '../util/fs.js';
 import { type EnsureConfigOptions, ensureConfig } from './config.js';
@@ -95,10 +96,12 @@ export async function createWorktree(opts: CreateOptions): Promise<CreateResult>
     const ide = await applyIdeSettings(ctx, opts);
 
     Object.assign(record, { links, color: ide?.color.hex });
-    await updateRepoState(mainRoot, (r) => {
+    const activeLinkedCount = await updateRepoState(mainRoot, (r) => {
       r.worktrees = r.worktrees.map((w) => (w.path === wtPath ? record : w));
+      return r.worktrees.length;
     });
     await appendLedger(mainRoot, provisionedEntry(ctx, opts, record, createdBranch, ide?.color));
+    await recordWorktreeCreationSnapshot({ mainRoot, wtPath, links, activeLinkedCount }).catch(() => {});
 
     return {
       mainRoot,

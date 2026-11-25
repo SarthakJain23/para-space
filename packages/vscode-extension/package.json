@@ -40,7 +40,8 @@
     "onLanguageModelTool:para_open_workspace",
     "onLanguageModelTool:para_list_worktrees",
     "onLanguageModelTool:para_isolate_worktree",
-    "onLanguageModelTool:para_remove_workspace"
+    "onLanguageModelTool:para_remove_workspace",
+    "onLanguageModelTool:para_stats"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -61,6 +62,10 @@
           "icon": "media/para-space.svg"
         },
         {
+          "id": "paraSpace.stats",
+          "name": "Stats"
+        },
+        {
           "id": "paraSpace.ledger",
           "name": "Context History"
         }
@@ -70,6 +75,10 @@
       {
         "view": "paraSpace.worktrees",
         "contents": "Open a folder inside a git repository to see its worktrees.\n[Open Folder](command:vscode.openFolder)"
+      },
+      {
+        "view": "paraSpace.stats",
+        "contents": "No ParaSpace stats available yet.\n[Open Stats Dashboard](command:paraSpace.openStatsDashboard)"
       },
       {
         "view": "paraSpace.ledger",
@@ -158,6 +167,24 @@
         "title": "Remove Workspace…",
         "category": "ParaSpace",
         "icon": "$(trash)"
+      },
+      {
+        "command": "paraSpace.openStatsDashboard",
+        "title": "Open Stats Dashboard",
+        "category": "ParaSpace",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "paraSpace.toggleStatsScope",
+        "title": "Toggle Stats Scope (Workspace / All Repos)",
+        "category": "ParaSpace",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "paraSpace.refreshStats",
+        "title": "Refresh Stats",
+        "category": "ParaSpace",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -188,9 +215,29 @@
           "group": "navigation@5"
         },
         {
-          "command": "paraSpace.refresh",
+          "command": "paraSpace.openStatsDashboard",
           "when": "view == paraSpace.worktrees",
           "group": "navigation@6"
+        },
+        {
+          "command": "paraSpace.refresh",
+          "when": "view == paraSpace.worktrees",
+          "group": "navigation@7"
+        },
+        {
+          "command": "paraSpace.openStatsDashboard",
+          "when": "view == paraSpace.stats",
+          "group": "navigation@1"
+        },
+        {
+          "command": "paraSpace.toggleStatsScope",
+          "when": "view == paraSpace.stats",
+          "group": "navigation@2"
+        },
+        {
+          "command": "paraSpace.refreshStats",
+          "when": "view == paraSpace.stats",
+          "group": "navigation@3"
         },
         {
           "command": "paraSpace.openLedgerFile",
@@ -493,6 +540,37 @@
           "required": [
             "target"
           ]
+        }
+      },
+      {
+        "name": "para_stats",
+        "toolReferenceName": "paraStats",
+        "displayName": "Get ParaSpace Stats",
+        "modelDescription": "Reports ParaSpace disk/time savings, live worktree overview, actual disk usage breakdown, and persistent lifetime usage stats for the current workspace or all tracked repositories.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "paraspace",
+          "git",
+          "worktree",
+          "workspace",
+          "stats"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": [
+                "repo",
+                "global"
+              ],
+              "description": "Stats scope: \"repo\" (default, current workspace) or \"global\" (all tracked repositories)"
+            },
+            "includeDiskUsage": {
+              "type": "boolean",
+              "description": "Measure actual directory sizes and symlink savings (default: true). Set false for instant counts."
+            }
+          }
         }
       }
     ]

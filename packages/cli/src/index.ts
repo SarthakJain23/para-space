@@ -6,6 +6,7 @@ import { registerCreate } from './commands/create.js';
 import { registerIsolate } from './commands/isolate.js';
 import { registerList } from './commands/list.js';
 import { registerRemove } from './commands/remove.js';
+import { registerStats } from './commands/stats.js';
 import { registerWorkspace } from './commands/workspace.js';
 import { registerAgentCommands } from './commands/agent.js';
 
@@ -18,6 +19,7 @@ const commands = [
   registerCreate,
   registerWorkspace,
   registerList,
+  registerStats,
   registerIsolate,
   registerRemove,
   registerConfig,

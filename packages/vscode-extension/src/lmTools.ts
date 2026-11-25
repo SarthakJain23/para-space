@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { CommandContext } from './commands/context.js';
+import { invokeGetStats } from './lmStatsHandler.js';
 import {
   invokeAddRepoToWorkspace,
   invokeCreateWorkspace,
@@ -143,6 +144,21 @@ export function registerLmTools(ctx: CommandContext): vscode.Disposable[] {
     }),
   );
 
-  rt.log.info('Registered 6 ParaSpace Language Model Tools for AI coding agents.');
+  // 7. para_stats
+  disposables.push(
+    lm.registerTool('para_stats', {
+      prepareInvocation(options?: { input?: { scope?: 'repo' | 'global'; includeDiskUsage?: boolean } }) {
+        const label = options?.input?.scope === 'global' ? 'all repositories' : 'current workspace';
+        return {
+          invocationMessage: `Computing ParaSpace stats for ${label}…`,
+        };
+      },
+      async invoke(options?: { input?: { scope?: 'repo' | 'global'; includeDiskUsage?: boolean } }) {
+        return invokeGetStats(ctx, options?.input);
+      },
+    }),
+  );
+
+  rt.log.info('Registered 7 ParaSpace Language Model Tools for AI coding agents.');
   return disposables;
 }

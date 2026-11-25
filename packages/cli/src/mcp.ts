@@ -9,6 +9,7 @@ import {
   handleOpenWorkspace,
   handleRemoveWorkspace,
 } from './mcpHandlers.js';
+import { handleGetStats } from './mcpStatsHandler.js';
 
 /**
  * Creates and configures the ParaSpace Model Context Protocol (MCP) server.
@@ -170,6 +171,35 @@ export function createMcpServer(): McpServer {
       },
     },
     handleRemoveWorkspace,
+  );
+
+  // 7. para_stats
+  server.registerTool(
+    'para_stats',
+    {
+      description:
+        'Reports ParaSpace disk/time savings, live worktree overview, actual disk usage breakdown, and persistent lifetime usage stats for the current repository or all tracked repositories.',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        scope: z
+          .enum(['repo', 'global'])
+          .optional()
+          .describe('Stats scope: "repo" (default, current repository/workspace) or "global" (all tracked repos)'),
+        includeDiskUsage: z
+          .boolean()
+          .optional()
+          .describe(
+            'Measure actual directory sizes and symlink savings (default: true). Set false for instant counts.',
+          ),
+        cwd: z.string().optional().describe('Directory to inspect from (default: process.cwd())'),
+      },
+    },
+    handleGetStats,
   );
 
   return server;

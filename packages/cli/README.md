@@ -49,6 +49,9 @@ para workspace open feat/TK-101
 # List active worktrees, assigned ports, and dependency link status
 para list
 
+# View disk/time savings, live overview, disk usage breakdown, and lifetime activity
+para stats                # current repo/workspace (add --all for global, -v for per-worktree table, --json)
+
 # Check whether any worktree's package manifests have diverged from main
 para check
 
@@ -95,6 +98,7 @@ When working across multiple repositories (e.g., `frontend` and `backend` in a p
 | `para workspace list` | List tracked and discovered multi-repository workspaces |
 | `para workspace open <target>` | Open a multi-repository workspace in VS Code |
 | `para list` (`para ls`) | List worktrees, ports, link status, and divergence state |
+| `para stats` | Show disk/time savings, live overview, disk usage, and persistent lifetime stats (`--all`, `--json`, `--no-disk`, `-v`) |
 | `para check [target]` | Check if dependency manifests (`package.json`, lockfiles, `pyproject.toml`, etc.) diverged from main |
 | `para isolate <target>` | Convert shared dependency symlinks into an isolated local copy |
 | `para remove <target>` (`para rm`) | Safely unlink shared dependencies and remove a worktree |

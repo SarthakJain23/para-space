@@ -237,6 +237,7 @@ para remove feat/TK-101 --delete-branch
 - [x] macOS APFS Copy-on-Write (CoW) fast cloning support in `core/src/link.ts`.
 - [x] Multi-repository workspace support (`para workspace create|list|open`, `.code-workspace` generation with Peacock window coloring, container folder & on-disk workspace auto-discovery, sidebar `WorkspaceNode`, and switcher reopening, D-037–D-042).
 - [x] Zero-config AI agent integration (VS Code Language Model Tools API + `para mcp` stdio server + `para setup-agent`, D-043).
+- [x] Multi-surface ParaSpace Stats (persistent `~/.para-space/stats.json`, symlink-safe disk/time savings, live overview, disk usage breakdown, CLI `para stats`, MCP/LM `para_stats`, VS Code sidebar Stats view, Webview dashboard, and status bar tooltip, D-055).
 
 ### Phase 4: Monorepo & Ecosystem Expansion
 - [ ] Monorepo support (pnpm workspaces, Turborepo, Nx).

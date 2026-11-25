@@ -14,6 +14,7 @@ import {
 } from './list.js';
 import { registerRemove, registerRemoveWorkspace } from './remove.js';
 import { registerAddRepoToWorkspace, registerSelectRepositories } from './repositories.js';
+import { registerStatsCommands } from './stats.js';
 
 export type { CommandContext } from './context.js';
 
@@ -34,5 +35,6 @@ export function registerCommands(ctx: CommandContext): vscode.Disposable[] {
     registerSelectRepositories(ctx),
     registerAddRepoToWorkspace(ctx),
     ...registerLedgerCommands(ctx),
+    ...registerStatsCommands(ctx),
   ];
 }

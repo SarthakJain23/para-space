@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import type { Runtime } from '../runtime.js';
+import type { StatsTreeProvider } from '../statsTree.js';
+import type { StatsWebviewManager } from '../statsWebview.js';
 import type { WorktreeStore } from '../store.js';
 import type { WorktreeTreeProvider } from '../tree.js';
 
@@ -9,6 +11,8 @@ export interface CommandContext {
   /** Call `store.load()` after a change so the tree and status bar update. */
   store: WorktreeStore;
   worktreeTree?: WorktreeTreeProvider;
+  statsTree?: StatsTreeProvider;
+  statsWebview?: StatsWebviewManager;
   extensionContext: vscode.ExtensionContext;
 }
 

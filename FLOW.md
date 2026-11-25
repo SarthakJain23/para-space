@@ -4,7 +4,7 @@ How ParaSpace behaves, step by step, for each operation. This describes the **cu
 
 **How to update:** after any change that alters a flow, edit the affected section, bump its `Last updated` line, and reference the decision ID that caused it. Add a row to the changelog at the bottom.
 
-Implementation status: §1–6 are **Implemented** (Phase 1: `packages/core` + `packages/cli`; Phase 2: `packages/vscode-extension`; Phase 3: Manifest Watchers & Divergence Safety). Phase 4 (Monorepo & Ecosystem Expansion) is Planned.
+Implementation status: §1–7 are **Implemented** (Phase 1: `packages/core` + `packages/cli`; Phase 2: `packages/vscode-extension`; Phase 3: Manifest Watchers, Divergence Safety, Multi-Repo Workspaces, AI Agent Integration & Stats). Phase 4 (Monorepo & Ecosystem Expansion) is Planned.
 
 ---
 
@@ -19,6 +19,7 @@ VS Code ext ┘   resolve.ts  (find worktree)        ├── Git ignore helper
  vscode-extension/src/                             ├── IDE Configurator      ide.ts, colors.ts (opt-in .vscode/settings.json)
                                                    ├── Context Logger        ledger.ts         (.para-space/context-history.md)
                                                    ├── State Store           state.ts          (~/.para-space/state.json)
+                                                   ├── Stats Engine          stats/            (~/.para-space/stats.json + stats.lock)
                                                    └── util/                 exec, fs, format, lock  (shared helpers; lock = state.lock)
 ```
 
@@ -31,6 +32,7 @@ Files ParaSpace reads/writes:
 | `.para-space.json` | Repo (local) | Port strategy, base port, env keys, optional `portPool` (D-004, D-015, D-051) |
 | `.para-space/context-history.md` | Repo (local) | Living decision ledger (D-007, D-051) |
 | `~/.para-space/state.json` | Machine | Worktrees, index, ports, links, colors, multi-repo `workspaces`, and `ignoredWorkspaces`; atomic writes; `PARA_SPACE_HOME` overrides (D-010, D-022, D-041, D-048) |
+| `~/.para-space/stats.json` | Machine | Persistent per-repo lifetime counters (`created`, `isolated`, `removed`, peak concurrency), cumulative disk/time savings, and 90-day daily activity buckets; guarded by `stats.lock` (D-055) |
 | `~/.para-space/worktrees/<project>/<repo>-<slug>` | Machine | Centralized directory where ParaSpace provisions linked Git worktrees (D-049) |
 | `~/.para-space/workspaces/<name>-<slug>.code-workspace` | Machine | Centralized multi-repo VS Code workspace file with member worktree folders and top-level OKLCH Peacock `settings` (D-038, D-039, D-040, D-049) |
 | `<worktree>/.env` | Worktree | Symlink to main's `.env` (D-013) |
@@ -268,6 +270,25 @@ flowchart TD
 
 ---
 
+## 7. Stats, Savings & Lifetime Activity (`para stats`, `para_stats`, VS Code Stats)
+
+**Status:** Implemented · **Last updated:** 2026-11-25 · **Decisions:** D-055
+
+1. **Lifecycle Recording (non-fatal):**
+   - `createWorktree` measures linked dependency directories and `$GIT_COMMON_DIR/objects` via `recordWorktreeCreationSnapshot()`, persisting `createdCount`, `peakConcurrentWorktrees`, cumulative disk/time saved, and a `YYYY-MM-DD` daily bucket to `~/.para-space/stats.json` under `stats.lock`.
+   - `isolateWorktree` calls `recordWorktreeIsolated()`; `removeWorktree` calls `recordWorktreeRemoved()`.
+   - Repositories without an entry in `stats.json` bootstrap historical baselines on read via `bootstrapRepoStatsFromHistory()` using `.para-space/context-history.md`.
+2. **Core Query (`getStats`):**
+   - Resolves target repositories for `scope: 'repo'` (current repo or included workspace repos) or `scope: 'global'` (all repos in `state.json` and `stats.json`).
+   - Reuses `listWorktrees()` and `getWorkspaceRecords()`. When `includeDiskUsage` is `true`, measures main-repo shared dependencies, `.git/objects`, per-worktree disk usage (without following symlinks), and isolated dependency footprints using a 30s TTL cache.
+   - Computes live disk/time savings, rolls up summary KPIs, lifetime counters, and a merged 90-day daily activity series, preserving lifetime totals even for tracked repositories missing from disk.
+3. **Surfaces:**
+   - **CLI:** `para stats [--all] [--json] [--no-disk] [--verbose]`.
+   - **AI Agents:** Read-only `para_stats` MCP tool (`para mcp`) and VS Code Language Model Tool (`paraStats`).
+   - **VS Code Extension:** `paraSpace.stats` sidebar TreeView runs a two-stage refresh (instant counts first, disk scan asynchronously) with a persisted `Workspace` ↔ `All Repos` scope toggle; shares its latest snapshot with the status bar Markdown tooltip and the singleton `paraSpace.openStatsDashboard` Webview panel (KPI cards, storage breakdown bar, inline SVG activity chart, and worktree table with Open/Isolate actions).
+
+---
+
 ## Changelog
 
 | Date | Change | Sections | Decision |
@@ -297,3 +318,4 @@ flowchart TD
 | 2026-10-29 | Excluded `/.para-space/` and `/.para-space.json` via `$GIT_COMMON_DIR/info/exclude` instead of modifying `.gitignore` so ParaSpace leaves zero untracked or modified metadata files in commits | 0, 1 | D-051 |
 | 2026-10-31 | Docs and branding only, no behaviour change: README images in `.github/assets/readme/`, new extension icon and activity-bar icon | — | D-053 |
 | 2026-11-03 | Scoped `discoverRepoRoots()` to opened workspace folders (with opt-in sibling repository selection in `Select Repositories to Include…`) and added live in-place search filtering (`paraSpace.searchWorktrees`, `paraSpace.clearSearch`) to the sidebar Worktrees view | 5 | D-054 |
+| 2026-11-25 | Added ParaSpace Stats engine (`packages/core/src/stats/*`), persistent `~/.para-space/stats.json` lifecycle tracking, CLI `para stats`, MCP/LM `para_stats` tools, and VS Code sidebar TreeView, Webview dashboard, and status bar tooltip integration | 0, 1, 3, 4, 5, 7 | D-055 |
