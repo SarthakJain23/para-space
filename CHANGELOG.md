@@ -4,6 +4,18 @@ All notable changes to **ParaSpace** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-11-25
+
+### Added
+- **Multi-Surface ParaSpace Stats Engine & Dashboard (`D-055`):**
+  - **Core (`@para-space/core`):** Added `getStats()` (`scope: 'repo' | 'global'`), symlink-safe directory measurement (`measureDirBytes`, `measureRepoSharedSizes`), deterministic clone/install time-saved estimation (`estimateTimeSavedMs`), persistent `~/.para-space/stats.json` lifecycle tracking guarded by `stats.lock` (`recordWorktreeCreationSnapshot`, `recordWorktreeIsolated`, `recordWorktreeRemoved`), 90-day daily activity buckets, and ledger history bootstrap (`bootstrapRepoStatsFromHistory`).
+  - **CLI (`@para-space-dev/cli`):** Added `para stats` (`--all`, `--json`, `--no-disk`, `-v`/`--verbose`) reporting live and lifetime disk/time savings, active worktree overview, on-disk usage breakdown, and lifetime activity counters.
+  - **AI Agents (MCP & GitHub Copilot):** Added read-only `para_stats` (`paraStats`) to both the MCP server (`para mcp`) and VS Code Language Model Tools.
+  - **VS Code Extension (`para-space-vscode`):**
+    - Added the **Stats** sidebar view (`paraSpace.stats`) with two-stage non-blocking refresh and a persisted **Workspace / All Repos** scope toggle (`paraSpace.toggleStatsScope`).
+    - Added the interactive **ParaSpace Stats Dashboard** Webview (`paraSpace.openStatsDashboard`) with KPI cards, stacked storage breakdown bar, inline SVG daily activity chart, and per-worktree Open/Isolate actions.
+    - Enriched the status bar hover tooltip with trusted Markdown live stats and clickable links to the worktree switcher and Stats Dashboard.
+
 ## [0.1.7] - 2026-11-03
 
 ### Added

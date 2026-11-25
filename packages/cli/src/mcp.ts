@@ -17,7 +17,7 @@ import { handleGetStats } from './mcpStatsHandler.js';
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: 'paraspace',
-    version: '0.1.7',
+    version: '0.1.8',
   });
 
   // 1. para_create_workspace
